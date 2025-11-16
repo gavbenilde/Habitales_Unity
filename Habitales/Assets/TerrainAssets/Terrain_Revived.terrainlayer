@@ -6,16 +6,16 @@ TerrainLayer:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Alive Terrain Tile
-  m_DiffuseTexture: {fileID: 2800000, guid: 0920c354daa4ee241bf8772255cda682, type: 3}
-  m_NormalMapTexture: {fileID: 2800000, guid: 0920c354daa4ee241bf8772255cda682, type: 3}
-  m_MaskMapTexture: {fileID: 2800000, guid: 0920c354daa4ee241bf8772255cda682, type: 3}
-  m_TileSize: {x: 30, y: 30}
+  m_Name: Terrain_Revived
+  m_DiffuseTexture: {fileID: 2800000, guid: b5f28c8ad39456a47abbfe160cdd91e5, type: 3}
+  m_NormalMapTexture: {fileID: 2800000, guid: b5f28c8ad39456a47abbfe160cdd91e5, type: 3}
+  m_MaskMapTexture: {fileID: 2800000, guid: b5f28c8ad39456a47abbfe160cdd91e5, type: 3}
+  m_TileSize: {x: 20, y: 20}
   m_TileOffset: {x: 0, y: 0}
   m_Specular: {r: 0, g: 0, b: 0, a: 0}
   m_Metallic: 0
   m_Smoothness: 0
-  m_NormalScale: 0
+  m_NormalScale: 1
   m_DiffuseRemapMin: {x: 0, y: 0, z: 0, w: 0}
   m_DiffuseRemapMax: {x: 1, y: 1, z: 1, w: 1}
   m_MaskMapRemapMin: {x: 0, y: 0, z: 0, w: 0}
