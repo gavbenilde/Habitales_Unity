@@ -22,7 +22,7 @@ public class TileManager : MonoBehaviour {
     
     #region Initialization
     
-    void Start() {
+    void Awake() {
         InitializeGrid();
     }
     
@@ -124,8 +124,8 @@ public class TileManager : MonoBehaviour {
     /// </summary>
     private TileStats GenerateDefaultStats() {
         return new TileStats {
-            soilQuality = Random.Range(40f, 60f),
-            vegetationCover = Random.Range(20f, 50f),
+            soilQuality = Random.Range(10f, 20f),
+            vegetationCover = Random.Range(60f, 70f), //0f - 50f
             contamination = Random.Range(0f, 20f),
             waterPurity = 100f,
             hasFirebreak = false

@@ -18,7 +18,7 @@ public class FireEntity : TileEntity {
     float damage = TileStats.VEGETATION_COVER_MAX * 0.08f; // 8% of VegCover
     tile.stats.vegetationCover -= damage; 
     tile.stats.soilQuality -= damage;
-        
+    
     daysSinceSpreading++;
     if (daysSinceSpreading >= 4) {
         TrySpread(tile, manager);
