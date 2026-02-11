@@ -31,6 +31,10 @@ public class TileGenerationTest : MonoBehaviour {
             }
         }
         
+        Tile target = tileManager.GetTile(5, 5);
+        tileManager.SpawnEntity<TreeEntity>(target);
+
+        
         Debug.Log($"✓ Successfully spawned {tilesSpawned} tiles!");
     }
 }
