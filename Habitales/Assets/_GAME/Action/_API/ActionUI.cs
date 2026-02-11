@@ -106,21 +106,25 @@ public class ActionUI : MonoBehaviour {
         spawnedButtons.Clear();
     }
     
-    void OnActionButtonClicked(PlayerAction action) {
-        if (currentTile == null) {
+    void OnActionButtonClicked(PlayerAction action)
+    {
+        if (currentTile == null)
+        {
             Debug.LogWarning("No tile selected!");
             return;
         }
-        
-        if (actionManager == null) {
+    
+        if (actionManager == null)
+        {
             Debug.LogError("ActionManager is missing - cannot execute action!");
             return;
         }
-        
-        // Execute action → triggers cascade → checks region health
-        actionManager.ExecuteAction(action, currentTile);
-        
+    
+        // FIXED: Wrap currentTile in a List
+        actionManager.ExecuteAction(action, new List<Tile> { currentTile });
+    
         // Hide menu after action
         HideActions();
     }
+
 }

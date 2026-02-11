@@ -1,49 +1,56 @@
-using UnityEngine;
 using System;
+using System.Collections.Generic;
+using UnityEngine;
 
-/// <summary>
-/// Executes player actions on individual tiles.
-/// Does NOT handle cascading or game progression - that's GameManager's job.
-/// </summary>
-public class ActionManager : MonoBehaviour {
-    [Header("Debug")]
-    [SerializeField] private bool showDebugInfo = true;
+public class ActionManager : MonoBehaviour
+{
+    [SerializeField] private TileManager tileManager;
     
-    private TileManager tileManager;
-    
-    // Event fired when action completes successfully
     public event Action<Tile> OnActionCompleted;
     
-    void Awake() {
-        tileManager = FindObjectOfType<TileManager>();
-        if (tileManager == null) {
-            Debug.LogError("ActionManager requires TileManager in scene!");
-        }
+    private List<PlayerAction> availableActions = new List<PlayerAction>();
+    
+    void Start()
+    {
+        // Register all actions
+        availableActions.Add(new PlantTreesAction());
+        availableActions.Add(new FireSuppressionAction());
+        // ... other actions
     }
     
     /// <summary>
-    /// Executes a single action on a single tile.
-    /// Fires OnActionCompleted event if successful.
+    /// Executes an action with resource management.
     /// </summary>
-    public void ExecuteAction(PlayerAction action, Tile targetTile) {
-        if (action == null || targetTile == null || tileManager == null) {
-            Debug.LogError("Cannot execute action - missing components!");
+    public void ExecuteAction(PlayerAction action, List<Tile> targetTiles)
+    {
+        if (!action.CanExecute(targetTiles))
+        {
+            Debug.LogWarning($"Action {action.ActionName} cannot be executed on selected tiles!");
             return;
         }
         
-        if (showDebugInfo) {
-            Debug.Log($"═══ ACTION: {action.ActionName} on {targetTile.gridPosition} ═══");
+        ResourceManager rm = ResourceManager.Instance;
+        int availablePeople = rm.AvailablePeople;
+        int days = action.CalculateDays(availablePeople, targetTiles.Count);
+        
+        Debug.Log($"─── Executing {action.ActionName} ───");
+        Debug.Log($"Tiles: {targetTiles.Count} | People: {availablePeople} | Days: {days}");
+        
+        // Execute action logic
+        bool success = action.Execute(targetTiles, tileManager);
+        
+        if (success)
+        {
+            // Advance time
+            rm.AdvanceTime(days);
+            
+            // Apply fatigue
+            rm.ApplyFatigue(targetTiles.Count, days, action.FatigueMultiplierPerTile);
+            
+            // Trigger world update (cascade, entities, etc.)
+            OnActionCompleted?.Invoke(targetTiles[0]);
         }
-        
-        // Execute the action
-        bool success = action.Execute(targetTile, tileManager);
-        
-        if (!success) {
-            Debug.LogWarning($"Action '{action.ActionName}' failed!");
-            return;
-        }
-        
-        // Notify GameManager that action completed
-        OnActionCompleted?.Invoke(targetTile);
     }
+    
+    public List<PlayerAction> GetAvailableActions() => availableActions;
 }
