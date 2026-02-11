@@ -109,3 +109,55 @@ public class TrashBioEntity : TileEntity {
         }
     }
 }
+
+public class DeadTreeEntity : TileEntity {
+    private const float SOIL_BOOST_PER_DAY = 0.3f;
+    private const int DECOMPOSITION_DAYS = 30;
+    
+    private int daysExisting = 0;
+    
+    public DeadTreeEntity() {
+        entityType = "DeadTree";
+        health = 0f;
+    }
+    
+    public override void OnDailyUpdate(Tile tile, TileManager manager) {
+        daysExisting++;
+        
+        // Decompose → boost soil quality
+        tile.stats.soilQuality += SOIL_BOOST_PER_DAY;
+        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 100f);
+        
+        // Fully decomposed
+        if (daysExisting >= DECOMPOSITION_DAYS) {
+            manager.RemoveEntity(tile);
+            Debug.Log($"Dead tree fully decomposed at {tile.gridPosition}");
+        }
+        
+        manager.UpdateTileVisual(tile);
+    }
+}
+
+public class TreeEntity : TileEntity {
+    private const float VEGETATION_BOOST_PER_DAY = 0.5f;
+    private const float SOIL_THRESHOLD_TO_DIE = 20f;
+    
+    public TreeEntity() {
+        entityType = "Tree";
+        health = 100f;
+    }
+    
+    public override void OnDailyUpdate(Tile tile, TileManager manager) {
+        // Boost vegetation
+        tile.stats.vegetationCover += VEGETATION_BOOST_PER_DAY;
+        tile.stats.vegetationCover = Mathf.Clamp(tile.stats.vegetationCover, 0f, 100f);
+        
+        // Check if soil is too degraded
+        if (tile.stats.soilQuality < SOIL_THRESHOLD_TO_DIE) {
+            manager.TransformEntity<DeadTreeEntity>(tile);
+            Debug.Log($"Tree died at {tile.gridPosition} due to poor soil quality");
+        }
+        
+        manager.UpdateTileVisual(tile);
+    }
+}

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Central game loop coordinator.
+/// Central game loop coordinator.  
 /// Handles: Action execution → Tile cascading → Zone health checks → Zone generation triggers
 /// </summary>
 public class GameManager : MonoBehaviour {
@@ -108,31 +108,33 @@ public class GameManager : MonoBehaviour {
     /// </summary>
     void HandleActionCompleted(Tile targetTile) {
         if (targetTile == null) return;
-        
+    
         int regionID = targetTile.regionID;
-        
+    
         if (showDebugInfo) {
-            Debug.Log($"─── Cascading updates in Region {regionID} ───");
+            Debug.Log($"─── Daily Update for Region {regionID} ───");
         }
-        
-        // Step 1: Cascade tile updates
+    
+        // Step 1: Cascade tile stats
         CascadeTileUpdates(regionID);
-        
-        // Step 2: Check zone health
+    
+        // Step 2: Update all entities (NEW!) ⭐
+        tileManager.UpdateEntitiesInRegion(regionID);
+    
+        // Step 3: Check zone health
         float regionHealth = zoneManager.GetRegionHealth(regionID);
-        
-        // Step 3: Check if new zone should be generated
+    
+        // Step 4: Check unlock
         if (regionHealth >= zoneUnlockThreshold) {
-            Debug.Log($"<color=green>★ NEW ZONE UNLOCKED! ★</color> Region {regionID} reached {regionHealth:F1}% health (threshold: {zoneUnlockThreshold}%)");
-            
-            // Trigger generation (stub for now)
+            Debug.Log($"<color=green>★ NEW ZONE UNLOCKED! ★</color>");
             zoneManager.GenerateNewZone(regionID);
         }
-        
+    
         if (showDebugInfo) {
             Debug.Log($"═══ UPDATE COMPLETE ═══\n");
         }
     }
+
     
     /// <summary>
     /// Cascades tile stat changes across a region using diffusion.
