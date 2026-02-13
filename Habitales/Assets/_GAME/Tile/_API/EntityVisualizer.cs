@@ -7,6 +7,9 @@ public class EntityVisualizer : MonoBehaviour {
     [SerializeField] private Sprite fireSprite;
     [SerializeField] private Sprite villageSprite;
 
+    [Header("Positioning")]
+    [SerializeField] private float forwardOffset = 0.5f;
+    
     private SpriteRenderer spriteRenderer;
     private TileEntity entityData;
     private Tile parentTile;
@@ -76,8 +79,11 @@ public class EntityVisualizer : MonoBehaviour {
             }
         }
     
-        Vector3 pos = transform.localPosition;
-        pos.y = tileHeight + (spriteHeight * 0.5f); // Tile height + sprite offset
+        Vector3 pos = Vector3.zero;
+        pos.x = forwardOffset;
+        pos.y = tileHeight + (spriteHeight * 0.5f);
+        pos.z = forwardOffset;
+        
         transform.localPosition = pos;
     }
 

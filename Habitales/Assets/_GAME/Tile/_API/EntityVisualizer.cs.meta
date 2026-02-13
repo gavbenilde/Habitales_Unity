@@ -4,8 +4,8 @@ MonoImporter:
   externalObjects: {}
   serializedVersion: 2
   defaultReferences:
-  - treeSprite: {fileID: 21300000, guid: f5dcd946917b70240b9cf55fa879b732, type: 3}
-  - deadTreeSprite: {fileID: 21300000, guid: 611fe5f25a837ae4eaded49a3fae9831, type: 3}
+  - treeSprite: {instanceID: 0}
+  - deadTreeSprite: {instanceID: 0}
   - fireSprite: {instanceID: 0}
   - villageSprite: {instanceID: 0}
   executionOrder: 0
