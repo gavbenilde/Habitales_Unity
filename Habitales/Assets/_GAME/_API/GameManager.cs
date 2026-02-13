@@ -12,6 +12,7 @@ public class GameManager : MonoBehaviour {
     [SerializeField] private ActionUI actionUI;
     [SerializeField] private ActionManager actionManager;
     [SerializeField] private ZoneManager zoneManager;
+    [SerializeField] private ResourceManager resourceManager;
     
     [Header("Cascade Settings")]
     [SerializeField] [Range(0.05f, 0.5f)] private float diffusionRate = 0.15f;
@@ -63,6 +64,21 @@ public class GameManager : MonoBehaviour {
         if (zoneManager == null) {
             zoneManager = FindObjectOfType<ZoneManager>();
             if (zoneManager == null) Debug.LogError("ZoneManager not found!");
+        }
+        
+        if (resourceManager == null)
+        {
+            resourceManager = FindObjectOfType<ResourceManager>();
+            if (resourceManager == null) Debug.LogError("ResourceManager not found!");
+        }
+    
+        // Subscribe to resource events (optional but useful)
+        if (resourceManager != null)
+        {
+            resourceManager.OnTimeAdvanced += HandleTimeAdvanced;
+            resourceManager.OnPeopleFatigued += HandlePeopleFatigued;
+            resourceManager.OnPeopleRecovered += HandlePeopleRecovered;
+            resourceManager.OnGameOver += HandleGameOver;
         }
         
         // Connect events
@@ -133,6 +149,39 @@ public class GameManager : MonoBehaviour {
         if (showDebugInfo) {
             Debug.Log($"═══ UPDATE COMPLETE ═══\n");
         }
+    }
+    
+    
+    
+    
+    void HandleTimeAdvanced(int days)
+    {
+        if (showDebugInfo)
+        {
+            Debug.Log($"⏰ Time advanced by {days} days | Now: {resourceManager.GetFullTimeDisplay()}");
+        }
+    }
+
+    void HandlePeopleFatigued(int count, int returnDay)
+    {
+        if (showDebugInfo)
+        {
+            Debug.Log($"😴 {count} people fatigued | Return: Day {returnDay}");
+        }
+    }
+
+    void HandlePeopleRecovered(int count)
+    {
+        if (showDebugInfo)
+        {
+            Debug.Log($"✨ {count} people recovered!");
+        }
+    }
+
+    void HandleGameOver()
+    {
+        Debug.Log($"🏁 GAME OVER! Final time: {resourceManager.GetFullTimeDisplay()}");
+        // TODO: Show end screen UI
     }
 
     
@@ -245,6 +294,14 @@ public class GameManager : MonoBehaviour {
         
         if (actionManager != null) {
             actionManager.OnActionCompleted -= HandleActionCompleted;
+        }
+        
+        if (resourceManager != null)
+        {
+            resourceManager.OnTimeAdvanced -= HandleTimeAdvanced;
+            resourceManager.OnPeopleFatigued -= HandlePeopleFatigued;
+            resourceManager.OnPeopleRecovered -= HandlePeopleRecovered;
+            resourceManager.OnGameOver -= HandleGameOver;
         }
     }
     
