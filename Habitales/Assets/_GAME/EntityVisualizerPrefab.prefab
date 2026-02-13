@@ -46,5 +46,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   treeSprite: {fileID: 21300000, guid: 74b9b84c78bd39945a40bf4ddd232051, type: 3}
   deadTreeSprite: {fileID: 21300000, guid: bd7cfd6c12edbd448b1a88146d2b4c0a, type: 3}
-  fireSprite: {fileID: 0}
+  fireSprite: {fileID: 21300000, guid: f6f8daca1d0d83a45a67103d8925a8b1, type: 3}
   villageSprite: {fileID: 0}

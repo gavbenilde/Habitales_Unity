@@ -13,6 +13,12 @@ public abstract class TileEntity {
 public class FireEntity : TileEntity {
     private int daysSinceSpreading = 0;
     
+    public FireEntity()
+    {
+        entityType = "Fire";
+        health = 100f;
+    }
+    
     public override void OnDailyUpdate(Tile tile, TileManager manager) {
     // Daily damage
     float damage = TileStats.VEGETATION_COVER_MAX * 0.08f; // 8% of VegCover
