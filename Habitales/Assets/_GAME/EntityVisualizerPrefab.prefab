@@ -44,8 +44,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 79057aace6b0f53499332145789f8fee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  treeSprite: {fileID: 21300000, guid: 74037ab648a27924b9f247d76ffd0ab7, type: 3}
-  deadTreeSprite: {fileID: 21300000, guid: 611fe5f25a837ae4eaded49a3fae9831, type: 3}
+  treeSprite: {fileID: 21300000, guid: 74b9b84c78bd39945a40bf4ddd232051, type: 3}
+  deadTreeSprite: {fileID: 21300000, guid: bd7cfd6c12edbd448b1a88146d2b4c0a, type: 3}
   fireSprite: {fileID: 0}
   villageSprite: {fileID: 0}
-  heightOffset: 0.5

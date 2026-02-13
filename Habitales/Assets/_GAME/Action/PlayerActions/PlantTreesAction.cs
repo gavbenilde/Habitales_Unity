@@ -5,7 +5,8 @@ public class PlantTreesAction : PlayerAction
 {
     public override string ActionName => "Plant Trees";
     public override string Description => "Restores vegetation and soil quality on degraded land";
-    public override TileSelectionMethod SelectionMethod => TileSelectionMethod.Floodfill;
+    public override SelectionMode selectionMode => SelectionMode.Adjacent;
+
     
     public override int MinPeoplePerTile => 2;
     public override int BaseDays => 5;

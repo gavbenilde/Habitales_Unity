@@ -5,7 +5,8 @@ public class ApplyFertilizerAction : PlayerAction
 {
     public override string ActionName => "Apply Fertilizer";
     public override string Description => "Improves soil quality by +20% per tile";
-    public override TileSelectionMethod SelectionMethod => TileSelectionMethod.Floodfill;
+    public override SelectionMode selectionMode => SelectionMode.Adjacent;
+
     
     // Efficiency parameters
     public override int MinPeoplePerTile => 1;   // 1 person minimum (lighter work)

@@ -1,12 +1,18 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum TileSelectionMethod
+// public enum TileSelectionMethod
+// {
+//     Single,          // Single tile only
+//     Floodfill,       // Floodfill from selected tile
+//     CustomMultiple,  // Player manually selects each tile
+//     AutoRegion       // Automatically select all matching tiles in region
+// }
+
+public enum SelectionMode
 {
-    Single,          // Single tile only
-    Floodfill,       // Floodfill from selected tile
-    CustomMultiple,  // Player manually selects each tile
-    AutoRegion       // Automatically select all matching tiles in region
+    Adjacent,    // Tiles must form connected cluster (PlantTrees, Examine, FireSuppression)
+    NonAdjacent  // Any tiles can be selected (ClearStump, ClearTrash, CreateFirebreak)
 }
 
 public abstract class PlayerAction
@@ -14,13 +20,13 @@ public abstract class PlayerAction
     public abstract string ActionName { get; }
     public abstract string Description { get; }
     
-    // Selection method for this action
-    public abstract TileSelectionMethod SelectionMethod { get; }
+    // Replace TileSelectionMethod with SelectionMode
+    public abstract SelectionMode selectionMode { get; }
     
     // Efficiency parameters
-    public abstract int MinPeoplePerTile { get; }  // Minimum crew per tile
-    public abstract int BaseDays { get; }          // Base time at minimum crew
-    public abstract int MinDays { get; }           // Absolute minimum duration
+    public abstract int MinPeoplePerTile { get; } // Minimum crew per tile
+    public abstract int BaseDays { get; } // Base time at minimum crew
+    public abstract int MinDays { get; } // Absolute minimum duration
     
     // Fatigue parameters
     public virtual float FatigueMultiplierPerTile => 2.0f; // Default: +2% per tile
@@ -41,13 +47,11 @@ public abstract class PlayerAction
     public int CalculateDays(int availablePeople, int targetTiles)
     {
         if (targetTiles == 0) return MinDays;
-        
         float peoplePerTile = (float)availablePeople / targetTiles;
         float efficiency = peoplePerTile / MinPeoplePerTile;
         
         // Diminishing returns via square root
         float efficiencyFactor = Mathf.Sqrt(efficiency);
-        
         int calculatedDays = Mathf.CeilToInt(BaseDays / efficiencyFactor);
         return Mathf.Max(MinDays, calculatedDays);
     }

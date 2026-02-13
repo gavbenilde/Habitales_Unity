@@ -5,7 +5,8 @@ public class FireSuppressionAction : PlayerAction
 {
     public override string ActionName => "Fire Suppression";
     public override string Description => "Deploy team to extinguish active fires";
-    public override TileSelectionMethod SelectionMethod => TileSelectionMethod.AutoRegion;
+    public override SelectionMode selectionMode => SelectionMode.Adjacent;
+
     
     public override int MinPeoplePerTile => 4;   // Requires 4 people minimum
     public override int BaseDays => 5;

@@ -1,82 +1,152 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
-public class TileVisualizer : MonoBehaviour {
+/// <summary>
+/// Visual states for tile selection and interaction.
+/// </summary>
+public enum TileVisualState
+{
+    Default,            // Normal health-based color
+    Hover,              // Faint white glow (hover in single-select)
+    Selected,           // Translucent cyan (multi-select selected)
+    Adjacent,           // Yellowish-white (adjacent available tile)
+    AdjacentHover       // Adjacent + hover combined (brighter)
+}
+
+/// <summary>
+/// Manages tile visual appearance based on health and selection state.
+/// Uses color tinting on a single material instance.
+/// </summary>
+public class TileVisualizer : MonoBehaviour 
+{
+    [Header("Rendering")]
     [SerializeField] private MeshRenderer meshRenderer;
-    private Tile tile;
-    private Material tileMaterial; // Instance material
     
-    void Awake() {
-        if (meshRenderer == null) {
+    private Tile tile;
+    private TileVisualState currentState = TileVisualState.Default;
+    private Material materialInstance;
+    
+    void Awake() 
+    {
+        if (meshRenderer == null) 
+        {
             meshRenderer = GetComponent<MeshRenderer>();
         }
         
-        // CRITICAL: Create instance material to avoid sharing
-        if (meshRenderer != null) {
-            tileMaterial = meshRenderer.material; // This creates a new instance
+        // Create material instance to avoid shared material pollution
+        if (meshRenderer != null)
+        {
+            materialInstance = meshRenderer.material; // This creates instance
         }
     }
     
-    public void Initialize(Tile tileData) {
+    public void Initialize(Tile tileData) 
+    {
         tile = tileData;
+        SetVisualState(TileVisualState.Default);
         UpdateVisuals();
     }
     
-    public void UpdateVisuals() {
-        if (tileMaterial == null) return;
+    /// <summary>
+    /// Updates the tile's color based on health (for Default state).
+    /// </summary>
+    public void UpdateVisuals() 
+    {
+        if (tile == null || materialInstance == null) return;
         
-        float health = tile.CalculateHealth();
-        
-        Color targetColor;
-        if (health < 33) {
-            targetColor = new Color(0.8f, 0.2f, 0.2f); // Red
+        // If in default state, update to current health color
+        if (currentState == TileVisualState.Default)
+        {
+            UpdateMaterial();
         }
-        else if (health < 66) {
-            targetColor = new Color(0.9f, 0.8f, 0.3f); // Yellow
-        }
-        else {
-            targetColor = new Color(0.3f, 0.8f, 0.3f); // Green
-        }
-        
-        tileMaterial.color = targetColor;
     }
     
-    // Getter for tile data
+    /// <summary>
+    /// Sets the visual state and updates the material accordingly.
+    /// </summary>
+    public void SetVisualState(TileVisualState state)
+    {
+        currentState = state;
+        UpdateMaterial();
+    }
+    
+    /// <summary>
+    /// Applies the correct color based on current state.
+    /// </summary>
+    void UpdateMaterial()
+    {
+        if (meshRenderer == null || materialInstance == null || tile == null) return;
+        
+        Color baseColor = GetHealthColor(tile.CalculateHealth());
+        Color finalColor;
+        
+        switch (currentState)
+        {
+            case TileVisualState.Hover:
+                // Faint white glow (single-select hover)
+                finalColor = Color.Lerp(baseColor, Color.white, 0.8f);
+                break;
+                
+            case TileVisualState.Selected:
+                // Cyan highlight
+                finalColor = Color.Lerp(baseColor, new Color(0f, 0.8f, 0.8f, 1f), 0.7f);
+                break;
+                
+            case TileVisualState.Adjacent:
+                // Yellowish-white for adjacent available tiles
+                finalColor = Color.Lerp(baseColor, new Color(1f, 1f, 1f), 0.5f);
+                break;
+                
+            case TileVisualState.AdjacentHover:
+                // Brighter yellowish-white when hovering over adjacent tile
+                finalColor = Color.Lerp(baseColor, new Color(1f, 1f, 1f), 0.7f);
+                break;
+                
+            default: // TileVisualState.Default
+                finalColor = baseColor;
+                break;
+        }
+        
+        materialInstance.color = finalColor;
+    }
+    
+    /// <summary>
+    /// Calculates health-based color (red < 33% < yellow < 67% < green).
+    /// </summary>
+    Color GetHealthColor(float health)
+    {
+        if (health < 33f)
+        {
+            return new Color(0.8f, 0.2f, 0.2f); // Red (Critical)
+        }
+        else if (health < 67f)
+        {
+            return new Color(0.9f, 0.8f, 0.3f); // Yellow (Degraded)
+        }
+        else
+        {
+            return new Color(0.3f, 0.8f, 0.3f); // Green (Thriving)
+        }
+    }
+    
+    /// <summary>
+    /// Gets the base health color (for compatibility).
+    /// </summary>
+    public Color GetBaseColor()
+    {
+        if (tile == null) return Color.white;
+        return GetHealthColor(tile.CalculateHealth());
+    }
+    
+    // Getters
     public Tile GetTileData() => tile;
+    public TileVisualState GetCurrentState() => currentState;
     
-    // NEW: Get the base health color (before selection highlight)
-    public Color GetBaseColor() {
-        if (tileMaterial == null) return Color.white;
-        
-        float health = tile.CalculateHealth();
-        
-        if (health < 33) return new Color(0.8f, 0.2f, 0.2f);
-        else if (health < 66) return new Color(0.9f, 0.8f, 0.3f);
-        else return new Color(0.3f, 0.8f, 0.3f);
-    }
-    
-    // NEW: Public method to set color (used by TileSelector)
-    public void SetColor(Color color) {
-        if (tileMaterial != null) {
-            tileMaterial.color = color;
-        }
-    }
-    
-    void OnMouseEnter() {
-        if (tile != null) {
-            // UITooltip.Show(tile); // Uncomment when UITooltip exists
-        }
-    }
-    
-    void OnMouseExit() {
-        // UITooltip.Hide(); // Uncomment when UITooltip exists
-    }
-    
-    void OnDestroy() {
-        // Clean up instance material to prevent memory leak
-        if (tileMaterial != null) {
-            Destroy(tileMaterial);
+    void OnDestroy() 
+    {
+        // Clean up material instance to prevent memory leaks
+        if (materialInstance != null) 
+        {
+            Destroy(materialInstance);
         }
     }
 }

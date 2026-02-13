@@ -286,6 +286,18 @@ public class TileManager : MonoBehaviour
     {
         return x >= 0 && x < gridWidth && y >= 0 && y < gridHeight;
     }
+    
+    /// <summary>
+    /// Gets the GameObject associated with a tile (for visual updates).
+    /// </summary>
+    public GameObject GetTileGameObject(Tile tile)
+    {
+        if (tile == null || !tileGameObjects.ContainsKey(tile))
+        {
+            return null;
+        }
+        return tileGameObjects[tile];
+    }
 
     #endregion
 

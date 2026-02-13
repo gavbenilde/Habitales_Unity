@@ -97,6 +97,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   meshRenderer: {fileID: 8741069313600602562}
+  defaultMaterial: {fileID: -6538903991835684241, guid: 17e42a8b907c32245a572b3cdea09b70, type: 3}
+  hoverMaterial: {fileID: 2100000, guid: b5b5248b435e92541945af710a178395, type: 2}
+  selectedMaterial: {fileID: 2100000, guid: a4be622ab6d44254b9189238e944dbf4, type: 2}
+  adjacentMaterial: {fileID: 2100000, guid: 8e902c2f8b9bbc14186581be0baf22e6, type: 2}
 --- !u!65 &7478787128976655358
 BoxCollider:
   m_ObjectHideFlags: 0
