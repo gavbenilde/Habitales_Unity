@@ -22,6 +22,18 @@ public class GameManager : MonoBehaviour {
     [Header("Zone Progression")]
     [SerializeField] [Range(0f, 100f)] private float zoneUnlockThreshold = 80f;
     
+    [Header("Victory/Loss Conditions")]
+    [SerializeField] private float collapseThreshold = 90f; // Percentage of critical tiles
+    [SerializeField] private float criticalHealthThreshold = 33f; // Critical state
+    [SerializeField] private float thrivingHealthThreshold = 67f; // Thriving state
+    private bool isGameOver = false;
+
+    
+    [Header("Initial Zone Setup")]
+    [SerializeField] private bool spawnInitialZone = true;
+    [SerializeField] private Vector2Int initialZoneOrigin = Vector2Int.zero;
+    [SerializeField] private int initialZoneSize = 6; // 6x6 grid
+    
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
     
@@ -37,6 +49,11 @@ public class GameManager : MonoBehaviour {
     
     void Start() {
         InitializeSystems();
+        
+        if (spawnInitialZone && tileManager != null)
+        {
+            SpawnInitialZone();
+        }
     }
     
     void InitializeSystems() {
@@ -96,6 +113,47 @@ public class GameManager : MonoBehaviour {
         }
     }
     
+    
+    /// <summary>
+    /// Spawns the starting 6x6 zone (Zone 1) with tutorial-friendly stats.
+    /// </summary>
+    void SpawnInitialZone()
+    {
+        Debug.Log("🌱 Generating initial Zone 1...");
+    
+        // Spawn 6x6 grid at origin (36 tiles)
+        List<Tile> zoneTiles = tileManager.SpawnTileArea(
+            initialZoneOrigin.x, 
+            initialZoneOrigin.y, 
+            initialZoneSize, 
+            initialZoneSize, 
+            regionID: 1
+        );
+    
+        if (zoneTiles.Count == 0)
+        {
+            Debug.LogError("Failed to spawn initial zone!");
+            return;
+        }
+    
+        // Set tutorial-friendly stats (74% tiles should have no issues)
+        foreach (Tile tile in zoneTiles)
+        {
+            tile.stats.soilQuality = Random.Range(45f, 60f);
+            tile.stats.vegetationCover = Random.Range(30f, 60f);
+            tile.stats.contamination = Random.Range(0f, 10f);
+            tile.stats.waterPurity = 100f;
+            tile.stats.hasFirebreak = false;
+        
+            // Initialize issues list
+            tile.issues = new List<IssueType>();
+        
+            tileManager.UpdateTileVisual(tile);
+        }
+    
+        Debug.Log($"✓ Zone 1 spawned: {zoneTiles.Count} tiles at {initialZoneOrigin}");
+    }
+    
     void HandleTileSelected(Tile tile, Vector3 worldPosition) {
         if (showDebugInfo) {
             Debug.Log($"Tile selected: {tile.gridPosition} | Health: {tile.CalculateHealth():F1}%");
@@ -122,36 +180,111 @@ public class GameManager : MonoBehaviour {
     /// 2. Check zone health
     /// 3. Trigger zone generation if threshold met
     /// </summary>
-    void HandleActionCompleted(Tile targetTile) {
-        if (targetTile == null) return;
-    
+    void HandleActionCompleted(Tile targetTile) 
+    {
+        if (targetTile == null || isGameOver) return;
         int regionID = targetTile.regionID;
     
-        if (showDebugInfo) {
+        if (showDebugInfo) 
+        {
             Debug.Log($"─── Daily Update for Region {regionID} ───");
         }
     
         // Step 1: Cascade tile stats
         CascadeTileUpdates(regionID);
     
-        // Step 2: Update all entities (NEW!) ⭐
+        // Step 2: Update all entities
         tileManager.UpdateEntitiesInRegion(regionID);
     
-        // Step 3: Check zone health
+        // Step 3: Check collapse condition
+        CheckCollapseCondition();
+    
+        // Step 4: Check zone health
         float regionHealth = zoneManager.GetRegionHealth(regionID);
     
-        // Step 4: Check unlock
-        if (regionHealth >= zoneUnlockThreshold) {
-            Debug.Log($"<color=green>★ NEW ZONE UNLOCKED! ★</color>");
+        // Step 5: Check unlock
+        if (regionHealth >= zoneUnlockThreshold) 
+        {
+            Debug.Log($"★ NEW ZONE UNLOCKED! ★");
             zoneManager.GenerateNewZone(regionID);
         }
     
-        if (showDebugInfo) {
+        if (showDebugInfo) 
+        {
             Debug.Log($"═══ UPDATE COMPLETE ═══\n");
         }
     }
+
     
+    /// <summary>
+    /// Checks if ecosystem collapse has occurred (≥90% tiles critical).
+    /// Called after each action completes.
+    /// </summary>
+    void CheckCollapseCondition()
+    {
+        if (isGameOver) return;
     
+        List<Tile> allTiles = tileManager.GetAllTiles();
+        if (allTiles.Count == 0) return;
+    
+        // Count tiles with health ≤33%
+        int criticalCount = 0;
+        foreach (Tile tile in allTiles)
+        {
+            if (tile.CalculateHealth() <= criticalHealthThreshold)
+            {
+                criticalCount++;
+            }
+        }
+    
+        // Calculate percentage
+        float criticalPercent = ((float)criticalCount / allTiles.Count) * 100f;
+    
+        if (showDebugInfo)
+        {
+            Debug.Log($"Critical tiles: {criticalCount}/{allTiles.Count} ({criticalPercent:F1}%)");
+        }
+    
+        // Trigger collapse if threshold exceeded
+        if (criticalPercent >= collapseThreshold)
+        {
+            int thrivingTiles = GetThrivingTileCount();
+            TriggerGameOver($"Ecosystem Collapse", thrivingTiles);
+        }
+    }
+
+    /// <summary>
+    /// Counts tiles with health ≥67% (Thriving state).
+    /// Used for final score calculation.
+    /// </summary>
+    int GetThrivingTileCount()
+    {
+        List<Tile> allTiles = tileManager.GetAllTiles();
+        int thrivingCount = 0;
+    
+        foreach (Tile tile in allTiles)
+        {
+            if (tile.CalculateHealth() >= thrivingHealthThreshold)
+            {
+                thrivingCount++;
+            }
+        }
+        return thrivingCount;
+    }
+
+    /// <summary>
+    /// Triggers game over with reason and final score.
+    /// </summary>
+    void TriggerGameOver(string reason, int thrivingTiles)
+    {
+        if (isGameOver) return; // Prevent double-trigger
+    
+        isGameOver = true;
+        Debug.Log($"🏁 GAME OVER: {reason} | Thriving Tiles: {thrivingTiles}");
+    
+        // TODO: Show end screen UI with score
+    }
+
     
     
     void HandleTimeAdvanced(int days)
@@ -180,10 +313,19 @@ public class GameManager : MonoBehaviour {
 
     void HandleGameOver()
     {
-        Debug.Log($"🏁 GAME OVER! Final time: {resourceManager.GetFullTimeDisplay()}");
-        // TODO: Show end screen UI
+        if (isGameOver) return; // Already handled by collapse
+    
+        isGameOver = true;
+        int thrivingTiles = GetThrivingTileCount();
+    
+        Debug.Log($"🏁 GAME OVER: Year Complete! | Final time: {resourceManager.GetFullTimeDisplay()} | Thriving tiles: {thrivingTiles}");
+    
+        // TODO: Show end screen UI with score
     }
 
+
+    
+    
     
     /// <summary>
     /// Cascades tile stat changes across a region using diffusion.
@@ -286,6 +428,36 @@ public class GameManager : MonoBehaviour {
         };
     }
     
+    [ContextMenu("Test Collapse")]
+    void TestCollapse()
+    {
+        List<Tile> allTiles = tileManager.GetAllTiles();
+        int targetCount = Mathf.CeilToInt(allTiles.Count * 0.91f); // 91%
+    
+        for (int i = 0; i < targetCount; i++)
+        {
+            // Force tiles to critical health
+            allTiles[i].stats.soilQuality = 10f;
+            allTiles[i].stats.vegetationCover = 10f;
+            allTiles[i].stats.contamination = 90f;
+            tileManager.UpdateTileVisual(allTiles[i]);
+        }
+    
+        Debug.Log($"Set {targetCount}/{allTiles.Count} tiles to critical");
+        CheckCollapseCondition(); // Manually trigger check
+    }
+    
+    [ContextMenu("Test Year Complete")]
+    void TestYearComplete()
+    {
+        // Fast-forward to day 364
+        int daysToAdvance = 364 - resourceManager.TotalDays;
+        if (daysToAdvance > 0)
+        {
+            resourceManager.AdvanceTime(daysToAdvance);
+        }
+    }
+    
     void OnDestroy() {
         if (tileSelector != null) {
             tileSelector.OnTileSelected -= HandleTileSelected;
@@ -304,6 +476,7 @@ public class GameManager : MonoBehaviour {
             resourceManager.OnGameOver -= HandleGameOver;
         }
     }
+    
     
     // Public properties
     public TileManager TileManager => tileManager;

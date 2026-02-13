@@ -9,6 +9,8 @@ public class Tile {
     public Vector2Int gridPosition;
     public int regionID;
     
+    public bool issuesRevealed = false;
+    
     public float CalculateHealth() => stats.CalculateHealth();
 }
 
