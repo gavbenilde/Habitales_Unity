@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class ApplyFertilizerAction : PlayerAction
 {
+    public override ActionCategory Category => ActionCategory.Intervene;
+
     public override string ActionName => "Apply Fertilizer";
     public override string Description => "Improves soil quality by +20% per tile";
     public override SelectionMode selectionMode => SelectionMode.Adjacent;

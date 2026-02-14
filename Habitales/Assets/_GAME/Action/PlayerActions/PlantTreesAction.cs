@@ -3,6 +3,7 @@ using UnityEngine;
 
 public class PlantTreesAction : PlayerAction
 {
+    public override ActionCategory Category => ActionCategory.Intervene;
     public override string ActionName => "Plant Trees";
     public override string Description => "Restores vegetation and soil quality on degraded land";
     public override SelectionMode selectionMode => SelectionMode.Adjacent;

@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class FireSuppressionAction : PlayerAction
 {
+    public override ActionCategory Category => ActionCategory.Emergency;
+
     public override string ActionName => "Fire Suppression";
     public override string Description => "Deploy team to extinguish active fires";
     public override SelectionMode selectionMode => SelectionMode.Adjacent;

@@ -317,8 +317,6 @@ void UpdateHoverVisuals()
             Debug.LogWarning($"UpdateTileVisual: No TileVisualizer on GameObject for tile {tile.gridPosition}!"); // DEBUG
             return;
         }
-    
-        Debug.Log($"UpdateTileVisual: Setting tile {tile.gridPosition} to {state}"); // DEBUG
         visualizer.SetVisualState(state);
     }
 

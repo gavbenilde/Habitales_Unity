@@ -22,6 +22,8 @@ public abstract class PlayerAction
     
     // Replace TileSelectionMethod with SelectionMode
     public abstract SelectionMode selectionMode { get; }
+    public abstract ActionCategory Category { get; }
+
     
     // Efficiency parameters
     public abstract int MinPeoplePerTile { get; } // Minimum crew per tile
@@ -49,8 +51,6 @@ public abstract class PlayerAction
         if (targetTiles == 0) return MinDays;
         float peoplePerTile = (float)availablePeople / targetTiles;
         float efficiency = peoplePerTile / MinPeoplePerTile;
-        
-        // Diminishing returns via square root
         float efficiencyFactor = Mathf.Sqrt(efficiency);
         int calculatedDays = Mathf.CeilToInt(BaseDays / efficiencyFactor);
         return Mathf.Max(MinDays, calculatedDays);
