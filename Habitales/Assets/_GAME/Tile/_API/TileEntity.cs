@@ -20,21 +20,21 @@ public class FireEntity : TileEntity {
     }
     
     public override void OnDailyUpdate(Tile tile, TileManager manager) {
-    // Daily damage
-    float damage = TileStats.VEGETATION_COVER_MAX * 0.08f; // 8% of VegCover
-    tile.stats.vegetationCover -= damage; 
-    tile.stats.soilQuality -= damage;
-    
-    daysSinceSpreading++;
-    if (daysSinceSpreading >= 4) {
-        TrySpread(tile, manager);
-        daysSinceSpreading = 0;
-    }
+        // Daily damage
+        float damage = TileStats.VEGETATION_COVER_MAX * 0.08f; // 8% of VegCover
+        tile.stats.vegetationCover -= damage; 
+        tile.stats.soilQuality -= damage;
         
-    if (tile.stats.vegetationCover <= 0) {
-        manager.RemoveEntity(tile);
+        daysSinceSpreading++;
+        if (daysSinceSpreading >= 0) {
+            TrySpread(tile, manager);
+            daysSinceSpreading = 0;
+        }
+            
+        if (tile.stats.vegetationCover <= 0) {
+            manager.RemoveEntity(tile);
+        }
     }
-}
     
     private void TrySpread(Tile tile, TileManager manager)
     {

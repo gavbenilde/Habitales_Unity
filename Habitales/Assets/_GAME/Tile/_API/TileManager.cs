@@ -440,6 +440,22 @@ public class TileManager : MonoBehaviour
             }
         }
     }
+    
+    /// <summary>
+    /// Calls OnDailyUpdate for ALL entities in the entire game world.
+    /// Use this for global daily updates (fires, villages, factories, etc.)
+    /// </summary>
+    public void UpdateAllEntities()
+    {
+        List<Tile> allTiles = GetAllTiles();
+        foreach (Tile tile in allTiles)
+        {
+            if (tile.entity != null)
+            {
+                tile.entity.OnDailyUpdate(tile, this);
+            }
+        }
+    }
 
     #endregion
 

@@ -194,7 +194,7 @@ public class GameManager : MonoBehaviour {
         CascadeTileUpdates(regionID);
     
         // Step 2: Update all entities
-        tileManager.UpdateEntitiesInRegion(regionID);
+        tileManager.UpdateAllEntities();
     
         // Step 3: Check collapse condition
         CheckCollapseCondition();
