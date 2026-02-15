@@ -36,13 +36,20 @@ public class FireEntity : TileEntity {
     }
 }
     
-private void TrySpread(Tile tile, TileManager manager) {
-    foreach (Tile neighbor in manager.GetAdjacentTiles(tile)) {
-        if (!neighbor.stats.hasFirebreak && Random.value < 0.2f) {
-            manager.SpawnEntity<FireEntity>(neighbor);
+    private void TrySpread(Tile tile, TileManager manager)
+    {
+        foreach (Tile neighbor in manager.GetAdjacentTiles(tile))
+        {
+            if (!neighbor.stats.hasFirebreak && Random.value < 0.2f)
+            {
+                if (neighbor.entity != null)
+                {
+                    manager.RemoveEntity(neighbor);
+                }
+                manager.SpawnEntity<FireEntity>(neighbor);
+            }
         }
     }
-}
 }
 
 public class VillageEntity : TileEntity {

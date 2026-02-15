@@ -342,7 +342,11 @@ public class TileManager : MonoBehaviour
     {
         if (tile == null) return;
 
-        print("Spawned entity");
+        if (tile.entity != null)
+        {
+            RemoveEntity(tile);
+        }
+        
         // Create entity data
         tile.entity = new T();
 

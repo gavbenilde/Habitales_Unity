@@ -20,18 +20,21 @@ public class FireSuppressionAction : PlayerAction
     public override bool Execute(List<Tile> tiles, TileManager tileManager)
     {
         int suppressedFires = 0;
-    
         foreach (Tile tile in tiles)
         {
-            // FIXED: Check entity exists before accessing entityType
-            if (tile.entity != null && tile.entity.entityType == "Fire")
+            // Use 'is' for type checking instead of string comparison
+            if (tile.entity is FireEntity)
             {
                 tileManager.RemoveEntity(tile);
                 suppressedFires++;
+                Debug.Log($"Fire suppressed at {tile.gridPosition}");
+            }
+            else if (tile.entity != null)
+            {
+                Debug.LogWarning($"Tile at {tile.gridPosition} has {tile.entity.entityType}, not Fire!");
             }
         }
-    
-        Debug.Log($"✓ Fire suppression complete: {suppressedFires} fires extinguished");
+        Debug.Log($"Fire suppression complete: {suppressedFires} fires extinguished");
         return suppressedFires > 0;
     }
 
