@@ -8,10 +8,10 @@ public class ActionManager : MonoBehaviour
     [SerializeField] private bool showDebugInfo = true;
 
     private TileManager tileManager;
-    private List<PlayerAction> availableActions = new List<PlayerAction>(); // ← ADD THIS
+    private List<PlayerAction> availableActions = new List<PlayerAction>();
 
     // Event fired when action completes successfully
-    public event Action<Tile> OnActionCompleted;
+    public event Action<Tile, int> OnActionCompleted;
 
     void Awake()
     {
@@ -21,11 +21,9 @@ public class ActionManager : MonoBehaviour
             Debug.LogError("ActionManager requires TileManager in scene!");
         }
         
-        // ← ADD THIS: Register all actions
         RegisterActions();
     }
     
-    // ← ADD THIS METHOD
     void RegisterActions()
     {
         availableActions.Clear();
@@ -36,7 +34,6 @@ public class ActionManager : MonoBehaviour
         Debug.Log($"✓ ActionManager registered {availableActions.Count} actions");
     }
     
-    // ← ADD THIS: Public getter
     public List<PlayerAction> GetAvailableActions()
     {
         return availableActions;
@@ -63,6 +60,7 @@ public class ActionManager : MonoBehaviour
         ResourceManager rm = ResourceManager.Instance;
         int availablePeople = rm.AvailablePeople;
         int maxTiles = action.GetMaxTiles(availablePeople);
+        
         
         if (targetTiles.Count > maxTiles)
         {
@@ -92,6 +90,6 @@ public class ActionManager : MonoBehaviour
         rm.ApplyFatigue(targetTiles.Count, days, action.FatigueMultiplierPerTile);
 
         // Notify GameManager that action completed
-        OnActionCompleted?.Invoke(targetTiles[0]);
+        OnActionCompleted?.Invoke(targetTiles[0], days);
     }
 }

@@ -1068,7 +1068,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 50, y: -9}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: 615.22, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &530859996
 MonoBehaviour:
@@ -1220,7 +1220,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 540718018}
   m_HandleRect: {fileID: 1888631873}
   m_Direction: 0
-  m_Value: 0
+  m_Value: 1
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -1821,7 +1821,7 @@ RectTransform:
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 1218597104}
   m_Father: {fileID: 530859995}
@@ -2110,7 +2110,7 @@ MonoBehaviour:
   emergencyButton: {fileID: 1793707429}
   cleanupButton: {fileID: 1776608323}
   actionListPanel: {fileID: 1503939099}
-  actionListContent: {fileID: 1503939100}
+  actionListContent: {fileID: 1218597104}
   actionCardPrefab: {fileID: 1560006941438916198, guid: 0fae5d580b3701945b8aab74e41832f1, type: 3}
   actionIconConfig: {fileID: 11400000, guid: cd0e5dff4ca9f434ca03c2d83ead90ae, type: 2}
   multiSelectPanel: {fileID: 1257038722}
@@ -2507,7 +2507,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Padding:
-    m_Left: 0
+    m_Left: 60
     m_Right: 0
     m_Top: 0
     m_Bottom: 0
