@@ -33,7 +33,6 @@ public class PlantTreesAction : PlayerAction
                 vegDelta: VEGETATION_BOOST
             );
             
-            // Spawn tree entity if none exists - FIXED: TreeEntity instead of Tree
             if (tile.entity == null)
             {
                 tileManager.SpawnEntity<TreeEntity>(tile);  // ← FIXED
@@ -42,7 +41,7 @@ public class PlantTreesAction : PlayerAction
         
         Debug.Log($"✓ Planted trees on {tiles.Count} tiles | +{VEGETATION_BOOST} vegetation, +{SOIL_BOOST} soil");
         return true;
-    }
+    }       
     
     public override bool CanExecute(List<Tile> tiles)
     {

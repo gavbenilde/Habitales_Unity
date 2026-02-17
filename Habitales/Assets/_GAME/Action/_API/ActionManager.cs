@@ -30,6 +30,7 @@ public class ActionManager : MonoBehaviour
         availableActions.Add(new ApplyFertilizerAction());
         availableActions.Add(new PlantTreesAction());
         availableActions.Add(new FireSuppressionAction());
+        availableActions.Add(new CreateFirebreakAction()); 
         
         Debug.Log($"✓ ActionManager registered {availableActions.Count} actions");
     }

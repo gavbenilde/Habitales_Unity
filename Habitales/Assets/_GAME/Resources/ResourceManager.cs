@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 /// <summary>
 /// Manages Time and People resources for the entire game.
@@ -105,12 +106,12 @@ public class ResourceManager : MonoBehaviour
     /// Formula: baseFatigue (0-20%) + (tilesWorked × fatiguePerTile × 2%)
     /// Recovery: Half the days worked, minimum 1 day
     /// </summary>
-    public void ApplyFatigue(int tilesWorked, int daysWorked, float fatigueMultiplierPerTile = 2.0f)
+    public void ApplyFatigue(int tilesWorked, int daysWorked, float fatigueMultiplierPerTile = 2.0f, float minBaseFatigue = 0f, float maxBaseFatigue = 20f)
     {
         if (AvailablePeople == 0) return;
         
         // Roll base fatigue (0-20%)
-        float baseFatiguePercent = UnityEngine.Random.Range(0f, 20f);
+        float baseFatiguePercent = Random.Range(minBaseFatigue, maxBaseFatigue);
         
         // Add tile-based multiplier: tilesWorked × fatigueMultiplierPerTile × 2%
         float tileBonus = tilesWorked * fatigueMultiplierPerTile * 2f;

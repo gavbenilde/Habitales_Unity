@@ -21,6 +21,10 @@ public class TileVisualizer : MonoBehaviour
     [Header("Rendering")]
     [SerializeField] private MeshRenderer meshRenderer;
     
+    [Header("Firebreak Visual")]
+    [SerializeField] private GameObject firebreakPrefab;
+    private GameObject firebreakInstance;
+    
     private Tile tile;
     private TileVisualState currentState = TileVisualState.Default;
     private Material materialInstance;
@@ -110,6 +114,35 @@ public class TileVisualizer : MonoBehaviour
     }
     
     /// <summary>
+    /// Shows or hides the firebreak model on this tile.
+    /// Called automatically when tile.stats.hasFirebreak changes.
+    /// </summary>
+    public void UpdateFirebreakVisual(bool hasFirebreak)
+    {
+        if (hasFirebreak && firebreakInstance == null)
+        {
+            // Spawn firebreak model
+            if (firebreakPrefab != null)
+            {
+                firebreakInstance = Instantiate(firebreakPrefab, transform);
+                firebreakInstance.transform.localPosition = Vector3.zero; // Sits on tile surface
+                firebreakInstance.transform.localRotation = Quaternion.identity;
+                firebreakInstance.name = "Firebreak";
+            }
+            else
+            {
+                Debug.LogWarning("Firebreak prefab not assigned in TileVisualizer!");
+            }
+        }
+        else if (!hasFirebreak && firebreakInstance != null)
+        {
+            // Destroy firebreak model
+            Destroy(firebreakInstance);
+            firebreakInstance = null;
+        }
+    }
+    
+    /// <summary>
     /// Calculates health-based color (red < 33% < yellow < 67% < green).
     /// </summary>
     Color GetHealthColor(float health)
@@ -143,10 +176,14 @@ public class TileVisualizer : MonoBehaviour
     
     void OnDestroy() 
     {
-        // Clean up material instance to prevent memory leaks
         if (materialInstance != null) 
         {
             Destroy(materialInstance);
+        }
+        
+        if (firebreakInstance != null)
+        {
+            Destroy(firebreakInstance);
         }
     }
 }

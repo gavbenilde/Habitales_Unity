@@ -15,7 +15,9 @@ MonoBehaviour:
   iconMappings:
   - actionName: Plant Trees
     sprite: {fileID: 21300000, guid: 2a829b970f5f68147a737ae71378c87d, type: 3}
-  - actionName: Fire Suppresion
+  - actionName: Fire Suppression
     sprite: {fileID: 21300000, guid: a843c0af3b890824f8bb0d04d1a2b8fe, type: 3}
   - actionName: Apply Fertilizer
+    sprite: {fileID: 21300000, guid: a843c0af3b890824f8bb0d04d1a2b8fe, type: 3}
+  - actionName: Create Firebreak
     sprite: {fileID: 21300000, guid: a843c0af3b890824f8bb0d04d1a2b8fe, type: 3}

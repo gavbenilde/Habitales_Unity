@@ -192,6 +192,8 @@ public class GameManager : MonoBehaviour {
     
         // Step 1: Cascade tile stats
         CascadeTileUpdates(regionID);
+        
+        CheckFirebreakStatus(regionID);
     
         // Step 2: Update all entities MULTIPLE TIMES based on how many days elapsed
         for (int day = 0; day < daysElapsed; day++)
@@ -274,6 +276,34 @@ public class GameManager : MonoBehaviour {
         }
         return thrivingCount;
     }
+    
+    /// <summary>
+    /// Disables firebreaks on tiles where vegetation exceeds 66%.
+    /// Called after cascade to check all tiles in the region.
+    /// </summary>
+    void CheckFirebreakStatus(int regionID)
+    {
+        List<Tile> regionTiles = tileManager.GetTilesInRegion(regionID);
+    
+        int disabledCount = 0;
+
+        foreach (Tile tile in regionTiles)
+        {
+            if (tile.stats.hasFirebreak && tile.stats.vegetationCover > 66f)
+            {
+                tile.stats.hasFirebreak = false;
+                tileManager.UpdateTileVisual(tile);
+                disabledCount++;
+
+                if (showDebugInfo)
+                    Debug.Log($"Firebreak at {tile.gridPosition} overgrown by vegetation ({tile.stats.vegetationCover:F1}%)");
+            }
+        }
+
+        if (disabledCount > 0 && showDebugInfo)
+            Debug.Log($"Disabled {disabledCount} firebreaks due to vegetation regrowth (>66%)");
+    }
+
 
     /// <summary>
     /// Triggers game over with reason and final score.

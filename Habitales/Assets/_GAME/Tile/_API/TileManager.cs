@@ -495,6 +495,7 @@ public class TileManager : MonoBehaviour
         if (visualizer != null)
         {
             visualizer.UpdateVisuals();
+            visualizer.UpdateFirebreakVisual(tile.stats.hasFirebreak);
         }
     }
 
