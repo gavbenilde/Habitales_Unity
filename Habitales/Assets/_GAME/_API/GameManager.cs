@@ -180,7 +180,7 @@ public class GameManager : MonoBehaviour {
     /// 2. Check zone health
     /// 3. Trigger zone generation if threshold met
     /// </summary>
-    void HandleActionCompleted(Tile targetTile) 
+    void HandleActionCompleted(Tile targetTile, int daysElapsed) 
     {
         if (targetTile == null || isGameOver) return;
         int regionID = targetTile.regionID;
@@ -193,8 +193,11 @@ public class GameManager : MonoBehaviour {
         // Step 1: Cascade tile stats
         CascadeTileUpdates(regionID);
     
-        // Step 2: Update all entities
-        tileManager.UpdateAllEntities();
+        // Step 2: Update all entities MULTIPLE TIMES based on how many days elapsed
+        for (int day = 0; day < daysElapsed; day++)
+        {
+            tileManager.UpdateAllEntities();
+        }
     
         // Step 3: Check collapse condition
         CheckCollapseCondition();
