@@ -12,7 +12,7 @@ public class ActionUI : MonoBehaviour
     
     [Header("Header Section")]
     [SerializeField] private Button backButton;
-    [SerializeField] private TextMeshProUGUI categoryTitleText;
+    // [SerializeField] private TextMeshProUGUI categoryTitleText;
     [SerializeField] private TextMeshProUGUI tileHealthText;
     
     [Header("Category Selection")]
@@ -188,7 +188,7 @@ public class ActionUI : MonoBehaviour
         if (actionListPanel != null) actionListPanel.SetActive(false);
         if (multiSelectPanel != null) multiSelectPanel.SetActive(false);
         if (backButton != null) backButton.gameObject.SetActive(false);
-        if (categoryTitleText != null) categoryTitleText.gameObject.SetActive(false);
+        // if (categoryTitleText != null) categoryTitleText.gameObject.SetActive(false);
         
         // Show relevant UI based on state
         switch (newState)
@@ -209,8 +209,8 @@ public class ActionUI : MonoBehaviour
                 actionPanel.gameObject.SetActive(true);
                 actionListPanel.SetActive(true);
                 backButton.gameObject.SetActive(true);
-                categoryTitleText.gameObject.SetActive(true);
-                categoryTitleText.text = selectedCategory.GetDisplayName();
+                // categoryTitleText.gameObject.SetActive(true);
+                // categoryTitleText.text = selectedCategory.GetDisplayName();
                 break;
                 
             case ActionPanelState.MultiSelect:
@@ -282,6 +282,7 @@ public class ActionUI : MonoBehaviour
         if (interveneButton != null) interveneButton.SetBadgeCount(interveneCount);
         if (emergencyButton != null) emergencyButton.SetBadgeCount(emergencyCount);
         if (cleanupButton != null) cleanupButton.SetBadgeCount(cleanupCount);
+        
     }
     
     /// <summary>

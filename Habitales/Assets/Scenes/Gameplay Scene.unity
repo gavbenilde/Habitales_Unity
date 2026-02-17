@@ -1317,7 +1317,7 @@ MonoBehaviour:
   actionUI: {fileID: 879642652}
   actionManager: {fileID: 651731309}
   zoneManager: {fileID: 510870574}
-  resourceManager: {fileID: 0}
+  resourceManager: {fileID: 1232716294}
   diffusionRate: 0.11
   cascadeIterations: 1
   zoneUnlockThreshold: 67
@@ -2102,7 +2102,6 @@ MonoBehaviour:
   actionPanel: {fileID: 1309815721}
   mainCamera: {fileID: 1710253718}
   backButton: {fileID: 472963358}
-  categoryTitleText: {fileID: 0}
   tileHealthText: {fileID: 1095179151}
   categoryIconsPanel: {fileID: 366172280}
   examineButton: {fileID: 2056333391}
