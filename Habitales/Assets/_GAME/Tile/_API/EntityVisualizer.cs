@@ -2,10 +2,24 @@ using UnityEngine;
 
 public class EntityVisualizer : MonoBehaviour {
     [Header("Sprite Mappings")]
-    [SerializeField] private Sprite treeSprite;
+
+    [Space(10)] // Creates a 10-pixel gap acting as a subheader separator
+    [Header("Tree Sprites")]
+    [SerializeField] private Sprite seedlingTreeSprite;
+    [SerializeField] private Sprite saplingTreeSprite;
+    [SerializeField] private Sprite matureTreeSprite;
     [SerializeField] private Sprite deadTreeSprite;
+    [SerializeField] private Sprite stumpSprite;
+
+    [Space(10)] // Creates a 10-pixel gap acting as a subheader separator
+    [Header("Village Spritese")]
     [SerializeField] private Sprite fireSprite;
     [SerializeField] private Sprite villageSprite;
+
+    [Space(10)] // Creates a 10-pixel gap acting as a subheader separator
+    [Header("Factory Sprites")]
+    [SerializeField] private Sprite factorySprite;
+    [SerializeField] private Sprite bioTrashSprite;
 
     [Header("Positioning")]
     [SerializeField] private float forwardOffset = 0.5f;
@@ -37,13 +51,25 @@ public class EntityVisualizer : MonoBehaviour {
 
         // Map entity type to sprite
         switch (entityData.entityType) {
-            case "Tree":
-                spriteRenderer.sprite = treeSprite;
+            case "Seedling":
+                spriteRenderer.sprite = seedlingTreeSprite;
+                spriteRenderer.color = Color.white;
+                break;
+            case "Sapling":
+                spriteRenderer.sprite = saplingTreeSprite;
+                spriteRenderer.color = Color.white;
+                break;
+            case "Mature Tree":
+                spriteRenderer.sprite = matureTreeSprite;
                 spriteRenderer.color = Color.white;
                 break;
             case "DeadTree":
                 spriteRenderer.sprite = deadTreeSprite;
                 spriteRenderer.color = new Color(0.6f, 0.5f, 0.4f);
+                break;
+            case "Stump":
+                spriteRenderer.sprite = stumpSprite;
+                spriteRenderer.color = Color.white;
                 break;
             case "Fire":
                 spriteRenderer.sprite = fireSprite;

@@ -151,12 +151,113 @@ public class DeadTreeEntity : TileEntity {
     }
 }
 
+public class StumpEntity : TileEntity
+{
+    private const float SOIL_BOOST_PER_DAY = 0.05f;
+
+    public StumpEntity()
+    {
+        entityType = "Stump";
+        health = 0f;
+    }
+
+    public override void OnDailyUpdate(Tile tile, TileManager manager)
+    {
+        // Decompose → boost soil quality
+        tile.stats.soilQuality += SOIL_BOOST_PER_DAY;
+        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 100f);
+
+        manager.UpdateTileVisual(tile);
+    }
+}
+
+public class SeedlingEntity : TileEntity
+{
+    private const float SOIL_CONSUMPTION_PER_DAY = 10f; // LOWER this value once DailyUpdate has been fixed
+    private const float SOIL_THRESHOLD_TO_DIE = 30f;
+    private const int DAYS_UNTIL_GROWTH = 5;
+
+    private int daysExisting = 0;
+
+    public SeedlingEntity()
+    {
+        entityType = "Seedling";
+        health = 100f;
+    }
+
+    public override void OnDailyUpdate(Tile tile, TileManager manager)
+    {
+        daysExisting++;
+
+        // Consumes nutrients
+        tile.stats.soilQuality -= SOIL_CONSUMPTION_PER_DAY;
+        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 100f);
+
+        // Check if soil is too degraded
+        if (tile.stats.soilQuality < SOIL_THRESHOLD_TO_DIE)
+        {
+            manager.RemoveEntity(tile);
+            Debug.Log($"Seedling died at {tile.gridPosition} due to poor soil quality");
+        }
+
+        if (daysExisting >= DAYS_UNTIL_GROWTH)
+        {
+            manager.TransformEntity<SaplingEntity>(tile);
+            Debug.Log($"Seedling has grown into a Sapling at {tile.gridPosition}");
+        }
+
+        manager.UpdateTileVisual(tile);
+    }
+}
+
+public class SaplingEntity : TileEntity
+{
+    private const float SOIL_CONSUMPTION_PER_DAY = 3f; // LOWER this value once DailyUpdate has been fixed
+    private const float SOIL_THRESHOLD_TO_DIE = 25f;
+    private const float SOIL_BOOST_ON_DEATH = 10f;
+    private const int DAYS_UNTIL_GROWTH = 10;
+
+    private int daysExisting = 0;
+
+    public SaplingEntity()
+    {
+        entityType = "Sapling";
+        health = 100f;
+    }
+
+    public override void OnDailyUpdate(Tile tile, TileManager manager)
+    {
+        daysExisting++;
+
+        // Consumes nutrients
+        tile.stats.soilQuality -= SOIL_CONSUMPTION_PER_DAY;
+        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 100f);
+
+        // Check if soil is too degraded
+        if (tile.stats.soilQuality < SOIL_THRESHOLD_TO_DIE)
+        {
+            manager.RemoveEntity(tile);
+            tile.stats.soilQuality += SOIL_BOOST_ON_DEATH;
+            tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 100f);
+            Debug.Log($"Sapling died at {tile.gridPosition} due to poor soil quality. It's nutrients spread into the soil underneath.");
+        }
+
+        if (daysExisting == DAYS_UNTIL_GROWTH)
+        {
+            manager.TransformEntity<TreeEntity>(tile);
+            Debug.Log($"Sapling has grow into a Tree at {tile.gridPosition}");
+        }
+
+        manager.UpdateTileVisual(tile);
+    }
+}
+
 public class TreeEntity : TileEntity {
     private const float VEGETATION_BOOST_PER_DAY = 0.5f;
     private const float SOIL_THRESHOLD_TO_DIE = 20f;
     
     public TreeEntity() {
-        entityType = "Tree";
+        entityType = "Mature Tree";
         health = 100f;
     }
     
