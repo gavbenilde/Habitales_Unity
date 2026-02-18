@@ -1296,7 +1296,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 540718018}
   m_HandleRect: {fileID: 1888631873}
   m_Direction: 0
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -1395,10 +1395,13 @@ MonoBehaviour:
   actionManager: {fileID: 651731309}
   zoneManager: {fileID: 510870574}
   resourceManager: {fileID: 1232716294}
+<<<<<<< HEAD
   regionOutlineRenderer: {fileID: 0}
+=======
+>>>>>>> 3fa4226 (Update Vertical Slice.unity)
   diffusionRate: 0.11
   cascadeIterations: 1
-  zoneUnlockThreshold: 67
+  zoneUnlockThreshold: 26.5
   collapseThreshold: 90
   criticalHealthThreshold: 33
   thrivingHealthThreshold: 67
@@ -1406,7 +1409,11 @@ MonoBehaviour:
   initialZoneOrigin: {x: 0, y: 0}
   initialZoneSize: 6
   showDebugInfo: 1
+<<<<<<< HEAD
   hardCode: {fileID: 0}
+=======
+  hardCode: {fileID: 1936053364}
+>>>>>>> 3fa4226 (Update Vertical Slice.unity)
 --- !u!4 &545579446
 Transform:
   m_ObjectHideFlags: 0
@@ -2137,8 +2144,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76875ddb850110e4ca4ebca0c763d8ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridWidth: 7
-  gridHeight: 7
+  gridWidth: 100
+  gridHeight: 100
   tilePrefab: {fileID: 7083731526152937495, guid: 5b81abfd3c9e4ce44b1c8bf682385fd5, type: 3}
   tileParent: {fileID: 1488361861}
   entityVisualizerPrefab: {fileID: 273496731299126067, guid: d90f3f5eec7b5154297d14a8f2689470, type: 3}
@@ -4553,7 +4560,11 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1888631872}
   m_CullTransparentMesh: 1
+<<<<<<< HEAD
 --- !u!1 &1923067044
+=======
+--- !u!1 &1936053363
+>>>>>>> 3fa4226 (Update Vertical Slice.unity)
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -4561,16 +4572,24 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
+<<<<<<< HEAD
   - component: {fileID: 1923067045}
   - component: {fileID: 1923067047}
   - component: {fileID: 1923067046}
   m_Layer: 5
   m_Name: ZoneHP
+=======
+  - component: {fileID: 1936053365}
+  - component: {fileID: 1936053364}
+  m_Layer: 0
+  m_Name: HardCode
+>>>>>>> 3fa4226 (Update Vertical Slice.unity)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+<<<<<<< HEAD
 --- !u!224 &1923067045
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4591,11 +4610,15 @@ RectTransform:
   m_SizeDelta: {x: 167.68, y: 41.299}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1923067046
+=======
+--- !u!114 &1936053364
+>>>>>>> 3fa4226 (Update Vertical Slice.unity)
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
+<<<<<<< HEAD
   m_GameObject: {fileID: 1923067044}
   m_Enabled: 1
   m_EditorHideFlags: 0
@@ -4681,12 +4704,38 @@ MonoBehaviour:
   m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
 --- !u!222 &1923067047
 CanvasRenderer:
+=======
+  m_GameObject: {fileID: 1936053363}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca06e8b06c2f6e34d81bc7ac498dc11e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tileManager: {fileID: 769452840}
+  zoneManager: {fileID: 510870574}
+  gameManager: {fileID: 545579445}
+  actionManager: {fileID: 651731309}
+--- !u!4 &1936053365
+Transform:
+>>>>>>> 3fa4226 (Update Vertical Slice.unity)
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
+<<<<<<< HEAD
   m_GameObject: {fileID: 1923067044}
   m_CullTransparentMesh: 1
+=======
+  m_GameObject: {fileID: 1936053363}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 18.341366, y: 24.41703, z: 13.611833}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+>>>>>>> 3fa4226 (Update Vertical Slice.unity)
 --- !u!1 &1947125037
 GameObject:
   m_ObjectHideFlags: 0
@@ -4971,3 +5020,4 @@ SceneRoots:
   - {fileID: 1232716295}
   - {fileID: 451107302}
   - {fileID: 1876362746}
+  - {fileID: 1936053365}
