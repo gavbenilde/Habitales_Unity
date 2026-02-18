@@ -125,7 +125,7 @@ public class TileVisualizer : MonoBehaviour
             if (firebreakPrefab != null)
             {
                 firebreakInstance = Instantiate(firebreakPrefab, transform);
-                firebreakInstance.transform.localPosition = Vector3.zero; // Sits on tile surface
+                firebreakInstance.transform.localPosition = new Vector3(0, 2, 0); // Sits on tile surface
                 firebreakInstance.transform.localRotation = Quaternion.identity;
                 firebreakInstance.name = "Firebreak";
             }

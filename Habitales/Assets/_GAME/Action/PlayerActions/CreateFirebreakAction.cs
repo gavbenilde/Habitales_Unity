@@ -12,12 +12,12 @@ public class CreateFirebreakAction : PlayerAction
     public override SelectionMode selectionMode => SelectionMode.NonAdjacent;
     
     // Efficiency parameters
-    public override int MinPeoplePerTile => 2;
+    public override int MinPeoplePerTile => 1;
     public override int BaseDays => 1;
     public override int MinDays => 1;
     
     // Standard fatigue multiplier (elevated fatigue handled in ActionManager)
-    public override float FatigueMultiplierPerTile => 2.0f;
+    public override float FatigueMultiplierPerTile => 4.0f;
     
     private const float VEGETATION_REDUCTION = 0.5f; // Halve vegetation
 

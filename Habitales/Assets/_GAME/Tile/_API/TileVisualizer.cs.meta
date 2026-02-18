@@ -3,7 +3,9 @@ guid: b85feefd22955d8458e46a78889e6c6e
 MonoImporter:
   externalObjects: {}
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - meshRenderer: {instanceID: 0}
+  - firebreakPrefab: {fileID: 2177688180007184035, guid: 05039a0022042a14780fc06e0c911e8d, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
