@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SocialPlatforms;
 
 
 public abstract class TileEntity {
@@ -22,11 +23,13 @@ public class FireEntity : TileEntity {
     public override void OnDailyUpdate(Tile tile, TileManager manager) {
         // Daily damage
         float damage = TileStats.VEGETATION_COVER_MAX * 0.08f; // 8% of VegCover
-        tile.stats.vegetationCover -= damage; 
+        tile.stats.vegetationCover -= damage;
+        tile.stats.vegetationCover = Mathf.Clamp(tile.stats.vegetationCover, 0f, 1f);
         tile.stats.soilQuality -= damage;
+        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 1f);
         
         daysSinceSpreading++;
-        if (daysSinceSpreading >= 0) {
+        if (daysSinceSpreading >= 2) {
             TrySpread(tile, manager);
             daysSinceSpreading = 0;
         }
@@ -40,7 +43,7 @@ public class FireEntity : TileEntity {
     {
         foreach (Tile neighbor in manager.GetAdjacentTiles(tile))
         {
-            if (!neighbor.stats.hasFirebreak && Random.value < 0.2f)
+            if (!neighbor.stats.hasFirebreak && Random.value < 0.2f * (1.5 - tile.stats.vegetationCover))
             {
                 if (neighbor.entity != null)
                 {
@@ -58,6 +61,12 @@ public class VillageEntity : TileEntity {
         if (Random.value < 0.018f) {
             SpawnKainginFire(tile, manager);
         }
+    }
+
+    public VillageEntity()
+    {
+        entityType = "Village";
+        health = 100f;
     }
     
     private void SpawnKainginFire(Tile tile, TileManager manager) {
@@ -173,7 +182,7 @@ public class StumpEntity : TileEntity
 
 public class SeedlingEntity : TileEntity
 {
-    private const float SOIL_CONSUMPTION_PER_DAY = 10f; // LOWER this value once DailyUpdate has been fixed
+    private const float SOIL_CONSUMPTION_PER_DAY = 1f; // LOWER this value once DailyUpdate has been fixed
     private const float SOIL_THRESHOLD_TO_DIE = 30f;
     private const int DAYS_UNTIL_GROWTH = 5;
 
@@ -212,7 +221,7 @@ public class SeedlingEntity : TileEntity
 
 public class SaplingEntity : TileEntity
 {
-    private const float SOIL_CONSUMPTION_PER_DAY = 3f; // LOWER this value once DailyUpdate has been fixed
+    private const float SOIL_CONSUMPTION_PER_DAY = 0.3f; // LOWER this value once DailyUpdate has been fixed
     private const float SOIL_THRESHOLD_TO_DIE = 25f;
     private const float SOIL_BOOST_ON_DEATH = 10f;
     private const int DAYS_UNTIL_GROWTH = 10;
@@ -253,7 +262,7 @@ public class SaplingEntity : TileEntity
 }
 
 public class TreeEntity : TileEntity {
-    private const float VEGETATION_BOOST_PER_DAY = 0.5f;
+    private const float VEGETATION_BOOST_PER_DAY = 1f;
     private const float SOIL_THRESHOLD_TO_DIE = 20f;
     
     public TreeEntity() {

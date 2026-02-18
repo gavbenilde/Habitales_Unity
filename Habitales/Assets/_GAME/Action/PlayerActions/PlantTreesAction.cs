@@ -10,7 +10,7 @@ public class PlantTreesAction : PlayerAction
 
     
     public override int MinPeoplePerTile => 2;
-    public override int BaseDays => 5;
+    public override int BaseDays => 2;
     public override int MinDays => 1;
     
     private const float VEGETATION_BOOST = 30f;
@@ -26,16 +26,16 @@ public class PlantTreesAction : PlayerAction
         
         foreach (Tile tile in tiles)
         {
-            // Apply stat boosts
-            tileManager.ModifyTileStats(
-                tile,
-                soilDelta: SOIL_BOOST,
-                vegDelta: VEGETATION_BOOST
-            );
+            // // Apply stat boosts
+            // tileManager.ModifyTileStats(
+            //     tile,
+            //     soilDelta: SOIL_BOOST,
+            //     vegDelta: VEGETATION_BOOST
+            // );
             
             if (tile.entity == null)
             {
-                tileManager.SpawnEntity<TreeEntity>(tile);  // ← FIXED
+                tileManager.SpawnEntity<SeedlingEntity>(tile);  // ← FIXED
             }
         }
         
