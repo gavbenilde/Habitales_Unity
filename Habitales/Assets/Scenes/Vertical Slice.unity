@@ -1350,7 +1350,6 @@ GameObject:
   m_Component:
   - component: {fileID: 545579446}
   - component: {fileID: 545579445}
-  - component: {fileID: 545579447}
   - component: {fileID: 545579444}
   m_Layer: 0
   m_Name: GameManager
@@ -1395,7 +1394,7 @@ MonoBehaviour:
   actionManager: {fileID: 651731309}
   zoneManager: {fileID: 510870574}
   resourceManager: {fileID: 1232716294}
-  regionOutlineRenderer: {fileID: 0}
+  regionOutlineRenderer: {fileID: 879642654}
   diffusionRate: 0.11
   cascadeIterations: 1
   zoneUnlockThreshold: 67
@@ -1406,7 +1405,7 @@ MonoBehaviour:
   initialZoneOrigin: {x: 0, y: 0}
   initialZoneSize: 6
   showDebugInfo: 1
-  hardCode: {fileID: 0}
+  hardCode: {fileID: 1361408566}
 --- !u!4 &545579446
 Transform:
   m_ObjectHideFlags: 0
@@ -1416,24 +1415,12 @@ Transform:
   m_GameObject: {fileID: 545579443}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 18.341366, y: 24.41703, z: 13.611833}
+  m_LocalPosition: {x: 0, y: 1, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &545579447
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 545579443}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c193bc9f385d638458f222c4b4102f42, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &572028785
 GameObject:
   m_ObjectHideFlags: 0
@@ -2476,7 +2463,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -3248,6 +3235,54 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1348275404}
   m_CullTransparentMesh: 1
+--- !u!1 &1361408565
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1361408567}
+  - component: {fileID: 1361408566}
+  m_Layer: 0
+  m_Name: hARDmANAGER
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1361408566
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1361408565}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca06e8b06c2f6e34d81bc7ac498dc11e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tileManager: {fileID: 769452840}
+  zoneManager: {fileID: 510870574}
+  gameManager: {fileID: 545579445}
+  actionManager: {fileID: 651731309}
+--- !u!4 &1361408567
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1361408565}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 583.75, y: 293.25, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1473919414
 GameObject:
   m_ObjectHideFlags: 0
@@ -3626,7 +3661,7 @@ Transform:
   m_GameObject: {fileID: 1710253716}
   serializedVersion: 2
   m_LocalRotation: {x: 0.14834501, y: -0.84906244, z: 0.3207536, w: 0.39268798}
-  m_LocalPosition: {x: 24.44673, y: 22, z: 20.590302}
+  m_LocalPosition: {x: 207.9, y: 234.2, z: 176.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -4292,7 +4327,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -4969,5 +5004,6 @@ SceneRoots:
   - {fileID: 651731310}
   - {fileID: 769452839}
   - {fileID: 1232716295}
+  - {fileID: 1361408567}
   - {fileID: 451107302}
   - {fileID: 1876362746}

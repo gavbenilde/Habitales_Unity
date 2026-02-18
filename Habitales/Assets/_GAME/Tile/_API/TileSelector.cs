@@ -36,6 +36,7 @@ public class TileSelector : MonoBehaviour
     public event Action<Tile, Vector3> OnTileSelected;
     public event Action OnTileDeselected;
     public event Action<List<Tile>> OnMultiSelectionConfirmed;
+    public event Action OnMultiSelectExited;
     
     
     void Awake() 
@@ -426,7 +427,7 @@ void UpdateHoverVisuals()
     {
         multiSelectMode = false;
         currentAction = null;
-        originalTile = null; // NEW! ⭐
+        originalTile = null;
     
         // Clear adjacent visuals first
         foreach (Tile tile in adjacentAvailableTiles)
@@ -436,6 +437,8 @@ void UpdateHoverVisuals()
         adjacentAvailableTiles.Clear();
     
         ClearSelection();
+        
+        OnMultiSelectExited?.Invoke();
     }
     /// <summary>
     /// Checks if a tile can be selected based on adjacency rules and capacity.
