@@ -36,6 +36,8 @@ public class GameManager : MonoBehaviour {
     
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
+
+    [SerializeField] private HardCode hardCode;
     
     public static GameManager Instance { get; private set; }
     
@@ -139,8 +141,8 @@ public class GameManager : MonoBehaviour {
         // Set tutorial-friendly stats (74% tiles should have no issues)
         foreach (Tile tile in zoneTiles)
         {
-            tile.stats.soilQuality = Random.Range(45f, 60f);
-            tile.stats.vegetationCover = Random.Range(30f, 60f);
+            tile.stats.soilQuality = Random.Range(20f, 35f);
+            tile.stats.vegetationCover = Random.Range(10f, 30f);
             tile.stats.contamination = Random.Range(0f, 10f);
             tile.stats.waterPurity = 100f;
             tile.stats.hasFirebreak = false;
@@ -150,6 +152,8 @@ public class GameManager : MonoBehaviour {
         
             tileManager.UpdateTileVisual(tile);
         }
+        
+        hardCode.SpawnRandomEntityInFirstZone();
     
         Debug.Log($"✓ Zone 1 spawned: {zoneTiles.Count} tiles at {initialZoneOrigin}");
     }
@@ -211,7 +215,12 @@ public class GameManager : MonoBehaviour {
         if (regionHealth >= zoneUnlockThreshold) 
         {
             Debug.Log($"★ NEW ZONE UNLOCKED! ★");
-            zoneManager.GenerateNewZone(regionID);
+            // zoneManager.GenerateNewZone(regionID);
+            
+            if (regionID == 1)
+                hardCode.GenerateSecondZone();
+            else if (regionID == 2)
+                hardCode.GenerateThirdZone();
         }
     
         if (showDebugInfo) 

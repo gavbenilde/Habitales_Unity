@@ -29,7 +29,7 @@ public class FireEntity : TileEntity {
         tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 1f);
         
         daysSinceSpreading++;
-        if (daysSinceSpreading >= 2) {
+        if (daysSinceSpreading >= 2 && tile.stats.vegetationCover < 0.5f) {
             TrySpread(tile, manager);
             daysSinceSpreading = 0;
         }
@@ -55,11 +55,22 @@ public class FireEntity : TileEntity {
     }
 }
 
-public class VillageEntity : TileEntity {
+public class VillageEntity : TileEntity
+{
+    private int daysPassed = 0;
+    private bool hasFireOccured;
+    
     public override void OnDailyUpdate(Tile tile, TileManager manager) {
-        // 12% weekly chance = ~1.8% daily
-        if (Random.value < 0.018f) {
+        // // 12% weekly chance = ~1.8% daily
+        // if (Random.value < 0.018f) {
+        //     SpawnKainginFire(tile, manager);
+        // }
+        daysPassed++;
+        
+        if (daysPassed >= 5)
+        {
             SpawnKainginFire(tile, manager);
+            daysPassed = 0;
         }
     }
 
@@ -72,7 +83,7 @@ public class VillageEntity : TileEntity {
     private void SpawnKainginFire(Tile tile, TileManager manager) {
         // Get tiles within radius 3-5 of village
         int fireCount = Random.Range(2, 4); // 2-3 fires per event
-        List<Tile> potentialTargets = GetTilesInRadius(tile, manager, 5);
+        List<Tile> potentialTargets = GetTilesInRadius(tile, manager, 2);
         
         for (int i = 0; i < fireCount && potentialTargets.Count > 0; i++) {
             // Pick random tile from potential targets
@@ -82,7 +93,8 @@ public class VillageEntity : TileEntity {
             // Only spawn fire if tile doesn't have a building
             if (target.entity == null || 
                 !(target.entity is VillageEntity) && 
-                !(target.entity is FactoryEntity)) {
+                !(target.entity is FactoryEntity) &&
+                !(target.stats.hasFirebreak)) {
                 manager.SpawnEntity<FireEntity>(target);
             }
             
@@ -182,7 +194,7 @@ public class StumpEntity : TileEntity
 
 public class SeedlingEntity : TileEntity
 {
-    private const float SOIL_CONSUMPTION_PER_DAY = 1f; // LOWER this value once DailyUpdate has been fixed
+    private const float SOIL_CONSUMPTION_PER_DAY = 2f; // LOWER this value once DailyUpdate has been fixed
     private const float SOIL_THRESHOLD_TO_DIE = 30f;
     private const int DAYS_UNTIL_GROWTH = 5;
 
@@ -221,7 +233,7 @@ public class SeedlingEntity : TileEntity
 
 public class SaplingEntity : TileEntity
 {
-    private const float SOIL_CONSUMPTION_PER_DAY = 0.3f; // LOWER this value once DailyUpdate has been fixed
+    private const float SOIL_CONSUMPTION_PER_DAY = 1f; // LOWER this value once DailyUpdate has been fixed
     private const float SOIL_THRESHOLD_TO_DIE = 25f;
     private const float SOIL_BOOST_ON_DEATH = 10f;
     private const int DAYS_UNTIL_GROWTH = 10;
@@ -262,7 +274,8 @@ public class SaplingEntity : TileEntity
 }
 
 public class TreeEntity : TileEntity {
-    private const float VEGETATION_BOOST_PER_DAY = 1f;
+    private const float VEGETATION_BOOST_PER_DAY = 2f;
+    private const float SOIL_BOOST_PER_DAY = 1f;
     private const float SOIL_THRESHOLD_TO_DIE = 20f;
     
     public TreeEntity() {
@@ -274,6 +287,8 @@ public class TreeEntity : TileEntity {
         // Boost vegetation
         tile.stats.vegetationCover += VEGETATION_BOOST_PER_DAY;
         tile.stats.vegetationCover = Mathf.Clamp(tile.stats.vegetationCover, 0f, 100f);
+        tile.stats.soilQuality += SOIL_BOOST_PER_DAY;
+        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 100f);
         
         // Check if soil is too degraded
         if (tile.stats.soilQuality < SOIL_THRESHOLD_TO_DIE) {
