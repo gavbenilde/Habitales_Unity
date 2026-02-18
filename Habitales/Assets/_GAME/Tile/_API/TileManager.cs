@@ -396,11 +396,11 @@ public class TileManager : MonoBehaviour
         if (tileGameObjects.ContainsKey(tile))
         {
             GameObject tileObj = tileGameObjects[tile];
-            EntityVisualizer visualizer = tileObj.GetComponentInChildren<EntityVisualizer>();
-
-            if (visualizer != null)
+            EntityVisualizer[] visualizers = tileObj.GetComponentsInChildren<EntityVisualizer>();
+            foreach (EntityVisualizer v in visualizers)
             {
-                Destroy(visualizer.gameObject);
+                if (v != null)
+                    Destroy(v.gameObject);
             }
         }
 

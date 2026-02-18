@@ -427,31 +427,65 @@ public class ActionUI : MonoBehaviour
     void UpdateTileCounter()
     {
         if (tileCounterText == null || tileSelector == null) return;
-        
+
         int selected = tileSelector.SelectedTileCount;
-        int max = tileSelector.MaxSelectableTiles;
-        
-        tileCounterText.text = $"{selected} / {max} tiles selected";
-        
-        // Color coding
+        int max      = tileSelector.MaxSelectableTiles;
+
+        // Update confirm button interactivity (unchanged)
+        if (confirmButton != null)
+            confirmButton.interactable = selected > 0;
+
         if (selected == 0)
         {
-            tileCounterText.color = Color.red;
-        }
-        else if (selected >= max)
-        {
-            tileCounterText.color = Color.green;
-        }
-        else
-        {
+            tileCounterText.text  = "";
             tileCounterText.color = Color.white;
+            return;
         }
-        
-        // Update confirm button interactivity
-        if (confirmButton != null)
+
+        int people       = ResourceManager.Instance.AvailablePeople;
+        int minPPT       = currentAction != null ? currentAction.MinPeoplePerTile : 1;
+        int personsPerTile = people / selected;  // Integer — fractional people aren't meaningful
+
+        tileCounterText.text = $"~{personsPerTile} persons per tile";
+
+        // --- Red triggers ---
+        bool atMinimum  = personsPerTile <= minPPT;
+        bool atMaxTiles = selected >= max;
+
+        if (atMinimum || atMaxTiles)
         {
-            confirmButton.interactable = (selected > 0);
+            tileCounterText.color = new Color(0.9f, 0.2f, 0.2f); // Red
+            return;
         }
+
+        // --- Gradient: green (plenty) → yellow → orange → red (thin) ---
+        // t = 1.0 means maxed people per tile, t = 0.0 means at minimum
+        // Clamp so edge cases don't blow out
+        float range = Mathf.Max(1f, people - minPPT);  // Avoid divide-by-zero
+        float t     = Mathf.Clamp01((personsPerTile - minPPT) / range);
+
+        tileCounterText.color = GetCounterGradientColor(t);
+    }
+    
+    /// <summary>
+    /// Maps t (0..1) to a green → yellow → orange → red gradient.
+    /// t = 1.0 → green (plenty of people per tile)
+    /// t = 0.0 → red (barely above minimum — caught as red above, but boundary-safe)
+    /// </summary>
+    private Color GetCounterGradientColor(float t)
+    {
+        // Color anchors
+        Color green  = new Color(0.2f, 0.9f, 0.2f);
+        Color yellow = new Color(1.0f, 0.9f, 0.0f);
+        Color orange = new Color(1.0f, 0.45f, 0.0f);
+        Color red    = new Color(0.9f, 0.2f, 0.2f);
+
+        if (t >= 0.66f)
+            return Color.Lerp(yellow, green, (t - 0.66f) / 0.34f);  // Yellow → Green
+        else if (t >= 0.33f)
+            return Color.Lerp(orange, yellow, (t - 0.33f) / 0.33f); // Orange → Yellow
+        else
+            return Color.Lerp(red, orange, t / 0.33f);               // Red → Orange
     }
     
     void OnConfirmClicked()

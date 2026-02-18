@@ -22,7 +22,6 @@ public class FireSuppressionAction : PlayerAction
         int suppressedFires = 0;
         foreach (Tile tile in tiles)
         {
-            // Use 'is' for type checking instead of string comparison
             if (tile.entity is FireEntity)
             {
                 tileManager.RemoveEntity(tile);
@@ -30,13 +29,18 @@ public class FireSuppressionAction : PlayerAction
                 Debug.Log($"Fire suppressed at {tile.gridPosition}");
             }
             else if (tile.entity != null)
-            {
-                Debug.LogWarning($"Tile at {tile.gridPosition} has {tile.entity.entityType}, not Fire!");
-            }
+                Debug.LogWarning($"Tile {tile.gridPosition} has {tile.entity.entityType}, not Fire!");
+            else
+                Debug.LogWarning($"Tile {tile.gridPosition} has no entity — fire may have already burned out.");
         }
-        Debug.Log($"Fire suppression complete: {suppressedFires} fires extinguished");
-        return suppressedFires > 0;
+
+        Debug.Log($"Fire suppression complete: {suppressedFires}/{tiles.Count} fires extinguished");
+
+        // Always return true — the team deployed regardless of what they found.
+        // Spending resources on a burnt-out tile is intentional design pressure.
+        return true;
     }
+
 
     
     public override bool CanExecute(List<Tile> tiles)

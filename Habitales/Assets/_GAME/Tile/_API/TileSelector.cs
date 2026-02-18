@@ -143,14 +143,21 @@ public class TileSelector : MonoBehaviour
             }
             else if (!selectedTiles.Contains(tile))
             {
-                // Click on unselected tile = try to select
                 if (CanSelectTile(tile))
                 {
                     SelectTile(tile);
                 }
                 else
                 {
-                    Debug.Log($"Cannot select tile at {tile.gridPosition} (invalid adjacency or max reached)");
+                    // Split reason: cap overflow vs. adjacency failure
+                    if (selectedTiles.Count >= maxSelectableTiles)
+                    {
+                        // Spawn a new tip instance at cursor — each click gets its own
+                        if (OverflowTipSpawner.Instance != null)
+                            OverflowTipSpawner.Instance.SpawnAtCursor("Your team cannot handle this much work at once!");
+                    }
+                    // Adjacency failures are silent (tile just stays unhighlighted)
+                    Debug.Log($"Cannot select tile at {tile.gridPosition}: invalid adjacency or max reached");
                 }
             }
         }
