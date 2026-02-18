@@ -1296,7 +1296,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 540718018}
   m_HandleRect: {fileID: 1888631873}
   m_Direction: 0
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -1351,6 +1351,7 @@ GameObject:
   - component: {fileID: 545579446}
   - component: {fileID: 545579445}
   - component: {fileID: 545579444}
+  - component: {fileID: 545579447}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -1394,10 +1395,10 @@ MonoBehaviour:
   actionManager: {fileID: 651731309}
   zoneManager: {fileID: 510870574}
   resourceManager: {fileID: 1232716294}
-  regionOutlineRenderer: {fileID: 879642654}
-  diffusionRate: 0.11
+  regionOutlineRenderer: {fileID: 545579447}
+  diffusionRate: 0.1
   cascadeIterations: 1
-  zoneUnlockThreshold: 67
+  zoneUnlockThreshold: 45
   collapseThreshold: 90
   criticalHealthThreshold: 33
   thrivingHealthThreshold: 67
@@ -1421,6 +1422,24 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &545579447
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 545579443}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ff18acd39e625b4da2e7c9339ed20d0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  tileManager: {fileID: 769452840}
+  zoneManager: {fileID: 510870574}
+  regionHealthUI: {fileID: 989360326}
+  outlineWidth: 0.13
+  yOffset: 0.017
+  outlineColor: {r: 0, g: 0, b: 0, a: 1}
 --- !u!1 &572028785
 GameObject:
   m_ObjectHideFlags: 0
@@ -2124,8 +2143,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76875ddb850110e4ca4ebca0c763d8ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gridWidth: 7
-  gridHeight: 7
+  gridWidth: 100
+  gridHeight: 100
   tilePrefab: {fileID: 7083731526152937495, guid: 5b81abfd3c9e4ce44b1c8bf682385fd5, type: 3}
   tileParent: {fileID: 1488361861}
   entityVisualizerPrefab: {fileID: 273496731299126067, guid: d90f3f5eec7b5154297d14a8f2689470, type: 3}
@@ -2140,7 +2159,6 @@ GameObject:
   - component: {fileID: 879642651}
   - component: {fileID: 879642652}
   - component: {fileID: 879642653}
-  - component: {fileID: 879642654}
   m_Layer: 5
   m_Name: ActionUIManager
   m_TagString: Untagged
@@ -2195,8 +2213,12 @@ MonoBehaviour:
   multiSelectPanel: {fileID: 1257038722}
   tileCounterText: {fileID: 179119776}
   actionNameText: {fileID: 139293161}
+  daysText: {fileID: 894240762}
   confirmButton: {fileID: 964052314}
   cancelButton: {fileID: 1811266736}
+  warningIcon: {fileID: 353043732}
+  warningTooltipPanel: {fileID: 1756672106}
+  warningTooltipText: {fileID: 1774535313}
   screenOffset: {x: 60, y: 60}
   actionManager: {fileID: 651731309}
   tileSelector: {fileID: 545579444}
@@ -2214,24 +2236,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tipPrefab: {fileID: 347070607887299280, guid: ab180b137eba03a4b85f49db3ddea316, type: 3}
   tipCanvas: {fileID: 414595410}
---- !u!114 &879642654
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 879642650}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6ff18acd39e625b4da2e7c9339ed20d0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  tileManager: {fileID: 769452840}
-  zoneManager: {fileID: 510870574}
-  regionHealthUI: {fileID: 989360326}
-  outlineWidth: 0.25
-  yOffset: 0.01
-  outlineColor: {r: 0, g: 0, b: 0, a: 1}
 --- !u!1 &894240760
 GameObject:
   m_ObjectHideFlags: 0
