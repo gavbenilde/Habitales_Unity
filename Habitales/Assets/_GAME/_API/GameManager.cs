@@ -13,6 +13,9 @@ public class GameManager : MonoBehaviour {
     [SerializeField] private ActionManager actionManager;
     [SerializeField] private ZoneManager zoneManager;
     [SerializeField] private ResourceManager resourceManager;
+    [SerializeField] private RegionOutlineRenderer regionOutlineRenderer;
+
+
     
     [Header("Cascade Settings")]
     [SerializeField] [Range(0.05f, 0.5f)] private float diffusionRate = 0.15f;
@@ -108,6 +111,12 @@ public class GameManager : MonoBehaviour {
             actionManager.OnActionCompleted += HandleActionCompleted;
         }
         
+        if (regionOutlineRenderer == null)
+            regionOutlineRenderer = FindObjectOfType<RegionOutlineRenderer>();
+        if (regionOutlineRenderer == null)
+            Debug.LogError("RegionOutlineRenderer not found!");
+
+        
         if (showDebugInfo) {
             Debug.Log($"GameManager initialized | Systems: TileManager={tileManager != null}, TileSelector={tileSelector != null}, ActionUI={actionUI != null}, ActionManager={actionManager != null}, ZoneManager={zoneManager != null}");
         }
@@ -159,6 +168,8 @@ public class GameManager : MonoBehaviour {
             Debug.Log($"Tile selected: {tile.gridPosition} | Health: {tile.CalculateHealth():F1}%");
         }
         
+        regionOutlineRenderer?.ActivateRegion(tile.regionID); 
+        
         if (actionUI != null) {
             actionUI.ShowActionsForTile(tile, worldPosition);
         }
@@ -168,6 +179,8 @@ public class GameManager : MonoBehaviour {
         if (showDebugInfo) {
             Debug.Log("Tile deselected");
         }
+        
+        regionOutlineRenderer?.ClearRegion();
         
         if (actionUI != null) {
             actionUI.HideActions();
