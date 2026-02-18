@@ -32,8 +32,12 @@ public class ActionUI : MonoBehaviour
     [SerializeField] private GameObject multiSelectPanel;
     [SerializeField] private TextMeshProUGUI tileCounterText;
     [SerializeField] private TextMeshProUGUI actionNameText;
+    [SerializeField] private TextMeshProUGUI daysText;
     [SerializeField] private Button confirmButton;
     [SerializeField] private Button cancelButton;
+    [SerializeField] private GameObject warningIcon;
+    [SerializeField] private GameObject warningTooltipPanel;
+    [SerializeField] private TextMeshProUGUI warningTooltipText;
     
     [Header("Positioning")]
     [SerializeField] private Vector2 screenOffset = new Vector2(150f, 0f);
@@ -81,6 +85,25 @@ public class ActionUI : MonoBehaviour
         {
             cancelButton.onClick.AddListener(OnCancelClicked);
         }
+        
+        if (warningIcon != null)
+        {
+            HoverTooltip tooltip = warningIcon.GetComponent<HoverTooltip>();
+            if (tooltip == null)
+                tooltip = warningIcon.AddComponent<HoverTooltip>();
+
+            tooltip.Configure(
+                warningTooltipPanel,
+                warningTooltipText,
+                "Spreading your team too thin across a large area causes fatigue."
+            );
+        }
+        
+        if (warningTooltipPanel != null)
+        {
+            warningTooltipPanel.SetActive(false);
+        }
+        
         
         // Wire up category buttons
         if (examineButton != null)
@@ -439,6 +462,9 @@ public class ActionUI : MonoBehaviour
         {
             tileCounterText.text  = "";
             tileCounterText.color = Color.white;
+            
+            if (daysText != null) daysText.text = "";
+            SetWarningIconActive(false);
             return;
         }
 
@@ -447,6 +473,12 @@ public class ActionUI : MonoBehaviour
         int personsPerTile = people / selected;  // Integer — fractional people aren't meaningful
 
         tileCounterText.text = $"~{personsPerTile} persons per tile";
+        
+        if (daysText != null && currentAction != null)
+        {
+            int days = currentAction.CalculateDays(people, selected);
+            daysText.text = $"{days} day{(days == 1 ? "" : "s")}";
+        }
 
         // --- Red triggers ---
         bool atMinimum  = personsPerTile <= minPPT;
@@ -454,7 +486,8 @@ public class ActionUI : MonoBehaviour
 
         if (atMinimum || atMaxTiles)
         {
-            tileCounterText.color = new Color(0.9f, 0.2f, 0.2f); // Red
+            tileCounterText.color = new Color(0.9f, 0.2f, 0.2f);
+            daysText.color = new Color(0.9f, 0.2f, 0.2f); // Red
             return;
         }
 
@@ -465,6 +498,8 @@ public class ActionUI : MonoBehaviour
         float t     = Mathf.Clamp01((personsPerTile - minPPT) / range);
 
         tileCounterText.color = GetCounterGradientColor(t);
+        daysText.color = GetCounterGradientColor(t);
+        SetWarningIconActive(t < 0.33f);
     }
     
     /// <summary>
@@ -486,6 +521,16 @@ public class ActionUI : MonoBehaviour
             return Color.Lerp(orange, yellow, (t - 0.33f) / 0.33f); // Orange → Yellow
         else
             return Color.Lerp(red, orange, t / 0.33f);               // Red → Orange
+    }
+    
+    private void SetWarningIconActive(bool active)
+    {
+        if (warningIcon == null) return;
+        warningIcon.SetActive(active);
+
+        // If hiding the icon, also hide the tooltip immediately
+        if (!active && warningTooltipPanel != null)
+            warningTooltipPanel.SetActive(false);
     }
     
     void OnConfirmClicked()

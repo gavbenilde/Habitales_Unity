@@ -9,7 +9,9 @@ public enum TileVisualState
     Hover,              // Faint white glow (hover in single-select)
     Selected,           // Translucent cyan (multi-select selected)
     Adjacent,           // Yellowish-white (adjacent available tile)
-    AdjacentHover       // Adjacent + hover combined (brighter)
+    AdjacentHover,       // Adjacent + hover combined (brighter)
+    RegionHighlight,
+    RegionDimmed
 }
 
 /// <summary>
@@ -58,7 +60,9 @@ public class TileVisualizer : MonoBehaviour
         if (tile == null || materialInstance == null) return;
         
         // If in default state, update to current health color
-        if (currentState == TileVisualState.Default)
+        if (currentState == TileVisualState.Default       ||
+            currentState == TileVisualState.RegionHighlight ||
+            currentState == TileVisualState.RegionDimmed)
         {
             UpdateMaterial();
         }
@@ -103,6 +107,16 @@ public class TileVisualizer : MonoBehaviour
             case TileVisualState.AdjacentHover:
                 // Brighter yellowish-white when hovering over adjacent tile
                 finalColor = Color.Lerp(baseColor, new Color(1f, 1f, 1f), 0.7f);
+                break;
+            
+            case TileVisualState.RegionHighlight:
+                // Brightened version of health color — pop the region tiles forward
+                finalColor = Color.Lerp(baseColor, Color.white, 0.35f);
+                break;
+
+            case TileVisualState.RegionDimmed:
+                // Heavily darkened — push non-region tiles to background
+                finalColor = Color.Lerp(baseColor, Color.black, 0.6f);
                 break;
                 
             default: // TileVisualState.Default
