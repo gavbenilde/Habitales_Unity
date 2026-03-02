@@ -47,6 +47,11 @@ public class ResourceManager : MonoBehaviour
         }
         Instance = this;
     }
+    
+    public void increaseTotalPeople(int people)
+    {
+        totalPeople += people;
+    }
 
     /// <summary>
     /// Returns formatted time display: "Week X, Day Y"

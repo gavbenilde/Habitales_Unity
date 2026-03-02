@@ -7,6 +7,7 @@ public class HardCode : MonoBehaviour
     [SerializeField] private ZoneManager zoneManager;
     [SerializeField] private GameManager gameManager;
     [SerializeField] private ActionManager actionManager;
+    [SerializeField] private ResourceManager resourceManager;
 
     private int rng;
     private bool findSecondZone;
@@ -101,6 +102,7 @@ public class HardCode : MonoBehaviour
             }
         }
 
+        resourceManager.increaseTotalPeople(4);
         findSecondZone = true;
 
         Debug.Log($"? Successfully spawned {tilesSpawned} tiles!");
@@ -151,6 +153,7 @@ public class HardCode : MonoBehaviour
             }
         }
 
+        resourceManager.increaseTotalPeople(4);
         findThirdZone = true;
 
         Debug.Log($"? Successfully spawned {tilesSpawned} tiles!");
