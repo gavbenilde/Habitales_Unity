@@ -1,56 +1,60 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SocialPlatforms;
 
-
-public abstract class TileEntity {
+public abstract class TileEntity
+{
     public string entityType;
     public float health = 100f;
-    
+
     public abstract void OnDailyUpdate(Tile tile, TileManager manager);
 }
 
-public class FireEntity : TileEntity {
+public class FireEntity : TileEntity
+{
     private int daysSinceSpreading = 0;
-    
+
     public FireEntity()
     {
         entityType = "Fire";
         health = 100f;
     }
-    
-    public override void OnDailyUpdate(Tile tile, TileManager manager) {
-        // Daily damage
-        float damage = TileStats.VEGETATION_COVER_MAX * 0.08f; // 8% of VegCover
-        tile.stats.vegetationCover -= damage;
-        tile.stats.vegetationCover = Mathf.Clamp(tile.stats.vegetationCover, 0f, 1f);
-        tile.stats.soilQuality -= damage;
-        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 1f);
+
+    public override void OnDailyUpdate(Tile tile, TileManager manager)
+    {
         
+        float bonusDamage = WeatherManager.Instance != null
+            ? WeatherManager.Instance.GetFireBonusDamage() : 0f;
+        const float BASE_DAMAGE = 8f;
+        float totalDamage = BASE_DAMAGE + bonusDamage;
+
+        tile.stats.vegetationCover    = Mathf.Clamp(tile.stats.vegetationCover    - totalDamage, 0f, 100f);
+        tile.stats.nutrientBalance    = Mathf.Clamp(tile.stats.nutrientBalance    - totalDamage, 0f, 100f);
+        tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity - totalDamage, 0f, 100f);
+
         daysSinceSpreading++;
-        if (daysSinceSpreading >= 2 && tile.stats.vegetationCover < 0.5f) {
-            TrySpread(tile, manager);
+        if (daysSinceSpreading >= 2)
+        {
+            if (tile.stats.vegetationCover > 5f)
+                TrySpread(tile, manager);
             daysSinceSpreading = 0;
         }
-            
-        if (tile.stats.vegetationCover <= 0) {
+        if (tile.stats.vegetationCover <= 0f)
             manager.RemoveEntity(tile);
-        }
     }
-    
+
+
     private void TrySpread(Tile tile, TileManager manager)
     {
+        float spreadMult = WeatherManager.Instance != null
+            ? WeatherManager.Instance.GetFireSpreadMultiplier() : 1f;
+
         foreach (Tile neighbor in manager.GetAdjacentTiles(tile))
         {
-            if (!neighbor.stats.hasFirebreak && Random.value < 0.2f * (1.5 - tile.stats.vegetationCover))
-            {
-                if (neighbor.entity != null)
-                {
-                    manager.RemoveEntity(neighbor);
-                }
+            if (neighbor.tv.Contains(TileOverlayType.Firebreak)) continue;
+            float spreadChance = 0.2f * Mathf.Clamp01(tile.stats.vegetationCover / 100f) * spreadMult;
+            if (UnityEngine.Random.value < spreadChance && neighbor.entity == null)
                 manager.SpawnEntity<FireEntity>(neighbor);
-            }
         }
     }
 }
@@ -58,15 +62,19 @@ public class FireEntity : TileEntity {
 public class VillageEntity : TileEntity
 {
     private int daysPassed = 0;
-    private bool hasFireOccured;
-    
-    public override void OnDailyUpdate(Tile tile, TileManager manager) {
-        // // 12% weekly chance = ~1.8% daily
-        // if (Random.value < 0.018f) {
-        //     SpawnKainginFire(tile, manager);
-        // }
+    private bool hasFireOccurred = false;
+
+    public VillageEntity()
+    {
+        entityType = "Village";
+        health = 100f;
+    }
+
+    public override void OnDailyUpdate(Tile tile, TileManager manager)
+    {
+        if (Random.value < 0.018f)
+            SpawnKainginFire(tile, manager);
         daysPassed++;
-        
         if (daysPassed >= 5)
         {
             SpawnKainginFire(tile, manager);
@@ -74,157 +82,59 @@ public class VillageEntity : TileEntity
         }
     }
 
-    public VillageEntity()
+    private void SpawnKainginFire(Tile tile, TileManager manager)
     {
-        entityType = "Village";
-        health = 100f;
-    }
-    
-    private void SpawnKainginFire(Tile tile, TileManager manager) {
-        // Get tiles within radius 3-5 of village
-        int fireCount = Random.Range(2, 4); // 2-3 fires per event
-        List<Tile> potentialTargets = GetTilesInRadius(tile, manager, 2);
-        
-        for (int i = 0; i < fireCount && potentialTargets.Count > 0; i++) {
-            // Pick random tile from potential targets
-            int randomIndex = Random.Range(0, potentialTargets.Count);
-            Tile target = potentialTargets[randomIndex];
-            
-            // Only spawn fire if tile doesn't have a building
-            if (target.entity == null || 
-                !(target.entity is VillageEntity) && 
-                !(target.entity is FactoryEntity) &&
-                !(target.stats.hasFirebreak)) {
+        int fireCount = Random.Range(2, 4);
+        var potentialTargets = GetTilesInRadius(tile, manager, 2);
+        for (int i = 0; i < fireCount && potentialTargets.Count > 0; i++)
+        {
+            int idx = Random.Range(0, potentialTargets.Count);
+            Tile target = potentialTargets[idx];
+            bool isSafe = target.entity == null ||
+                          (!(target.entity is VillageEntity) && !(target.entity is FactoryEntity));
+            if (isSafe && !target.tv.Contains(TileOverlayType.Firebreak))
                 manager.SpawnEntity<FireEntity>(target);
-            }
-            
-            potentialTargets.RemoveAt(randomIndex);
+            potentialTargets.RemoveAt(idx);
         }
     }
-    
-    // Helper method to get tiles in radius
-    private List<Tile> GetTilesInRadius(Tile center, TileManager manager, int radius) {
-        List<Tile> tilesInRadius = new List<Tile>();
-        
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                if (x == 0 && y == 0) continue; // Skip center tile
-                
-                Tile target = manager.GetTile(
-                    center.gridPosition.x + x,
-                    center.gridPosition.y + y
-                );
-                
-                if (target != null) {
-                    tilesInRadius.Add(target);
-                }
-            }
+
+    private System.Collections.Generic.List<Tile> GetTilesInRadius(Tile center, TileManager manager, int radius)
+    {
+        var result = new System.Collections.Generic.List<Tile>();
+        for (int x = -radius; x <= radius; x++)
+        for (int y = -radius; y <= radius; y++)
+        {
+            if (x == 0 && y == 0) continue;
+            Tile t = manager.GetTile(center.gridPosition.x + x, center.gridPosition.y + y);
+            if (t != null) result.Add(t);
         }
-        
-        return tilesInRadius;
+
+        return result;
     }
 }
 
-public class FactoryEntity : TileEntity {
-    public override void OnDailyUpdate(Tile tile, TileManager manager) {
-        // TODO: Implement factory trash dumping (33% weekly chance)
-        // For now, does nothing
-    }
-}
-
-public class TrashBioEntity : TileEntity {
-    private int daysExisting = 0;
-    
-    public override void OnDailyUpdate(Tile tile, TileManager manager) {
-        daysExisting++;
-        if (daysExisting >= 7) {
-            tile.stats.soilQuality += 10f;
-            manager.RemoveEntity(tile);
-        }
-    }
-}
-
-public class DeadTreeEntity : TileEntity {
-    private const float SOIL_BOOST_PER_DAY = 0.3f;
-    private const int DECOMPOSITION_DAYS = 30;
-    
-    private int daysExisting = 0;
-    
-    public DeadTreeEntity() {
-        entityType = "DeadTree";
-        health = 0f;
-    }
-    
-    public override void OnDailyUpdate(Tile tile, TileManager manager) {
-        daysExisting++;
-        
-        // Decompose → boost soil quality
-        tile.stats.soilQuality += SOIL_BOOST_PER_DAY;
-        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 100f);
-        
-        // Fully decomposed
-        if (daysExisting >= DECOMPOSITION_DAYS) {
-            manager.RemoveEntity(tile);
-            Debug.Log($"Dead tree fully decomposed at {tile.gridPosition}");
-        }
-        
-        manager.UpdateTileVisual(tile);
-    }
-}
-
-public class StumpEntity : TileEntity
+public class TreeEntity : TileEntity
 {
-    private const float SOIL_BOOST_PER_DAY = 0.05f;
+    private const float VEG_BOOST_PER_DAY = 2f;
+    private const float ORG_BOOST_PER_DAY = 1f;
+    private const float BIO_BOOST_PER_DAY = 1f;
+    private const float SOIL_THRESHOLD_DIE = 20f;
 
-    public StumpEntity()
+    public TreeEntity()
     {
-        entityType = "Stump";
-        health = 0f;
-    }
-
-    public override void OnDailyUpdate(Tile tile, TileManager manager)
-    {
-        // Decompose → boost soil quality
-        tile.stats.soilQuality += SOIL_BOOST_PER_DAY;
-        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 100f);
-
-        manager.UpdateTileVisual(tile);
-    }
-}
-
-public class SeedlingEntity : TileEntity
-{
-    private const float SOIL_CONSUMPTION_PER_DAY = 2f; // LOWER this value once DailyUpdate has been fixed
-    private const float SOIL_THRESHOLD_TO_DIE = 30f;
-    private const int DAYS_UNTIL_GROWTH = 5;
-
-    private int daysExisting = 0;
-
-    public SeedlingEntity()
-    {
-        entityType = "Seedling";
+        entityType = "Mature Tree";
         health = 100f;
     }
 
     public override void OnDailyUpdate(Tile tile, TileManager manager)
     {
-        daysExisting++;
-
-        // Consumes nutrients
-        tile.stats.soilQuality -= SOIL_CONSUMPTION_PER_DAY;
-        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 100f);
-
-        // Check if soil is too degraded
-        if (tile.stats.soilQuality < SOIL_THRESHOLD_TO_DIE)
+        tile.stats.vegetationCover = Mathf.Clamp(tile.stats.vegetationCover + VEG_BOOST_PER_DAY, 0f, 100f);
+        tile.stats.soilOrganicMatter = Mathf.Clamp(tile.stats.soilOrganicMatter + ORG_BOOST_PER_DAY, 0f, 100f);
+        tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity + BIO_BOOST_PER_DAY, 0f, 100f);
+        if (tile.stats.soilComposite < SOIL_THRESHOLD_DIE)
         {
-            manager.RemoveEntity(tile);
-            Debug.Log($"Seedling died at {tile.gridPosition} due to poor soil quality");
-        }
-
-        if (daysExisting >= DAYS_UNTIL_GROWTH)
-        {
-            manager.TransformEntity<SaplingEntity>(tile);
-            Debug.Log($"Seedling has grown into a Sapling at {tile.gridPosition}");
+            manager.TransformEntity<DeadTreeEntity>(tile);
+            Debug.Log($"Tree died at {tile.gridPosition} due to poor soil.");
         }
 
         manager.UpdateTileVisual(tile);
@@ -233,11 +143,10 @@ public class SeedlingEntity : TileEntity
 
 public class SaplingEntity : TileEntity
 {
-    private const float SOIL_CONSUMPTION_PER_DAY = 1f; // LOWER this value once DailyUpdate has been fixed
-    private const float SOIL_THRESHOLD_TO_DIE = 25f;
-    private const float SOIL_BOOST_ON_DEATH = 10f;
+    private const float NUTRIENT_CONSUME_PER_DAY = 1f;
+    private const float SOIL_THRESHOLD_DIE = 25f;
+    private const float ORGANIC_BOOST_ON_DEATH = 10f;
     private const int DAYS_UNTIL_GROWTH = 10;
-
     private int daysExisting = 0;
 
     public SaplingEntity()
@@ -249,53 +158,126 @@ public class SaplingEntity : TileEntity
     public override void OnDailyUpdate(Tile tile, TileManager manager)
     {
         daysExisting++;
-
-        // Consumes nutrients
-        tile.stats.soilQuality -= SOIL_CONSUMPTION_PER_DAY;
-        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 100f);
-
-        // Check if soil is too degraded
-        if (tile.stats.soilQuality < SOIL_THRESHOLD_TO_DIE)
+        tile.stats.nutrientBalance = Mathf.Clamp(tile.stats.nutrientBalance - NUTRIENT_CONSUME_PER_DAY, 0f, 100f);
+        if (tile.stats.soilComposite < SOIL_THRESHOLD_DIE)
         {
+            tile.stats.soilOrganicMatter =
+                Mathf.Clamp(tile.stats.soilOrganicMatter + ORGANIC_BOOST_ON_DEATH, 0f, 100f);
             manager.RemoveEntity(tile);
-            tile.stats.soilQuality += SOIL_BOOST_ON_DEATH;
-            tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 100f);
-            Debug.Log($"Sapling died at {tile.gridPosition} due to poor soil quality. It's nutrients spread into the soil underneath.");
+            Debug.Log($"Sapling died at {tile.gridPosition} — nutrients returned to soil.");
+            return;
         }
 
-        if (daysExisting == DAYS_UNTIL_GROWTH)
+        if (daysExisting >= DAYS_UNTIL_GROWTH)
         {
             manager.TransformEntity<TreeEntity>(tile);
-            Debug.Log($"Sapling has grow into a Tree at {tile.gridPosition}");
+            Debug.Log($"Sapling grew into a Tree at {tile.gridPosition}.");
         }
 
         manager.UpdateTileVisual(tile);
     }
 }
 
-public class TreeEntity : TileEntity {
-    private const float VEGETATION_BOOST_PER_DAY = 2f;
-    private const float SOIL_BOOST_PER_DAY = 1f;
-    private const float SOIL_THRESHOLD_TO_DIE = 20f;
-    
-    public TreeEntity() {
-        entityType = "Mature Tree";
+public class SeedlingEntity : TileEntity
+{
+    private const float NUTRIENT_CONSUME_PER_DAY = 2f;
+    private const float SOIL_THRESHOLD_DIE = 30f;
+    private const int DAYS_UNTIL_GROWTH = 5;
+    private int daysExisting = 0;
+
+    public SeedlingEntity()
+    {
+        entityType = "Seedling";
         health = 100f;
     }
-    
-    public override void OnDailyUpdate(Tile tile, TileManager manager) {
-        // Boost vegetation
-        tile.stats.vegetationCover += VEGETATION_BOOST_PER_DAY;
-        tile.stats.vegetationCover = Mathf.Clamp(tile.stats.vegetationCover, 0f, 100f);
-        tile.stats.soilQuality += SOIL_BOOST_PER_DAY;
-        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality, 0f, 100f);
-        
-        // Check if soil is too degraded
-        if (tile.stats.soilQuality < SOIL_THRESHOLD_TO_DIE) {
-            manager.TransformEntity<DeadTreeEntity>(tile);
-            Debug.Log($"Tree died at {tile.gridPosition} due to poor soil quality");
+
+    public override void OnDailyUpdate(Tile tile, TileManager manager)
+    {
+        daysExisting++;
+        tile.stats.nutrientBalance = Mathf.Clamp(tile.stats.nutrientBalance - NUTRIENT_CONSUME_PER_DAY, 0f, 100f);
+        if (tile.stats.soilComposite < SOIL_THRESHOLD_DIE)
+        {
+            manager.RemoveEntity(tile);
+            Debug.Log($"Seedling died at {tile.gridPosition} due to poor soil.");
+            return;
         }
-        
+
+        if (daysExisting >= DAYS_UNTIL_GROWTH)
+        {
+            manager.TransformEntity<SaplingEntity>(tile);
+            Debug.Log($"Seedling grew into a Sapling at {tile.gridPosition}.");
+        }
+
         manager.UpdateTileVisual(tile);
+    }
+}
+
+public class StumpEntity : TileEntity
+{
+    private const float ORGANIC_BOOST_PER_DAY = 0.05f;
+
+    public StumpEntity()
+    {
+        entityType = "Stump";
+        health = 0f;
+    }
+
+    public override void OnDailyUpdate(Tile tile, TileManager manager)
+    {
+        tile.stats.soilOrganicMatter = Mathf.Clamp(tile.stats.soilOrganicMatter + ORGANIC_BOOST_PER_DAY, 0f, 100f);
+        manager.UpdateTileVisual(tile);
+    }
+}
+
+public class DeadTreeEntity : TileEntity
+{
+    private const float ORGANIC_BOOST_PER_DAY = 0.3f;
+    private const int DECOMPOSITION_DAYS = 30;
+    private int daysExisting = 0;
+
+    public DeadTreeEntity()
+    {
+        entityType = "DeadTree";
+        health = 0f;
+    }
+
+    public override void OnDailyUpdate(Tile tile, TileManager manager)
+    {
+        daysExisting++;
+        tile.stats.soilOrganicMatter = Mathf.Clamp(tile.stats.soilOrganicMatter + ORGANIC_BOOST_PER_DAY, 0f, 100f);
+        if (daysExisting >= DECOMPOSITION_DAYS)
+        {
+            manager.RemoveEntity(tile);
+            Debug.Log($"Dead tree fully decomposed at {tile.gridPosition}.");
+        }
+
+        manager.UpdateTileVisual(tile);
+    }
+}
+
+public class TrashBioEntity : TileEntity
+{
+    private int daysExisting = 0;
+
+    public override void OnDailyUpdate(Tile tile, TileManager manager)
+    {
+        daysExisting++;
+        if (daysExisting >= 7)
+        {
+            tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity - 10f, 0f, 100f);
+            manager.RemoveEntity(tile);
+        }
+    }
+}
+
+public class FactoryEntity : TileEntity
+{
+    public FactoryEntity()
+    {
+        entityType = "Factory";
+    }
+
+    public override void OnDailyUpdate(Tile tile, TileManager manager)
+    {
     }
 }

@@ -15,7 +15,6 @@ public class GameManager : MonoBehaviour {
     [SerializeField] private ResourceManager resourceManager;
     [SerializeField] private RegionOutlineRenderer regionOutlineRenderer;
 
-
     
     [Header("Cascade Settings")]
     [SerializeField] [Range(0.05f, 0.5f)] private float diffusionRate = 0.15f;
@@ -36,11 +35,15 @@ public class GameManager : MonoBehaviour {
     [SerializeField] private bool spawnInitialZone = true;
     [SerializeField] private Vector2Int initialZoneOrigin = Vector2Int.zero;
     [SerializeField] private int initialZoneSize = 6; // 6x6 grid
+    [SerializeField] private ZoneProfile zone1Profile;
     
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
-
-    [SerializeField] private HardCode hardCode;
+    
+    
+    
+    private HashSet<int> unlockedRegions = new HashSet<int>();
+    
     
     public static GameManager Instance { get; private set; }
     
@@ -129,43 +132,61 @@ public class GameManager : MonoBehaviour {
     /// Spawns the starting 6x6 zone (Zone 1) with tutorial-friendly stats.
     /// </summary>
     void SpawnInitialZone()
+{
+    Debug.Log("Generating initial Zone 1...");
+
+    List<Tile> zoneTiles = tileManager.SpawnTileArea(
+        initialZoneOrigin.x, initialZoneOrigin.y,
+        initialZoneSize, initialZoneSize,
+        regionID: 1
+    );
+
+    if (zoneTiles.Count == 0)
     {
-        Debug.Log("🌱 Generating initial Zone 1...");
-    
-        // Spawn 6x6 grid at origin (36 tiles)
-        List<Tile> zoneTiles = tileManager.SpawnTileArea(
-            initialZoneOrigin.x, 
-            initialZoneOrigin.y, 
-            initialZoneSize, 
-            initialZoneSize, 
-            regionID: 1
-        );
-    
-        if (zoneTiles.Count == 0)
-        {
-            Debug.LogError("Failed to spawn initial zone!");
-            return;
-        }
-    
-        // Set tutorial-friendly stats (74% tiles should have no issues)
-        foreach (Tile tile in zoneTiles)
-        {
-            tile.stats.soilQuality = Random.Range(20f, 35f);
-            tile.stats.vegetationCover = Random.Range(10f, 30f);
-            tile.stats.contamination = Random.Range(0f, 10f);
-            tile.stats.waterPurity = 100f;
-            tile.stats.hasFirebreak = false;
-        
-            // Initialize issues list
-            tile.issues = new List<IssueType>();
-        
-            tileManager.UpdateTileVisual(tile);
-        }
-        
-        hardCode.SpawnRandomEntityInFirstZone();
-    
-        Debug.Log($"✓ Zone 1 spawned: {zoneTiles.Count} tiles at {initialZoneOrigin}");
+        Debug.LogError("Failed to spawn initial zone!");
+        return;
     }
+
+    // Apply Zone 1 profile stats if assigned, otherwise fall back to hardcoded defaults
+    foreach (Tile tile in zoneTiles)
+    {
+        if (zone1Profile != null)
+        {
+            tile.stats.nutrientBalance    = Random.Range(zone1Profile.nutrientBalanceRange.x,    zone1Profile.nutrientBalanceRange.y);
+            tile.stats.soilOrganicMatter  = Random.Range(zone1Profile.soilOrganicMatterRange.x,  zone1Profile.soilOrganicMatterRange.y);
+            tile.stats.soilStructure      = Random.Range(zone1Profile.soilStructureRange.x,      zone1Profile.soilStructureRange.y);
+            tile.stats.biologicalActivity = Random.Range(zone1Profile.biologicalActivityRange.x, zone1Profile.biologicalActivityRange.y);
+            tile.stats.waterDynamics      = Random.Range(zone1Profile.waterDynamicsRange.x,      zone1Profile.waterDynamicsRange.y);
+            tile.stats.erosionResistance  = Random.Range(zone1Profile.erosionResistanceRange.x,  zone1Profile.erosionResistanceRange.y);
+            tile.stats.vegetationCover    = Random.Range(zone1Profile.vegetationCoverRange.x,    zone1Profile.vegetationCoverRange.y);
+            tile.stats.contamination      = Random.Range(zone1Profile.contaminationRange.x,      zone1Profile.contaminationRange.y);
+        }
+        else
+        {
+            // Fallback defaults — friendlier than later zones
+            tile.stats.nutrientBalance    = Random.Range(20f, 35f);
+            tile.stats.soilOrganicMatter  = Random.Range(15f, 30f);
+            tile.stats.soilStructure      = Random.Range(20f, 35f);
+            tile.stats.biologicalActivity = Random.Range(10f, 25f);
+            tile.stats.waterDynamics      = Random.Range(20f, 35f);
+            tile.stats.erosionResistance  = Random.Range(15f, 30f);
+            tile.stats.vegetationCover    = Random.Range(10f, 30f);
+            tile.stats.contamination      = Random.Range(0f, 10f);
+        }
+
+        tile.issues = new List<TileIssue>();
+        tile.tv     = new List<TileOverlayType>();
+        tileManager.UpdateTileVisual(tile);
+    }
+
+    // Building + issue placement via profile (same pipeline as all other zones)
+    if (zone1Profile != null)
+        zoneManager.InitializeZone(zoneTiles, zone1Profile);
+
+
+    Debug.Log($"Zone 1 spawned — {zoneTiles.Count} tiles at {initialZoneOrigin}");
+}
+
     
     void HandleTileSelected(Tile tile, Vector3 worldPosition) {
         if (showDebugInfo) {
@@ -197,50 +218,45 @@ public class GameManager : MonoBehaviour {
     /// 2. Check zone health
     /// 3. Trigger zone generation if threshold met
     /// </summary>
-    void HandleActionCompleted(Tile targetTile, int daysElapsed) 
+    void HandleActionCompleted(Tile targetTile, int daysElapsed)
     {
         if (targetTile == null || isGameOver) return;
-        int regionID = targetTile.regionID;
-    
-        if (showDebugInfo) 
-        {
-            Debug.Log($"─── Daily Update for Region {regionID} ───");
-        }
-    
-        // Step 1: Cascade tile stats
-        CascadeTileUpdates(regionID);
-        
-        CheckFirebreakStatus(regionID);
-    
-        // Step 2: Update all entities MULTIPLE TIMES based on how many days elapsed
+
+        if (showDebugInfo)
+            Debug.Log($"─── Action Complete — Updating World ───");
+
+        // Step 1: Cascade ALL tiles across ALL regions
+        CascadeTileUpdates();
+
+        // Step 3: Update all entities for every day elapsed
         for (int day = 0; day < daysElapsed; day++)
-        {
             tileManager.UpdateAllEntities();
-        }
-    
-        // Step 3: Check collapse condition
+
+        // Step 4: Refresh visuals for ALL tiles
+        foreach (Tile tile in tileManager.GetAllTiles())
+            tileManager.UpdateTileVisual(tile);
+
+        // Step 5: Check collapse condition
         CheckCollapseCondition();
-    
-        // Step 4: Check zone health
-        float regionHealth = zoneManager.GetRegionHealth(regionID);
-    
-        // Step 5: Check unlock
-        if (regionHealth >= zoneUnlockThreshold) 
+
+        // Step 6: Check zone unlock against TOTAL average health across all zones
+        float totalAverageHealth = zoneManager.GetTotalAverageHealth();
+
+        if (showDebugInfo)
+            Debug.Log($"Total World Health: {totalAverageHealth:F1} / Unlock Threshold: {zoneUnlockThreshold}");
+
+        if (totalAverageHealth >= zoneUnlockThreshold && !unlockedRegions.Contains(zoneManager.NextRegionID - 1))
         {
-            Debug.Log($"★ NEW ZONE UNLOCKED! ★");
-            // zoneManager.GenerateNewZone(regionID);
-            
-            if (regionID == 1)
-                hardCode.GenerateSecondZone();
-            else if (regionID == 2)
-                hardCode.GenerateThirdZone();
+            int newRegionFrom = zoneManager.NextRegionID - 1;
+            unlockedRegions.Add(newRegionFrom);
+            Debug.Log($"NEW ZONE UNLOCKED! World avg health {totalAverageHealth:F1} passed threshold.");
+            zoneManager.GenerateNewZone(newRegionFrom);
         }
-    
-        if (showDebugInfo) 
-        {
+
+        if (showDebugInfo)
             Debug.Log($"═══ UPDATE COMPLETE ═══\n");
-        }
     }
+
 
     
     /// <summary>
@@ -298,33 +314,8 @@ public class GameManager : MonoBehaviour {
         }
         return thrivingCount;
     }
-    
-    /// <summary>
-    /// Disables firebreaks on tiles where vegetation exceeds 66%.
-    /// Called after cascade to check all tiles in the region.
-    /// </summary>
-    void CheckFirebreakStatus(int regionID)
-    {
-        List<Tile> regionTiles = tileManager.GetTilesInRegion(regionID);
-    
-        int disabledCount = 0;
 
-        foreach (Tile tile in regionTiles)
-        {
-            if (tile.stats.hasFirebreak && tile.stats.vegetationCover > 66f)
-            {
-                tile.stats.hasFirebreak = false;
-                tileManager.UpdateTileVisual(tile);
-                disabledCount++;
 
-                if (showDebugInfo)
-                    Debug.Log($"Firebreak at {tile.gridPosition} overgrown by vegetation ({tile.stats.vegetationCover:F1}%)");
-            }
-        }
-
-        if (disabledCount > 0 && showDebugInfo)
-            Debug.Log($"Disabled {disabledCount} firebreaks due to vegetation regrowth (>66%)");
-    }
 
 
     /// <summary>
@@ -353,17 +344,13 @@ public class GameManager : MonoBehaviour {
     void HandlePeopleFatigued(int count, int returnDay)
     {
         if (showDebugInfo)
-        {
-            Debug.Log($"😴 {count} people fatigued | Return: Day {returnDay}");
-        }
+            Debug.Log($"{count} worker(s) fatigued. Return by day {returnDay}.");
     }
 
     void HandlePeopleRecovered(int count)
     {
         if (showDebugInfo)
-        {
-            Debug.Log($"✨ {count} people recovered!");
-        }
+            Debug.Log($"{count} worker(s) recovered! Available: {resourceManager.AvailablePeople}/{resourceManager.TotalPeople}");
     }
 
     void HandleGameOver()
@@ -386,120 +373,116 @@ public class GameManager : MonoBehaviour {
     /// Cascades tile stat changes across a region using diffusion.
     /// Each tile lerps toward the average of its 4 neighbors.
     /// </summary>
-    void CascadeTileUpdates(int regionID) {
-        List<Tile> regionTiles = tileManager.GetTilesInRegion(regionID);
-        
-        if (regionTiles.Count == 0) {
-            Debug.LogWarning($"No tiles in region {regionID} to cascade!");
-            return;
-        }
-        
-        // Run multiple iterations for visible propagation
-        for (int iteration = 0; iteration < cascadeIterations; iteration++) {
-            // Store new stats separately to avoid order-dependent results
+    void CascadeTileUpdates()
+    {
+        List<Tile> allTiles = tileManager.GetAllTiles();
+        if (allTiles.Count == 0) return;
+
+        for (int iteration = 0; iteration < cascadeIterations; iteration++)
+        {
             Dictionary<Tile, TileStats> newStats = new Dictionary<Tile, TileStats>();
-            
-            foreach (Tile tile in regionTiles) {
+
+            foreach (Tile tile in allTiles)
+            {
                 TileStats targetStats = CalculateTargetStats(tile);
-                TileStats lerpedStats = LerpStats(tile.stats, targetStats, diffusionRate);
-                newStats[tile] = lerpedStats;
+                newStats[tile] = LerpStats(tile.stats, targetStats, diffusionRate);
             }
-            
-            // Apply all changes simultaneously
-            foreach (var kvp in newStats) {
+
+            foreach (var kvp in newStats)
+            {
                 Tile tile = kvp.Key;
-                TileStats newStat = kvp.Value;
-                
-                tile.stats.soilQuality = newStat.soilQuality;
-                tile.stats.vegetationCover = newStat.vegetationCover;
-                tile.stats.contamination = newStat.contamination;
-                tile.stats.waterPurity = newStat.waterPurity;
-                
-                // Update visuals
-                tileManager.UpdateTileVisual(tile);
+                TileStats ns = kvp.Value;
+                tile.stats.nutrientBalance    = ns.nutrientBalance;
+                tile.stats.soilOrganicMatter  = ns.soilOrganicMatter;
+                tile.stats.soilStructure      = ns.soilStructure;
+                tile.stats.biologicalActivity = ns.biologicalActivity;
+                tile.stats.waterDynamics      = ns.waterDynamics;
+                tile.stats.erosionResistance  = ns.erosionResistance;
+                tile.stats.vegetationCover    = ns.vegetationCover;
+                tile.stats.contamination      = ns.contamination;
+
+                // Sync contamination overlay
+                if (tile.stats.contamination > 60f && !tile.tv.Contains(TileOverlayType.Contaminated))
+                    tile.tv.Add(TileOverlayType.Contaminated);
+                else if (tile.stats.contamination <= 60f && tile.tv.Contains(TileOverlayType.Contaminated))
+                    tile.tv.Remove(TileOverlayType.Contaminated);
             }
         }
-        
-        if (showDebugInfo) {
-            Debug.Log($"✓ Cascade complete ({cascadeIterations} iterations, {regionTiles.Count} tiles)");
-        }
+
+        if (showDebugInfo)
+            Debug.Log($"Cascade complete — {cascadeIterations} iterations, {allTiles.Count} tiles.");
     }
+
     
     /// <summary>
     /// Calculates target stats by averaging 4-directional neighbors.
     /// </summary>
-    TileStats CalculateTargetStats(Tile tile) {
+    TileStats CalculateTargetStats(Tile tile)
+    {
         List<Tile> neighbors = tileManager.GetAdjacentTiles(tile);
-        
-        if (neighbors.Count == 0) {
-            return CloneStats(tile.stats);
+        if (neighbors.Count == 0) return CloneStats(tile.stats);
+
+        float n = 0, o = 0, s = 0, b = 0, w = 0, e = 0, v = 0, c = 0;
+        foreach (Tile nb in neighbors)
+        {
+            n += nb.stats.nutrientBalance;    o += nb.stats.soilOrganicMatter;
+            s += nb.stats.soilStructure;      b += nb.stats.biologicalActivity;
+            w += nb.stats.waterDynamics;      e += nb.stats.erosionResistance;
+            v += nb.stats.vegetationCover;    c += nb.stats.contamination;
         }
-        
-        float avgSoil = 0f;
-        float avgVeg = 0f;
-        float avgContam = 0f;
-        float avgWater = 0f;
-        
-        foreach (Tile neighbor in neighbors) {
-            avgSoil += neighbor.stats.soilQuality;
-            avgVeg += neighbor.stats.vegetationCover;
-            avgContam += neighbor.stats.contamination;
-            avgWater += neighbor.stats.waterPurity;
-        }
-        
         int count = neighbors.Count;
         return new TileStats {
-            soilQuality = avgSoil / count,
-            vegetationCover = avgVeg / count,
-            contamination = avgContam / count,
-            waterPurity = avgWater / count,
-            hasFirebreak = tile.stats.hasFirebreak
+            nutrientBalance    = n / count, soilOrganicMatter  = o / count,
+            soilStructure      = s / count, biologicalActivity = b / count,
+            waterDynamics      = w / count, erosionResistance  = e / count,
+            vegetationCover    = v / count, contamination      = c / count
         };
     }
+
     
     /// <summary>
     /// Lerps from current stats toward target stats by diffusionRate.
     /// </summary>
-    TileStats LerpStats(TileStats current, TileStats target, float rate) {
-        return new TileStats {
-            soilQuality = Mathf.Lerp(current.soilQuality, target.soilQuality, rate),
-            vegetationCover = Mathf.Lerp(current.vegetationCover, target.vegetationCover, rate),
-            contamination = Mathf.Lerp(current.contamination, target.contamination, rate),
-            waterPurity = Mathf.Lerp(current.waterPurity, target.waterPurity, rate),
-            hasFirebreak = current.hasFirebreak
-        };
-    }
+    TileStats LerpStats(TileStats cur, TileStats tgt, float rate) => new TileStats
+    {
+        nutrientBalance    = Mathf.Lerp(cur.nutrientBalance,    tgt.nutrientBalance,    rate),
+        soilOrganicMatter  = Mathf.Lerp(cur.soilOrganicMatter,  tgt.soilOrganicMatter,  rate),
+        soilStructure      = Mathf.Lerp(cur.soilStructure,      tgt.soilStructure,      rate),
+        biologicalActivity = Mathf.Lerp(cur.biologicalActivity, tgt.biologicalActivity, rate),
+        waterDynamics      = Mathf.Lerp(cur.waterDynamics,      tgt.waterDynamics,      rate),
+        erosionResistance  = Mathf.Lerp(cur.erosionResistance,  tgt.erosionResistance,  rate),
+        vegetationCover    = Mathf.Lerp(cur.vegetationCover,    tgt.vegetationCover,    rate),
+        contamination      = Mathf.Lerp(cur.contamination,      tgt.contamination,      rate)
+    };
+
     
     /// <summary>
     /// Helper to clone TileStats.
     /// </summary>
-    TileStats CloneStats(TileStats original) {
-        return new TileStats {
-            soilQuality = original.soilQuality,
-            vegetationCover = original.vegetationCover,
-            contamination = original.contamination,
-            waterPurity = original.waterPurity,
-            hasFirebreak = original.hasFirebreak
-        };
-    }
+    TileStats CloneStats(TileStats o) => new TileStats
+    {
+        nutrientBalance    = o.nutrientBalance,   soilOrganicMatter  = o.soilOrganicMatter,
+        soilStructure      = o.soilStructure,     biologicalActivity = o.biologicalActivity,
+        waterDynamics      = o.waterDynamics,     erosionResistance  = o.erosionResistance,
+        vegetationCover    = o.vegetationCover,   contamination      = o.contamination
+    };
+
     
     [ContextMenu("Test Collapse")]
     void TestCollapse()
     {
         List<Tile> allTiles = tileManager.GetAllTiles();
-        int targetCount = Mathf.CeilToInt(allTiles.Count * 0.91f); // 91%
-    
+        int targetCount = Mathf.CeilToInt(allTiles.Count * 0.91f);
         for (int i = 0; i < targetCount; i++)
         {
-            // Force tiles to critical health
-            allTiles[i].stats.soilQuality = 10f;
-            allTiles[i].stats.vegetationCover = 10f;
-            allTiles[i].stats.contamination = 90f;
+            allTiles[i].stats.nutrientBalance    = 10f; allTiles[i].stats.soilOrganicMatter  = 10f;
+            allTiles[i].stats.soilStructure      = 10f; allTiles[i].stats.biologicalActivity = 10f;
+            allTiles[i].stats.waterDynamics      = 10f; allTiles[i].stats.erosionResistance  = 10f;
+            allTiles[i].stats.vegetationCover    = 10f; allTiles[i].stats.contamination      = 90f;
             tileManager.UpdateTileVisual(allTiles[i]);
         }
-    
         Debug.Log($"Set {targetCount}/{allTiles.Count} tiles to critical");
-        CheckCollapseCondition(); // Manually trigger check
+        CheckCollapseCondition();
     }
     
     [ContextMenu("Test Year Complete")]

@@ -10,9 +10,9 @@ using UnityEngine;
 public class TileManager : MonoBehaviour
 {
     [Header("Grid Configuration")] [SerializeField]
-    private int gridWidth = 10;
+    private int gridWidth = 50;
 
-    [SerializeField] private int gridHeight = 10;
+    [SerializeField] private int gridHeight = 50;
 
     [Header("Visualization (Optional)")] [SerializeField]
     private GameObject tilePrefab; // 3D tile prefab with TileVisualizer
@@ -145,13 +145,17 @@ public class TileManager : MonoBehaviour
     {
         return new TileStats
         {
-            soilQuality = Random.Range(10f, 20f),
-            vegetationCover = Random.Range(60f, 70f), //0f - 50f
-            contamination = Random.Range(0f, 20f),
-            waterPurity = 100f,
-            hasFirebreak = false
+            nutrientBalance    = Random.Range(10f, 20f),
+            soilOrganicMatter  = Random.Range(10f, 20f),
+            soilStructure      = Random.Range(10f, 20f),
+            biologicalActivity = Random.Range(5f,  15f),
+            waterDynamics      = Random.Range(10f, 20f),
+            erosionResistance  = Random.Range(5f,  15f),
+            vegetationCover    = Random.Range(60f, 70f),
+            contamination      = Random.Range(0f,  20f)
         };
     }
+
 
     #endregion
 
@@ -306,15 +310,23 @@ public class TileManager : MonoBehaviour
     /// <summary>
     /// Applies an IssueConfig to a tile (for zone generation).
     /// </summary>
-    public void ApplyIssue(Tile tile, IssueConfig issueConfig)
+    public void ApplyIssue(Tile tile, TileIssue issue)
     {
-        if (tile == null || issueConfig == null) return;
-
-        issueConfig.ApplyToTile(tile);
-        tile.issues.Add(issueConfig.type);
-
+        if (tile == null || issue == null) return;
+        tile.stats.nutrientBalance    *= issue.nutrientMult;
+        tile.stats.soilOrganicMatter  *= issue.organicMult;
+        tile.stats.soilStructure      *= issue.structureMult;
+        tile.stats.biologicalActivity *= issue.biologicalMult;
+        tile.stats.waterDynamics      *= issue.waterDynMult;
+        tile.stats.erosionResistance  *= issue.erosionMult;
+        tile.stats.vegetationCover    *= issue.vegetationMult;
+        tile.stats.contamination       = Mathf.Min(100f, tile.stats.contamination + issue.contaminationAdd);
+        tile.issues.Add(issue);
+        if (tile.stats.contamination > 60f && !tile.tv.Contains(TileOverlayType.Contaminated))
+            tile.tv.Add(TileOverlayType.Contaminated);
         UpdateTileVisual(tile);
     }
+
 
     /// <summary>
     /// Modifies tile stats directly and updates visual.
@@ -322,13 +334,21 @@ public class TileManager : MonoBehaviour
     public void ModifyTileStats(Tile tile, float soilDelta = 0, float vegDelta = 0, float contamDelta = 0)
     {
         if (tile == null) return;
-
-        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality + soilDelta, 0f, 100f);
-        tile.stats.vegetationCover = Mathf.Clamp(tile.stats.vegetationCover + vegDelta, 0f, 100f);
-        tile.stats.contamination = Mathf.Clamp(tile.stats.contamination + contamDelta, 0f, 100f);
-
+        if (soilDelta != 0)
+        {
+            float perStat = soilDelta / 6f;
+            tile.stats.nutrientBalance    = Mathf.Clamp(tile.stats.nutrientBalance    + perStat, 0f, 100f);
+            tile.stats.soilOrganicMatter  = Mathf.Clamp(tile.stats.soilOrganicMatter  + perStat, 0f, 100f);
+            tile.stats.soilStructure      = Mathf.Clamp(tile.stats.soilStructure      + perStat, 0f, 100f);
+            tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity + perStat, 0f, 100f);
+            tile.stats.waterDynamics      = Mathf.Clamp(tile.stats.waterDynamics      + perStat, 0f, 100f);
+            tile.stats.erosionResistance  = Mathf.Clamp(tile.stats.erosionResistance  + perStat, 0f, 100f);
+        }
+        tile.stats.vegetationCover = Mathf.Clamp(tile.stats.vegetationCover + vegDelta,   0f, 100f);
+        tile.stats.contamination   = Mathf.Clamp(tile.stats.contamination   + contamDelta, 0f, 100f);
         UpdateTileVisual(tile);
     }
+
 
     #endregion
 
@@ -488,15 +508,11 @@ public class TileManager : MonoBehaviour
     public void UpdateTileVisual(Tile tile)
     {
         if (tile == null || !tileGameObjects.ContainsKey(tile)) return;
-
         GameObject tileObj = tileGameObjects[tile];
         TileVisualizer visualizer = tileObj.GetComponent<TileVisualizer>();
-
-        if (visualizer != null)
-        {
-            visualizer.UpdateVisuals();
-            visualizer.UpdateFirebreakVisual(tile.stats.hasFirebreak);
-        }
+        if (visualizer == null) return;
+        visualizer.UpdateVisuals();
+        visualizer.UpdateOverlays(tile.tv);
     }
 
     /// <summary>

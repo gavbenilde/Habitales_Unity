@@ -1,13 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// public enum TileSelectionMethod
-// {
-//     Single,          // Single tile only
-//     Floodfill,       // Floodfill from selected tile
-//     CustomMultiple,  // Player manually selects each tile
-//     AutoRegion       // Automatically select all matching tiles in region
-// }
 
 public enum SelectionMode
 {

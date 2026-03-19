@@ -53,44 +53,32 @@ public class ActionManager : MonoBehaviour
         }
 
         if (showDebugInfo)
-        {
-            Debug.Log($"═══ ACTION: {action.ActionName} on {targetTiles.Count} tiles ═══");
-        }
+            Debug.Log($"ACTION: {action.ActionName} on {targetTiles.Count} tiles");
 
-        // Check if we can afford it
         ResourceManager rm = ResourceManager.Instance;
         int availablePeople = rm.AvailablePeople;
         int maxTiles = action.GetMaxTiles(availablePeople);
-        
-        
         if (targetTiles.Count > maxTiles)
         {
             Debug.LogWarning($"Not enough people! Need {action.MinPeoplePerTile * targetTiles.Count}, have {availablePeople}");
             return;
         }
-        
-        // Calculate time cost
-        int days = action.CalculateDays(availablePeople, targetTiles.Count);
-        
+
+        // Calculate days, then apply weather work speed multiplier
+        int baseDays = action.CalculateDays(availablePeople, targetTiles.Count);
+        float weatherMult = WeatherManager.Instance != null
+            ? WeatherManager.Instance.GetWorkSpeedMultiplier()
+            : 1f;
+        int days = Mathf.Max(1, Mathf.RoundToInt(baseDays * weatherMult));
+
         if (showDebugInfo)
-        {
-            Debug.Log($"Tiles: {targetTiles.Count} | People: {availablePeople} | Days: {days}");
-        }
+            Debug.Log($"Tiles: {targetTiles.Count} | People: {availablePeople} | Days: {baseDays} → {days} (weather ×{weatherMult:F2})");
 
-        // Execute the action
         bool success = action.Execute(targetTiles, tileManager);
-        
-        if (!success)
-        {
-            Debug.LogWarning($"Action '{action.ActionName}' failed!");
-            return;
-        }
+        if (!success) { Debug.LogWarning($"Action {action.ActionName} failed!"); return; }
 
-        // Spend resources
         rm.AdvanceTime(days);
         rm.ApplyFatigue(targetTiles.Count, days, action.FatigueMultiplierPerTile);
-
-        // Notify GameManager that action completed
         OnActionCompleted?.Invoke(targetTiles[0], days);
     }
 }

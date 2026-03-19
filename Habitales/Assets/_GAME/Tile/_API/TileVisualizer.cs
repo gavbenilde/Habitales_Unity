@@ -1,203 +1,132 @@
+using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Visual states for tile selection and interaction.
-/// </summary>
-public enum TileVisualState
+public class TileVisualizer : MonoBehaviour
 {
-    Default,            // Normal health-based color
-    Hover,              // Faint white glow (hover in single-select)
-    Selected,           // Translucent cyan (multi-select selected)
-    Adjacent,           // Yellowish-white (adjacent available tile)
-    AdjacentHover,       // Adjacent + hover combined (brighter)
-    RegionHighlight,
-    RegionDimmed
-}
+    // ── Refs ──────────────────────────────────────────────────────────────────
+    private MeshRenderer meshRenderer;
+    private Material     materialInstance;
+    private Tile         tile;
+    private TileVisualState currentState = TileVisualState.Default;
 
-/// <summary>
-/// Manages tile visual appearance based on health and selection state.
-/// Uses color tinting on a single material instance.
-/// </summary>
-public class TileVisualizer : MonoBehaviour 
-{
-    [Header("Rendering")]
-    [SerializeField] private MeshRenderer meshRenderer;
-    
-    [Header("Firebreak Visual")]
+    // ── Firebreak ─────────────────────────────────────────────────────────────
+    [Header("Overlays")]
     [SerializeField] private GameObject firebreakPrefab;
     private GameObject firebreakInstance;
-    
-    private Tile tile;
-    private TileVisualState currentState = TileVisualState.Default;
-    private Material materialInstance;
-    
-    void Awake() 
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    void Awake()
     {
-        if (meshRenderer == null) 
-        {
-            meshRenderer = GetComponent<MeshRenderer>();
-        }
-        
-        // Create material instance to avoid shared material pollution
+        meshRenderer = GetComponent<MeshRenderer>();
         if (meshRenderer != null)
-        {
-            materialInstance = meshRenderer.material; // This creates instance
-        }
+            materialInstance = meshRenderer.material;
     }
-    
-    public void Initialize(Tile tileData) 
+
+    public void Initialize(Tile tileData)
     {
         tile = tileData;
         SetVisualState(TileVisualState.Default);
         UpdateVisuals();
     }
-    
-    /// <summary>
-    /// Updates the tile's color based on health (for Default state).
-    /// </summary>
-    public void UpdateVisuals() 
+
+    // ── Called by TileManager.UpdateTileVisual ────────────────────────────────
+    public void UpdateVisuals()
     {
         if (tile == null || materialInstance == null) return;
-        
-        // If in default state, update to current health color
-        if (currentState == TileVisualState.Default       ||
+        if (currentState == TileVisualState.Default      ||
             currentState == TileVisualState.RegionHighlight ||
             currentState == TileVisualState.RegionDimmed)
-        {
             UpdateMaterial();
-        }
     }
-    
-    /// <summary>
-    /// Sets the visual state and updates the material accordingly.
-    /// </summary>
+
+    // ── Visual state ──────────────────────────────────────────────────────────
     public void SetVisualState(TileVisualState state)
     {
         currentState = state;
         UpdateMaterial();
     }
-    
-    /// <summary>
-    /// Applies the correct color based on current state.
-    /// </summary>
+
     void UpdateMaterial()
     {
         if (meshRenderer == null || materialInstance == null || tile == null) return;
-        
+
+        // Base health colour
         Color baseColor = GetHealthColor(tile.CalculateHealth());
+
+        // Contamination tint — blends toward sickly purple above 60
+        if (tile.stats.contamination > 60f)
+        {
+            float t = Mathf.Clamp01((tile.stats.contamination - 60f) / 40f);
+            Color contaminationTint = new Color(0.45f, 0.18f, 0.50f);
+            baseColor = Color.Lerp(baseColor, contaminationTint, t * 0.65f);
+        }
+
         Color finalColor;
-        
         switch (currentState)
         {
             case TileVisualState.Hover:
-                // Faint white glow (single-select hover)
-                finalColor = Color.Lerp(baseColor, Color.white, 0.8f);
-                break;
-                
+                finalColor = Color.Lerp(baseColor, Color.white, 0.8f);              break;
             case TileVisualState.Selected:
-                // Cyan highlight
-                finalColor = Color.Lerp(baseColor, new Color(0f, 0.8f, 0.8f, 1f), 0.7f);
-                break;
-                
+                finalColor = Color.Lerp(baseColor, new Color(0f, 0.8f, 0.8f, 1f), 0.7f); break;
             case TileVisualState.Adjacent:
-                // Yellowish-white for adjacent available tiles
-                finalColor = Color.Lerp(baseColor, new Color(1f, 1f, 1f), 0.5f);
-                break;
-                
+                finalColor = Color.Lerp(baseColor, new Color(1f, 1f, 1f, 0.5f), 0.5f);  break;
             case TileVisualState.AdjacentHover:
-                // Brighter yellowish-white when hovering over adjacent tile
-                finalColor = Color.Lerp(baseColor, new Color(1f, 1f, 1f), 0.7f);
-                break;
-            
+                finalColor = Color.Lerp(baseColor, new Color(1f, 1f, 1f, 0.7f), 0.7f);  break;
             case TileVisualState.RegionHighlight:
-                // Brightened version of health color — pop the region tiles forward
-                finalColor = Color.Lerp(baseColor, Color.white, 0.35f);
-                break;
-
+                finalColor = Color.Lerp(baseColor, Color.white, 0.35f);             break;
             case TileVisualState.RegionDimmed:
-                // Heavily darkened — push non-region tiles to background
-                finalColor = Color.Lerp(baseColor, Color.black, 0.6f);
-                break;
-                
-            default: // TileVisualState.Default
-                finalColor = baseColor;
-                break;
+                finalColor = Color.Lerp(baseColor, Color.black, 0.6f);              break;
+            default: // Default
+                finalColor = baseColor;                                              break;
         }
-        
         materialInstance.color = finalColor;
     }
-    
-    /// <summary>
-    /// Shows or hides the firebreak model on this tile.
-    /// Called automatically when tile.stats.hasFirebreak changes.
-    /// </summary>
-    public void UpdateFirebreakVisual(bool hasFirebreak)
+
+    // ── Overlay list reader ───────────────────────────────────────────────────
+    /// Called by TileManager.UpdateTileVisual after every stat change.
+    /// Reads tile.tv and syncs the firebreak model.
+    /// Contamination tint is driven by tile.stats.contamination in UpdateMaterial
+    /// so TileOverlayType.Contaminated acts as a marker only (e.g. for Examine).
+    public void UpdateOverlays(List<TileOverlayType> tv)
     {
+        bool hasFirebreak = tv != null && tv.Contains(TileOverlayType.Firebreak);
+
         if (hasFirebreak && firebreakInstance == null)
         {
-            // Spawn firebreak model
             if (firebreakPrefab != null)
             {
                 firebreakInstance = Instantiate(firebreakPrefab, transform);
-                firebreakInstance.transform.localPosition = new Vector3(0, 2, 0); // Sits on tile surface
+                firebreakInstance.transform.localPosition = new Vector3(0f, 0.05f, 0f);
                 firebreakInstance.transform.localRotation = Quaternion.identity;
                 firebreakInstance.name = "Firebreak";
             }
             else
-            {
-                Debug.LogWarning("Firebreak prefab not assigned in TileVisualizer!");
-            }
+                Debug.LogWarning($"TileVisualizer: firebreakPrefab not assigned on {gameObject.name}!");
         }
         else if (!hasFirebreak && firebreakInstance != null)
         {
-            // Destroy firebreak model
             Destroy(firebreakInstance);
             firebreakInstance = null;
         }
     }
-    
-    /// <summary>
-    /// Calculates health-based color (red < 33% < yellow < 67% < green).
-    /// </summary>
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
     Color GetHealthColor(float health)
     {
-        if (health < 33f)
-        {
-            return new Color(0.8f, 0.2f, 0.2f); // Red (Critical)
-        }
-        else if (health < 67f)
-        {
-            return new Color(0.9f, 0.8f, 0.3f); // Yellow (Degraded)
-        }
-        else
-        {
-            return new Color(0.3f, 0.8f, 0.3f); // Green (Thriving)
-        }
+        if (health < 33f) return new Color(0.8f, 0.2f, 0.2f);  // Red   — Critical
+        if (health < 67f) return new Color(0.9f, 0.8f, 0.3f);  // Yellow — Degraded
+        return             new Color(0.3f, 0.8f, 0.3f);         // Green  — Thriving
     }
-    
-    /// <summary>
-    /// Gets the base health color (for compatibility).
-    /// </summary>
-    public Color GetBaseColor()
-    {
-        if (tile == null) return Color.white;
-        return GetHealthColor(tile.CalculateHealth());
-    }
-    
-    // Getters
-    public Tile GetTileData() => tile;
+
+    public Color GetBaseColor() =>
+        tile != null ? GetHealthColor(tile.CalculateHealth()) : Color.white;
+
+    public Tile           GetTileData()    => tile;
     public TileVisualState GetCurrentState() => currentState;
-    
-    void OnDestroy() 
+
+    void OnDestroy()
     {
-        if (materialInstance != null) 
-        {
-            Destroy(materialInstance);
-        }
-        
-        if (firebreakInstance != null)
-        {
-            Destroy(firebreakInstance);
-        }
+        if (materialInstance != null) Destroy(materialInstance);
+        if (firebreakInstance != null) Destroy(firebreakInstance);
     }
 }

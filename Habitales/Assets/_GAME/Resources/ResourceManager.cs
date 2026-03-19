@@ -1,162 +1,183 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
-using Random = UnityEngine.Random;
 
-/// <summary>
-/// Manages Time and People resources for the entire game.
-/// Handles fatigue recovery and win condition checking.
-/// </summary>
 public class ResourceManager : MonoBehaviour
 {
     public static ResourceManager Instance { get; private set; }
 
-    [Header("People Settings")]
-    [SerializeField] private int totalPeople = 25;
-    
-    [Header("Time Settings (Vertical Slice)")]
-    private const int DAYS_PER_WEEK = 7;
-    private const int WEEKS_PER_YEAR = 52;
-    private const int DAYS_PER_YEAR = DAYS_PER_WEEK * WEEKS_PER_YEAR; // 364 days
-    
-    // Time tracking
-    private int totalDays = 0;
-    
-    // Fatigue tracking
-    private List<RecoveringPerson> recoveringPeople = new List<RecoveringPerson>();
-    
-    // Events
-    public event Action<int> OnTimeAdvanced;
-    public event Action<int, int> OnPeopleFatigued; // (count, returnDay)
-    public event Action<int> OnPeopleRecovered; // (count)
-    public event Action OnGameOver;
+    // ── Time ─────────────────────────────────────────────────────────────────
+    [Header("Time")]
+    [SerializeField] private int totalDays   = 0;
+    [SerializeField] private int daysPerYear = 365;
+    [SerializeField] private int maxYears    = 5;
 
-    // Public properties
-    public int TotalPeople => totalPeople;
-    public int AvailablePeople => totalPeople - recoveringPeople.Count;
-    public int RecoveringPeopleCount => recoveringPeople.Count;
-    public int TotalDays => totalDays;
-    public bool IsGameOver => totalDays >= DAYS_PER_YEAR;
+    // ── Workers ───────────────────────────────────────────────────────────────
+    [Header("Workers")]
+    [SerializeField] private int startingWorkerCount = 12;
+    private List<Worker> allWorkers = new List<Worker>();
+
+    // ── Research Points ───────────────────────────────────────────────────────
+    [Header("Research Points")]
+    private int researchPoints = 0;
+    public int ResearchPoints => researchPoints;
+
+    // ── Weather hook ──────────────────────────────────────────────────────────
+    private float weatherK = 3f;
+
+    // ── Events ────────────────────────────────────────────────────────────────
+    public event Action<int>      OnTimeAdvanced;
+    public event Action<int, int> OnPeopleFatigued;  // (count, latestReturnDay)
+    public event Action<int>      OnPeopleRecovered;
+    public event Action           OnGameOver;
+    public event Action<int>      OnRPChanged;
+
+    // ── Public Accessors ──────────────────────────────────────────────────────
+    public int TotalDays       => totalDays;                                  // FIX 1
+    public int TotalPeople     => allWorkers.Count;
+    public int AvailablePeople => allWorkers.Count(w => !w.isFatigued);
+    public int RecoveringPeopleCount => allWorkers.Count(w => w.isFatigued);
+
+    public List<Worker> AllWorkers       => allWorkers;
+    public List<Worker> AvailableWorkers => allWorkers.Where(w => !w.isFatigued).ToList();
+    public List<Worker> FatiguedWorkers  => allWorkers.Where(w =>  w.isFatigued).ToList();
     
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
     void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
     }
-    
-    public void increaseTotalPeople(int people)
+
+    void Start()
     {
-        totalPeople += people;
+        InitializeWorkers(startingWorkerCount);
     }
 
-    /// <summary>
-    /// Returns formatted time display: "Week X, Day Y"
-    /// </summary>
-    public string GetFullTimeDisplay()
+    public void InitializeWorkers(int count)
     {
-        int week = (totalDays / DAYS_PER_WEEK) + 1; // Week 1-52
-        int day = (totalDays % DAYS_PER_WEEK) + 1;  // Day 1-7
-        return $"Week {week}, Day {day}";
+        allWorkers = WorkerFactory.GenerateBatch(count);
+        Debug.Log($"ResourceManager: {count} workers initialized.");
     }
 
-    /// <summary>
-    /// Returns simple week/day format: "XW, YD"
-    /// </summary>
-    public string GetCompactTimeDisplay()
-    {
-        int weeks = totalDays / DAYS_PER_WEEK;
-        int days = totalDays % DAYS_PER_WEEK;
-        return $"{weeks}W, {days}D";
-    }
-
-    /// <summary>
-    /// Advances time and checks for people recovering from fatigue.
-    /// </summary>
+    // ── Time ──────────────────────────────────────────────────────────────────
     public void AdvanceTime(int days)
     {
         totalDays += days;
+        CheckWorkerRecovery();
         
-        // Check if any people return from recovery
-        int recovered = 0;
-        for (int i = recoveringPeople.Count - 1; i >= 0; i--)
+        if (WeatherManager.Instance != null)
+            WeatherManager.Instance.RollWeather(totalDays); 
+
+        if (totalDays >= daysPerYear * maxYears)
         {
-            if (recoveringPeople[i].returnDay <= totalDays)
+            OnGameOver?.Invoke();
+            return;
+        }
+        OnTimeAdvanced?.Invoke(days);
+        Debug.Log($"Day {totalDays} ({GetFullTimeDisplay()}) | Available: {AvailablePeople}/{TotalPeople}");
+    }
+
+    public string GetFullTimeDisplay()
+    {
+        int year = totalDays / daysPerYear + 1;
+        int day  = totalDays % daysPerYear + 1;
+        return $"Year {year}, Day {day}";
+    }
+
+    // ── Fatigue ───────────────────────────────────────────────────────────────
+    public void ApplyFatigue(int workerCount, int daysWorked, float multiplier)
+    {
+        List<Worker> available = AvailableWorkers;
+        if (available.Count == 0) return;
+
+        int toFatigue = Mathf.Min(workerCount, available.Count);
+        Shuffle(available);
+
+        // FIX 2: increment FIRST — all available workers participated in the action
+        foreach (Worker w in available)
+            w.actionsParticipated++;
+
+        // Then mark the subset as fatigued
+        int fatiguedCount   = 0;
+        int latestReturnDay = totalDays;
+
+        for (int i = 0; i < toFatigue; i++)
+        {
+            Worker w = available[i];
+
+            float r            = UnityEngine.Random.value;
+            float x            = Mathf.Pow(r, weatherK);
+            int   recoveryDays = Mathf.Max(1, Mathf.CeilToInt(x * daysWorked * 0.5f * multiplier));
+
+            w.isFatigued    = true;
+            w.returnDay     = totalDays + recoveryDays;
+            latestReturnDay = Mathf.Max(latestReturnDay, w.returnDay);
+            fatiguedCount++;
+        }
+
+        if (fatiguedCount > 0)
+        {
+            OnPeopleFatigued?.Invoke(fatiguedCount, latestReturnDay);
+            Debug.Log($"{fatiguedCount} worker(s) fatigued. Latest return: day {latestReturnDay}.");
+        }
+    }
+
+    private void CheckWorkerRecovery()
+    {
+        int recovered = 0;
+        foreach (Worker w in allWorkers)
+        {
+            if (w.isFatigued && totalDays >= w.returnDay)
             {
-                recoveringPeople.RemoveAt(i);
+                w.isFatigued = false;
+                w.returnDay  = 0;
                 recovered++;
             }
         }
-        
         if (recovered > 0)
         {
             OnPeopleRecovered?.Invoke(recovered);
-            Debug.Log($"✓ {recovered} people returned from recovery! Available: {AvailablePeople}/{TotalPeople}");
-        }
-        
-        OnTimeAdvanced?.Invoke(days);
-        
-        if (IsGameOver)
-        {
-            Debug.Log($"★ GAME OVER: 1 year completed! Final time: {GetFullTimeDisplay()}");
-            OnGameOver?.Invoke();
+            Debug.Log($"{recovered} worker(s) recovered. Available: {AvailablePeople}/{TotalPeople}");
         }
     }
 
-    /// <summary>
-    /// Calculates and applies fatigue based on action parameters.
-    /// Formula: baseFatigue (0-20%) + (tilesWorked × fatiguePerTile × 2%)
-    /// Recovery: Half the days worked, minimum 1 day
-    /// </summary>
-    public void ApplyFatigue(int tilesWorked, int daysWorked, float fatigueMultiplierPerTile = 2.0f, float minBaseFatigue = 0f, float maxBaseFatigue = 20f)
+    // ── Weather hook ──────────────────────────────────────────────────────────
+    public void SetWeatherFatigueK(float k) => weatherK = k;
+
+    // ── Research Points ───────────────────────────────────────────────────────
+    public void EarnRP(int amount)
     {
-        if (AvailablePeople == 0) return;
-        
-        // Roll base fatigue (0-20%)
-        float baseFatiguePercent = Random.Range(minBaseFatigue, maxBaseFatigue);
-        
-        // Add tile-based multiplier: tilesWorked × fatigueMultiplierPerTile × 2%
-        float tileBonus = tilesWorked * fatigueMultiplierPerTile * 2f;
-        
-        // Total fatigue percentage
-        float totalFatiguePercent = baseFatiguePercent + tileBonus;
-        
-        // Calculate number of people
-        int peopleToFatigue = Mathf.CeilToInt(AvailablePeople * (totalFatiguePercent / 100f));
-        peopleToFatigue = Mathf.Min(peopleToFatigue, AvailablePeople); // Cap at available
-        
-        if (peopleToFatigue == 0) return;
-        
-        // Calculate recovery time: half the days worked, minimum 1
-        int recoveryDays = Mathf.Max(1, daysWorked / 2);
-        int returnDay = totalDays + recoveryDays;
-        
-        // Add to recovery list
-        for (int i = 0; i < peopleToFatigue; i++)
-        {
-            recoveringPeople.Add(new RecoveringPerson { returnDay = returnDay });
-        }
-        
-        OnPeopleFatigued?.Invoke(peopleToFatigue, returnDay);
-        Debug.Log($"⚠ Fatigue Applied: {peopleToFatigue} people ({totalFatiguePercent:F1}%) recovering for {recoveryDays} days | Available: {AvailablePeople}/{TotalPeople}");
+        researchPoints += amount;
+        OnRPChanged?.Invoke(researchPoints);
     }
 
-    /// <summary>
-    /// Resets resources (for new game / testing).
-    /// </summary>
-    public void Reset()
+    public bool SpendRP(int amount)
     {
-        totalDays = 0;
-        recoveringPeople.Clear();
-        Debug.Log($"ResourceManager reset | People: {AvailablePeople}/{TotalPeople}");
+        if (researchPoints < amount) return false;
+        researchPoints -= amount;
+        OnRPChanged?.Invoke(researchPoints);
+        return true;
     }
-}
 
-[System.Serializable]
-public class RecoveringPerson
-{
-    public int returnDay; // totalDays value when person returns
+    // ── Utility ───────────────────────────────────────────────────────────────
+    
+    public void IncreaseTotalPeople(int count)
+    {
+        if (count <= 0) return;
+        var newWorkers = WorkerFactory.GenerateBatch(count);
+        allWorkers.AddRange(newWorkers);
+        Debug.Log($"ResourceManager: +{count} workers added. Total: {TotalPeople}");
+    }
+    
+    private void Shuffle<T>(List<T> list)
+    {
+        for (int i = list.Count - 1; i > 0; i--)
+        {
+            int j = UnityEngine.Random.Range(0, i + 1);
+            (list[i], list[j]) = (list[j], list[i]);
+        }
+    }
 }

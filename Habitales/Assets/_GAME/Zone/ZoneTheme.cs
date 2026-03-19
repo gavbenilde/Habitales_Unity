@@ -1,4 +1,4 @@
-public enum IssueType
+public enum ZoneTheme
 {
     LoggedTrees,
     NutrientDepletion,
