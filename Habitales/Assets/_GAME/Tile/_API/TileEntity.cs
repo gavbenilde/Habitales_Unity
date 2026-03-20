@@ -100,7 +100,7 @@ public class VillageEntity : TileEntity
 
     private void SpawnKainginFire(Tile tile, TileManager manager)
     {
-        int fireCount = Random.Range(2, 4);
+        int fireCount = Random.Range(4, 8);
         var potentialTargets = GetTilesInRadius(tile, manager, 2);
         for (int i = 0; i < fireCount && potentialTargets.Count > 0; i++)
         {

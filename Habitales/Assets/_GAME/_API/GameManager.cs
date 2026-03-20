@@ -127,65 +127,20 @@ public class GameManager : MonoBehaviour {
         }
     }
     
-    
-    /// <summary>
-    /// Spawns the starting 6x6 zone (Zone 1) with tutorial-friendly stats.
-    /// </summary>
     void SpawnInitialZone()
-{
-    Debug.Log("Generating initial Zone 1...");
-
-    List<Tile> zoneTiles = tileManager.SpawnTileArea(
-        initialZoneOrigin.x, initialZoneOrigin.y,
-        initialZoneSize, initialZoneSize,
-        regionID: 1
-    );
-
-    if (zoneTiles.Count == 0)
     {
-        Debug.LogError("Failed to spawn initial zone!");
-        return;
-    }
+        Debug.Log("Generating initial Zone 1...");
 
-    // Apply Zone 1 profile stats if assigned, otherwise fall back to hardcoded defaults
-    foreach (Tile tile in zoneTiles)
-    {
-        if (zone1Profile != null)
+        ZoneGenerationResult result = zoneManager.GenerateInitialZone(initialZoneOrigin, zone1Profile);
+
+        if (result == null)
         {
-            tile.stats.nutrientBalance    = Random.Range(zone1Profile.nutrientBalanceRange.x,    zone1Profile.nutrientBalanceRange.y);
-            tile.stats.soilOrganicMatter  = Random.Range(zone1Profile.soilOrganicMatterRange.x,  zone1Profile.soilOrganicMatterRange.y);
-            tile.stats.soilStructure      = Random.Range(zone1Profile.soilStructureRange.x,      zone1Profile.soilStructureRange.y);
-            tile.stats.biologicalActivity = Random.Range(zone1Profile.biologicalActivityRange.x, zone1Profile.biologicalActivityRange.y);
-            tile.stats.waterDynamics      = Random.Range(zone1Profile.waterDynamicsRange.x,      zone1Profile.waterDynamicsRange.y);
-            tile.stats.erosionResistance  = Random.Range(zone1Profile.erosionResistanceRange.x,  zone1Profile.erosionResistanceRange.y);
-            tile.stats.vegetationCover    = Random.Range(zone1Profile.vegetationCoverRange.x,    zone1Profile.vegetationCoverRange.y);
-            tile.stats.contamination      = Random.Range(zone1Profile.contaminationRange.x,      zone1Profile.contaminationRange.y);
-        }
-        else
-        {
-            // Fallback defaults — friendlier than later zones
-            tile.stats.nutrientBalance    = Random.Range(20f, 35f);
-            tile.stats.soilOrganicMatter  = Random.Range(15f, 30f);
-            tile.stats.soilStructure      = Random.Range(20f, 35f);
-            tile.stats.biologicalActivity = Random.Range(10f, 25f);
-            tile.stats.waterDynamics      = Random.Range(20f, 35f);
-            tile.stats.erosionResistance  = Random.Range(15f, 30f);
-            tile.stats.vegetationCover    = Random.Range(10f, 30f);
-            tile.stats.contamination      = Random.Range(0f, 10f);
+            Debug.LogError("Failed to spawn initial zone!");
+            return;
         }
 
-        tile.issues = new List<TileIssue>();
-        tile.tv     = new List<TileOverlayType>();
-        tileManager.UpdateTileVisual(tile);
+        Debug.Log($"Zone 1 spawned — {result.tileCount} tiles at {initialZoneOrigin}");
     }
-
-    // Building + issue placement via profile (same pipeline as all other zones)
-    if (zone1Profile != null)
-        zoneManager.InitializeZone(zoneTiles, zone1Profile);
-
-
-    Debug.Log($"Zone 1 spawned — {zoneTiles.Count} tiles at {initialZoneOrigin}");
-}
 
     
     void HandleTileSelected(Tile tile, Vector3 worldPosition) {
