@@ -9,19 +9,12 @@ using UnityEngine;
 /// </summary>
 public class TileManager : MonoBehaviour
 {
-    [Header("Grid Configuration")] [SerializeField]
-    private int gridWidth = 50;
-
-    [SerializeField] private int gridHeight = 50;
-
     [Header("Visualization (Optional)")] [SerializeField]
     private GameObject tilePrefab; // 3D tile prefab with TileVisualizer
 
     [SerializeField] private Transform tileParent; // Parent object for organization
     [SerializeField] private GameObject entityVisualizerPrefab;
 
-    
-    private Tile[,] grid;
     private Dictionary<Vector2Int, Tile> tileCache;
     private Dictionary<Tile, GameObject> tileGameObjects; // Links data to GameObjects
 
@@ -37,20 +30,8 @@ public class TileManager : MonoBehaviour
     /// </summary>
     public void InitializeGrid()
     {
-        grid = new Tile[gridWidth, gridHeight];
         tileCache = new Dictionary<Vector2Int, Tile>();
         tileGameObjects = new Dictionary<Tile, GameObject>();
-    }
-
-    /// <summary>
-    /// Reinitializes grid with new dimensions. USE WITH CAUTION - destroys existing grid.
-    /// </summary>
-    public void ResizeGrid(int newWidth, int newHeight)
-    {
-        ClearGrid();
-        gridWidth = newWidth;
-        gridHeight = newHeight;
-        InitializeGrid();
     }
 
     #endregion
@@ -67,29 +48,25 @@ public class TileManager : MonoBehaviour
     /// <param name="regionID">Zone/region identifier</param>
     public Tile SpawnTile(int x, int y, TileStats stats = null, int regionID = 0)
     {
-        if (!IsValidPosition(x, y))
+        Vector2Int pos = new Vector2Int(x, y);
+
+        if (tileCache.ContainsKey(pos))
         {
-            Debug.LogError($"Cannot spawn tile at ({x}, {y}) - out of bounds!");
-            return null;
+            Debug.LogWarning($"Tile already exists at ({x}, {y}) — skipping.");
+            return tileCache[pos];
         }
 
-        // Create data object
         Tile tile = new Tile
         {
-            gridPosition = new Vector2Int(x, y),
+            gridPosition = pos,
             stats = stats ?? GenerateDefaultStats(),
             regionID = regionID
         };
 
-        // Store in grid
-        grid[x, y] = tile;
         tileCache[tile.gridPosition] = tile;
 
-        // Instantiate visual (if prefab provided)
         if (tilePrefab != null)
-        {
             InstantiateTileVisual(tile);
-        }
 
         return tile;
     }
@@ -166,16 +143,14 @@ public class TileManager : MonoBehaviour
     /// </summary>
     public Tile GetTile(int x, int y)
     {
-        if (!IsValidPosition(x, y)) return null;
-        return grid[x, y];
+        tileCache.TryGetValue(new Vector2Int(x, y), out Tile tile);
+        return tile; // returns null naturally if not found
     }
 
-    /// <summary>
-    /// Gets tile at Vector2Int position.
-    /// </summary>
     public Tile GetTile(Vector2Int position)
     {
-        return GetTile(position.x, position.y);
+        tileCache.TryGetValue(position, out Tile tile);
+        return tile;
     }
 
     /// <summary>
@@ -286,9 +261,9 @@ public class TileManager : MonoBehaviour
     /// <summary>
     /// Checks if grid position is valid (within bounds).
     /// </summary>
-    public bool IsValidPosition(int x, int y)
+    public bool HasTileAt(int x, int y)
     {
-        return x >= 0 && x < gridWidth && y >= 0 && y < gridHeight;
+        return tileCache.ContainsKey(new Vector2Int(x, y));
     }
     
     /// <summary>
@@ -532,33 +507,36 @@ public class TileManager : MonoBehaviour
 
     #endregion
 
-    #region Cleanup
-
-    /// <summary>
-    /// Destroys all tile GameObjects and clears data.
-    /// Use before resizing or restarting.
-    /// </summary>
-    public void ClearGrid()
+    #region Properties
+    
+    public Vector2Int WorldMin
     {
-        foreach (GameObject tileObj in tileGameObjects.Values)
+        get
         {
-            if (tileObj != null)
+            int minX = int.MaxValue, minY = int.MaxValue;
+            foreach (var pos in tileCache.Keys)
             {
-                Destroy(tileObj);
+                if (pos.x < minX) minX = pos.x;
+                if (pos.y < minY) minY = pos.y;
             }
+            return tileCache.Count == 0 ? Vector2Int.zero : new Vector2Int(minX, minY);
         }
-
-        grid = null;
-        tileCache?.Clear();
-        tileGameObjects?.Clear();
     }
 
-    #endregion
+    public Vector2Int WorldMax
+    {
+        get
+        {
+            int maxX = int.MinValue, maxY = int.MinValue;
+            foreach (var pos in tileCache.Keys)
+            {
+                if (pos.x > maxX) maxX = pos.x;
+                if (pos.y > maxY) maxY = pos.y;
+            }
+            return tileCache.Count == 0 ? Vector2Int.zero : new Vector2Int(maxX, maxY);
+        }
+    }
 
-    #region Properties
-
-    public int GridWidth => gridWidth;
-    public int GridHeight => gridHeight;
 
     #endregion
 }

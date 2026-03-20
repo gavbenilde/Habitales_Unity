@@ -13,7 +13,8 @@ MonoBehaviour:
   m_Name: DefaultZoneProfile
   m_EditorClassIdentifier: 
   sizeRange: {x: 25, y: 40}
-  floodFillProbability: 0.823
+  flowFalloff: 4.4
+  enclosureBonus: 0
   nutrientBalanceRange: {x: 10, y: 25}
   soilOrganicMatterRange: {x: 10, y: 25}
   soilStructureRange: {x: 10, y: 25}
@@ -39,5 +40,7 @@ MonoBehaviour:
   factorySpawnChance: 0.3
   workerReward: 4
   forceSpecificEntities: 0
-  forcedEntities: []
+  forcedEntities:
+  - offset: {x: 0, y: 0}
+    entityType: 
   aziCalloutKey: 

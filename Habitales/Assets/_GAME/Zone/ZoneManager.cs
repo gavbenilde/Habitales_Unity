@@ -83,18 +83,18 @@ public class ZoneManager : MonoBehaviour
             Debug.Log($"ZoneManager: Generating Zone {regionID} (triggered by Region {triggeringRegionID})...");
 
         // Step 1: Seed tile
-        Vector2Int? seed = FindSeedTile(triggeringRegionID);
+        Vector2Int? seed = FindSeedTile();
         if (seed == null)
         {
-            Debug.LogError($"ZoneManager: No valid seed tile found adjacent to Region {triggeringRegionID}. Grid may be full.");
+            Debug.LogError($"ZoneManager: No valid seed tile found adjacent to Region {triggeringRegionID}.");
             nextRegionID--; // Roll back — generation failed
             return null;
         }
 
         // Step 2: Flood-fill shape
         int targetSize = Random.Range(profile.sizeRange.x, profile.sizeRange.y + 1);
-        List<Vector2Int> positions = FloodFillShape(seed.Value, targetSize, profile.floodFillProbability);
-
+        List<Vector2Int> positions = FloodFillShape(seed.Value, targetSize, profile.flowFalloff, profile.enclosureBonus);
+        
         if (positions.Count == 0)
         {
             Debug.LogError("ZoneManager: Flood fill produced no positions!");
@@ -178,21 +178,20 @@ public class ZoneManager : MonoBehaviour
     // STEP 1 — SEED TILE
     // =====================================================================
 
-    private Vector2Int? FindSeedTile(int adjacentToRegionID)
+    private Vector2Int? FindSeedTile()
     {
-        List<Tile> regionTiles = tileManager.GetTilesInRegion(adjacentToRegionID);
-        if (regionTiles == null || regionTiles.Count == 0) return null;
+        List<Tile> allTiles = tileManager.GetAllTiles();
+        if (allTiles == null || allTiles.Count == 0) return null;
 
         List<Vector2Int> candidates = new List<Vector2Int>();
 
-        foreach (Tile tile in regionTiles)
+        foreach (Tile tile in allTiles)
         {
             foreach (Vector2Int dir in Directions)
             {
                 Vector2Int neighbor = tile.gridPosition + dir;
-                if (!IsInBounds(neighbor)) continue;
-                if (tileManager.GetTile(neighbor.x, neighbor.y) != null) continue;
-                candidates.Add(neighbor);
+                if (tileManager.GetTile(neighbor.x, neighbor.y) == null)
+                    candidates.Add(neighbor);
             }
         }
 
@@ -204,39 +203,114 @@ public class ZoneManager : MonoBehaviour
     // STEP 2 — FLOOD FILL
     // =====================================================================
 
-    private List<Vector2Int> FloodFillShape(Vector2Int seed, int targetSize, float expandProbability)
+    private List<Vector2Int> FloodFillShape(Vector2Int seed, int targetSize, float flowFalloff, float enclosureBonus)
     {
-        HashSet<Vector2Int> chosen = new HashSet<Vector2Int>();
-        List<Vector2Int> frontier = new List<Vector2Int>();
-
+        var chosen = new HashSet<Vector2Int>();
+        // Priority: higher score = picked first. Score = enclosedNeighbors * 10 - dist * flowFalloff
+        var candidates = new SortedDictionary<float, List<Vector2Int>>(Comparer<float>.Create((a, b) => b.CompareTo(a)));
         chosen.Add(seed);
-        frontier.Add(seed);
+        AddCandidates(seed, chosen, candidates, seed, flowFalloff);
 
-        while (chosen.Count < targetSize && frontier.Count > 0)
+        while (chosen.Count < targetSize && candidates.Count > 0)
         {
-            int idx = Random.Range(0, frontier.Count);
-            Vector2Int current = frontier[idx];
-            frontier.RemoveAt(idx);
+            // Pull highest-priority candidate
+            var topKey = candidates.Keys.First();
+            var topList = candidates[topKey];
+            int pickIdx = Random.Range(0, topList.Count); // small jag: random among same-score
+            Vector2Int selected = topList[pickIdx];
+            topList.RemoveAt(pickIdx);
+            if (topList.Count == 0) candidates.Remove(topKey);
 
-            foreach (Vector2Int dir in Directions)
-            {
-                if (chosen.Count >= targetSize) break;
+            chosen.Add(selected);
+            AddCandidates(selected, chosen, candidates, seed, flowFalloff);
+        }
 
-                Vector2Int neighbor = current + dir;
-                if (chosen.Contains(neighbor)) continue;
-                if (!IsInBounds(neighbor)) continue;
-                if (tileManager.GetTile(neighbor.x, neighbor.y) != null) continue;
-
-                if (Random.value <= expandProbability)
-                {
-                    chosen.Add(neighbor);
-                    frontier.Add(neighbor);
-                }
-            }
+        // Phase 2 — Jag pass: ~15% chance to extend 1 tile into open frontier for organic edges
+        if (chosen.Count >= targetSize)
+        {
+            var border = chosen
+                .SelectMany(p => Directions.Select(d => p + d))
+                .Where(p => !chosen.Contains(p) && tileManager.GetTile(p.x, p.y) == null)
+                .Distinct().ToList();
+            int jagCount = Mathf.RoundToInt(targetSize * 0.15f);
+            Shuffle(border);
+            for (int i = 0; i < jagCount && i < border.Count; i++)
+                chosen.Add(border[i]);
         }
 
         return new List<Vector2Int>(chosen);
     }
+
+    private void AddCandidates(Vector2Int pos, HashSet<Vector2Int> chosen,
+        SortedDictionary<float, List<Vector2Int>> candidates, Vector2Int seed, float flowFalloff)
+    {
+        foreach (var dir in Directions)
+        {
+            Vector2Int nb = pos + dir;
+            if (chosen.Contains(nb)) continue;
+            if (tileManager.GetTile(nb.x, nb.y) != null) continue; // occupied by another zone
+
+            int enclosed = CountChosenNeighbors(nb, chosen);
+            float dist = Vector2Int.Distance(nb, seed);
+            float score = enclosed * 10f - dist * flowFalloff;
+
+            // Avoid duplicate insertion
+            bool alreadyQueued = candidates.Values.Any(list => list.Contains(nb));
+            if (alreadyQueued) continue;
+
+            if (!candidates.ContainsKey(score)) candidates[score] = new List<Vector2Int>();
+            candidates[score].Add(nb);
+        }
+    }
+
+    private void AddNeighborsToCandidates(Vector2Int pos,
+        HashSet<Vector2Int> chosen, Dictionary<Vector2Int, int> candidates)
+    {
+        foreach (Vector2Int dir in Directions)
+        {
+            Vector2Int neighbor = pos + dir;
+            if (chosen.Contains(neighbor)) continue;
+            if (candidates.ContainsKey(neighbor)) continue;
+            if (tileManager.GetTile(neighbor.x, neighbor.y) != null) continue;
+            candidates[neighbor] = 1;
+        }
+    }
+
+    private int CountChosenNeighbors(Vector2Int pos, HashSet<Vector2Int> chosen)
+    {
+        int count = 0;
+        foreach (Vector2Int dir in Directions)
+            if (chosen.Contains(pos + dir)) count++;
+        return count;
+    }
+
+    private Vector2Int WeightedPick(Dictionary<Vector2Int, int> candidates, Vector2Int seed, float flowFalloff, float enclosureBonus)
+    {
+        float totalWeight = 0f;
+        foreach (var kvp in candidates)
+        {
+            float dist = Vector2Int.Distance(kvp.Key, seed);
+            float distWeight = 1f / Mathf.Pow(dist + 1f, flowFalloff);
+            float encWeight = enclosureBonus * Mathf.Max(1, kvp.Value);
+            totalWeight += distWeight + encWeight;
+        }
+
+        float roll = Random.Range(0f, totalWeight);
+        float cumulative = 0f;
+
+        foreach (var kvp in candidates)
+        {
+            float dist = Vector2Int.Distance(kvp.Key, seed);
+            float distWeight = 1f / Mathf.Pow(dist + 1f, flowFalloff);
+            float encWeight = enclosureBonus * Mathf.Max(1, kvp.Value);
+            cumulative += distWeight + encWeight;
+            if (cumulative >= roll) return kvp.Key;
+        }
+
+        foreach (var kvp in candidates) return kvp.Key;
+        return Vector2Int.zero;
+    }
+
 
     // =====================================================================
     // STEP 3 — SPAWN TILES WITH SCALED STATS
@@ -467,12 +541,6 @@ public class ZoneManager : MonoBehaviour
         if (defaultProfiles != null && index < defaultProfiles.Count)
             return defaultProfiles[index];
         return fallbackProfile;
-    }
-
-    private bool IsInBounds(Vector2Int pos)
-    {
-        return pos.x >= 0 && pos.x < tileManager.GridWidth
-            && pos.y >= 0 && pos.y < tileManager.GridHeight;
     }
 
     private Vector2Int CalculateCenter(List<Vector2Int> positions)

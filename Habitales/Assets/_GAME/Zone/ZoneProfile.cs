@@ -8,9 +8,13 @@ public class ZoneProfile : ScriptableObject
     [Tooltip("Min and max number of tiles to generate for this zone.")]
     public Vector2Int sizeRange = new Vector2Int(25, 40);
 
-    [Tooltip("0.0–1.0. Higher = rounder blob. Lower = jagged, branching shape.")]
-    [Range(0.4f, 0.9f)]
-    public float floodFillProbability = 0.65f;
+    [Tooltip("How strongly the fill stays close to the seed. High = compact round blob. Low = sprawling arms.")]
+    [Range(0.5f, 100.0f)]
+    public float flowFalloff = 1.2f;
+
+    [Tooltip("How much enclosed gaps are preferred over open frontier. Keep low for fluid feel.")]
+    [Range(0f, 1f)]
+    public float enclosureBonus = 0.3f;
 
     [Header("Stat Ranges")]
     public Vector2 nutrientBalanceRange     = new Vector2(10f, 25f);
