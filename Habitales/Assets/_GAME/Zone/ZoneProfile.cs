@@ -42,6 +42,25 @@ public class ZoneProfile : ScriptableObject
     [Tooltip("Weight for ChemicalBurnout theme. Low — targets Biological Activity, similar severity to HMC.")]
     public int chemicalBurnoutWeight = 1;
 
+    [Header("Organic Entity Spawning")]
+    [Tooltip("Per-tile chance to spawn a Mature Tree. Checked first — takes priority over Sapling/Seedling on the same tile.")]
+    [Range(0f, 1f)] public float matureTreeSpawnChance = 0f;
+
+    [Tooltip("Per-tile chance to spawn a Sapling.")]
+    [Range(0f, 1f)] public float saplingSpawnChance = 0f;
+
+    [Tooltip("Per-tile chance to spawn a Seedling.")]
+    [Range(0f, 1f)] public float seedlingSpawnChance = 0f;
+
+    [Tooltip("Per-tile chance to spawn a Dead Tree.")]
+    [Range(0f, 1f)] public float deadTreeSpawnChance = 0f;
+
+    [Tooltip("Per-tile chance to spawn a Stump.")]
+    [Range(0f, 1f)] public float stumpSpawnChance = 0f;
+
+    [Tooltip("Per-tile chance to spawn Bio Trash.")]
+    [Range(0f, 1f)] public float bioTrashSpawnChance = 0f;
+    
     [Header("Issues")]
     [Tooltip("Override the theme roll and force a specific theme. Leave unset for weighted random.")]
     public bool forceTheme = false;

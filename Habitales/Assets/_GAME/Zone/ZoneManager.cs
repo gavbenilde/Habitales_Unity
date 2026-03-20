@@ -425,7 +425,6 @@ public class ZoneManager : MonoBehaviour
         {
             Vector2Int targetPos = seedPosition + placement.offset;
             Tile tile = tileManager.GetTile(targetPos.x, targetPos.y);
-
             if (tile == null)
             {
                 Debug.LogWarning($"ZoneManager: ForcedEntityPlacement at {targetPos} has no tile — skipping.");
@@ -434,14 +433,55 @@ public class ZoneManager : MonoBehaviour
 
             switch (placement.entityType)
             {
-                case "Village":  tileManager.SpawnEntity<VillageEntity>(tile);  break;
-                case "Factory":  tileManager.SpawnEntity<FactoryEntity>(tile);  break;
-                case "Fire":     tileManager.SpawnEntity<FireEntity>(tile);     break;
+                case "Seedling":     tileManager.SpawnEntity<SeedlingEntity>(tile);  break;
+                case "Sapling":      tileManager.SpawnEntity<SaplingEntity>(tile);   break;
+                case "Mature Tree":  tileManager.SpawnEntity<TreeEntity>(tile);      break;
+                case "DeadTree":     tileManager.SpawnEntity<DeadTreeEntity>(tile);  break;
+                case "Stump":        tileManager.SpawnEntity<StumpEntity>(tile);     break;
+                case "Fire":         tileManager.SpawnEntity<FireEntity>(tile);      break;
+                case "Village":      tileManager.SpawnEntity<VillageEntity>(tile);   break;
+                case "Factory":      tileManager.SpawnEntity<FactoryEntity>(tile);   break;
+                case "TrashBio":     tileManager.SpawnEntity<TrashBioEntity>(tile);  break;
                 default:
-                    Debug.LogWarning($"ZoneManager: Unknown forced entity type '{placement.entityType}'.");
+                    Debug.LogWarning($"ZoneManager: Unknown forced entity type '{placement.entityType}'. " +
+                                     $"Valid types: Seedling, Sapling, Mature Tree, DeadTree, Stump, Fire, Village, Factory, TrashBio");
                     break;
             }
         }
+    }
+    
+    private void PlaceOrganicEntities(List<Tile> tiles, ZoneProfile profile)
+    {
+        // Skip entirely if no organic chances are configured — avoid a pointless shuffle
+        if (profile.matureTreeSpawnChance == 0f && profile.saplingSpawnChance == 0f &&
+            profile.seedlingSpawnChance == 0f && profile.deadTreeSpawnChance == 0f &&
+            profile.stumpSpawnChance == 0f && profile.bioTrashSpawnChance == 0f)
+            return;
+
+        List<Tile> shuffled = new List<Tile>(tiles);
+        Shuffle(shuffled);
+
+        int placed = 0;
+        foreach (Tile tile in shuffled)
+        {
+            if (tile.entity != null) continue; // already has a Village, Factory, etc.
+
+            if (profile.matureTreeSpawnChance > 0f && Random.value < profile.matureTreeSpawnChance)
+            { tileManager.SpawnEntity<TreeEntity>(tile); placed++; }
+            else if (profile.saplingSpawnChance > 0f && Random.value < profile.saplingSpawnChance)
+            { tileManager.SpawnEntity<SaplingEntity>(tile); placed++; }
+            else if (profile.seedlingSpawnChance > 0f && Random.value < profile.seedlingSpawnChance)
+            { tileManager.SpawnEntity<SeedlingEntity>(tile); placed++; }
+            else if (profile.deadTreeSpawnChance > 0f && Random.value < profile.deadTreeSpawnChance)
+            { tileManager.SpawnEntity<DeadTreeEntity>(tile); placed++; }
+            else if (profile.stumpSpawnChance > 0f && Random.value < profile.stumpSpawnChance)
+            { tileManager.SpawnEntity<StumpEntity>(tile); placed++; }
+            else if (profile.bioTrashSpawnChance > 0f && Random.value < profile.bioTrashSpawnChance)
+            { tileManager.SpawnEntity<TrashBioEntity>(tile); placed++; }
+        }
+
+        if (showDebugInfo)
+            Debug.Log($"ZoneManager: PlaceOrganicEntities placed {placed} entities across {tiles.Count} tiles.");
     }
 
     // =====================================================================
@@ -534,7 +574,7 @@ public class ZoneManager : MonoBehaviour
 
         int v = 0, f = 0;
         PlaceBuildings(tiles, profile, ref v, ref f);
-
+        PlaceOrganicEntities(tiles, profile);
         if (showDebugInfo)
             Debug.Log($"ZoneManager.InitializeZone: theme={theme}, issues assigned, v={v}, f={f}");
     }
