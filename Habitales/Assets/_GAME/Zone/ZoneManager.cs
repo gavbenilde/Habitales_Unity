@@ -672,12 +672,37 @@ public class ZoneManager : MonoBehaviour
         }
     }
     
+    private ZoneProfile lastUsedProfile = null;
+
     private ZoneProfile GetProfileForNextZone()
     {
-        int index = nextRegionID - 2; // Region 2 = index 0
-        if (defaultProfiles != null && index < defaultProfiles.Count)
-            return defaultProfiles[index];
-        return fallbackProfile;
+        // Build the candidate pool — fallback is always included as a safety net
+        List<ZoneProfile> pool = new List<ZoneProfile>();
+
+        if (defaultProfiles != null)
+            foreach (ZoneProfile p in defaultProfiles)
+                if (p != null) pool.Add(p);
+
+        if (fallbackProfile != null && !pool.Contains(fallbackProfile))
+            pool.Add(fallbackProfile);
+
+        if (pool.Count == 0)
+        {
+            Debug.LogError("ZoneManager: No profiles available! Assign defaultProfiles or fallbackProfile.");
+            return null;
+        }
+
+        // With more than one option, remove the last used to prevent back-to-back repeats
+        if (pool.Count > 1 && lastUsedProfile != null)
+            pool.Remove(lastUsedProfile);
+
+        ZoneProfile selected = pool[Random.Range(0, pool.Count)];
+        lastUsedProfile = selected;
+
+        if (showDebugInfo)
+            Debug.Log($"ZoneManager: Selected profile '{selected.name}' for Zone {nextRegionID}.");
+
+        return selected;
     }
 
     private Vector2Int CalculateCenter(List<Vector2Int> positions)
