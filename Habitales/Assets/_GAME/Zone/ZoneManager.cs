@@ -115,6 +115,8 @@ public class ZoneManager : MonoBehaviour
         int villagesPlaced = 0;
         int factoriesPlaced = 0;
         PlaceBuildings(zoneTiles, profile, ref villagesPlaced, ref factoriesPlaced);
+        
+        PlaceOrganicEntities(zoneTiles, profile);
 
         // Step 7: Forced entity overrides (event-driven zones)
         if (profile.forceSpecificEntities)
