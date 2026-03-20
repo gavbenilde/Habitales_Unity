@@ -19,13 +19,13 @@ public class FireEntity : TileEntity
     private float startingVegetation = -1f;
 
     // Fire cannot spread in its first N days (too fresh)
-    private const int MIN_SPREAD_DAYS = 2;
+    private const int MIN_SPREAD_DAYS = 3;
 
     // Damage per day — kept at original value
     private const float BASE_DAMAGE = 8f;
 
     // Maximum spread probability reached at peak burn (mid-to-late life)
-    private const float PEAK_SPREAD_CHANCE = 0.35f;
+    private const float PEAK_SPREAD_CHANCE = 0.2f;
 
     // Spread is checked every day (daysSinceSpreading removed — duration handles pacing)
     public FireEntity() { entityType = "Fire"; health = 100f; }
@@ -93,14 +93,9 @@ public class VillageEntity : TileEntity
 
     public override void OnDailyUpdate(Tile tile, TileManager manager)
     {
-        if (Random.value < 0.018f)
+        if (Random.value < 0.015f)
             SpawnKainginFire(tile, manager);
         daysPassed++;
-        if (daysPassed >= 5)
-        {
-            SpawnKainginFire(tile, manager);
-            daysPassed = 0;
-        }
     }
 
     private void SpawnKainginFire(Tile tile, TileManager manager)
