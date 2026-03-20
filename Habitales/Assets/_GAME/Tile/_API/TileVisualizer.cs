@@ -96,7 +96,7 @@ public class TileVisualizer : MonoBehaviour
                 
             case TileVisualState.Selected:
                 // Cyan highlight
-                finalColor = Color.Lerp(baseColor, new Color(0f, 0.8f, 0.8f, 1f), 0.7f);
+                finalColor = Color.Lerp(baseColor, new Color(0.8f, 0.3f, 0.2f, 1f), 0.7f);
                 break;
                 
             case TileVisualState.Adjacent:

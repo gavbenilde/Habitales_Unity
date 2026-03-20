@@ -23,6 +23,9 @@ public class EntityVisualizer : MonoBehaviour {
 
     [Header("Positioning")]
     [SerializeField] private float forwardOffset = 0.5f;
+
+    [Header("VFX")] 
+    [SerializeField] private GameObject vfxPrefab;
     
     private SpriteRenderer spriteRenderer;
     private TileEntity entityData;
@@ -50,16 +53,21 @@ public class EntityVisualizer : MonoBehaviour {
         }
 
         // Map entity type to sprite
+        GameObject vfx;
         switch (entityData.entityType) {
             case "Seedling":
                 spriteRenderer.sprite = seedlingTreeSprite;
                 spriteRenderer.color = Color.white;
                 break;
             case "Sapling":
+                vfx = Instantiate(vfxPrefab, transform.position, transform.rotation);
+                Destroy(vfx, 2f);
                 spriteRenderer.sprite = saplingTreeSprite;
                 spriteRenderer.color = Color.white;
                 break;
             case "Mature Tree":
+                vfx = Instantiate(vfxPrefab, transform.position, transform.rotation);
+                Destroy(vfx, 2f);
                 spriteRenderer.sprite = matureTreeSprite;
                 spriteRenderer.color = Color.white;
                 break;
