@@ -205,6 +205,8 @@ public class ZoneManager : MonoBehaviour
 
     private List<Vector2Int> FloodFillShape(Vector2Int seed, int targetSize, float flowFalloff, float enclosureBonus)
     {
+        
+        
         var chosen = new HashSet<Vector2Int>();
         // Priority: higher score = picked first. Score = enclosedNeighbors * 10 - dist * flowFalloff
         var candidates = new SortedDictionary<float, List<Vector2Int>>(Comparer<float>.Create((a, b) => b.CompareTo(a)));
@@ -237,6 +239,8 @@ public class ZoneManager : MonoBehaviour
             for (int i = 0; i < jagCount && i < border.Count; i++)
                 chosen.Add(border[i]);
         }
+        
+        FillEnclosedHoles(chosen, targetSize);
 
         return new List<Vector2Int>(chosen);
     }
@@ -533,6 +537,97 @@ public class ZoneManager : MonoBehaviour
 
         if (showDebugInfo)
             Debug.Log($"ZoneManager.InitializeZone: theme={theme}, issues assigned, v={v}, f={f}");
+    }
+    
+    /// <summary>
+    /// After flood-fill, finds empty-cell pockets that are fully enclosed by the
+    /// new zone (chosen) + any already-existing tiles. Adds enclosed cells to
+    /// chosen so the spawned zone has no interior voids.
+    /// 
+    /// "Enclosed" = the pocket's BFS cannot reach a cell farther than
+    /// (targetSize + 10) from the zone centroid without passing through a tile.
+    /// 4-directional only.
+    /// </summary>
+    private void FillEnclosedHoles(HashSet<Vector2Int> chosen, int targetSize)
+    {
+        // --- Phase A: Collect frontier ---
+        // All empty cells directly adjacent to any chosen tile.
+        // These are the only possible entry-points for enclosed pockets.
+        var frontier = new HashSet<Vector2Int>();
+        foreach (Vector2Int pos in chosen)
+        {
+            foreach (Vector2Int dir in Directions)
+            {
+                Vector2Int nb = pos + dir;
+                if (!chosen.Contains(nb) && tileManager.GetTile(nb.x, nb.y) == null)
+                    frontier.Add(nb);
+            }
+        }
+
+        if (frontier.Count == 0) return;
+
+        // Compute zone centroid for the exterior threshold check.
+        float cx = 0f, cy = 0f;
+        foreach (Vector2Int pos in chosen) { cx += pos.x; cy += pos.y; }
+        cx /= chosen.Count;
+        cy /= chosen.Count;
+
+        // Any empty cell farther than this from the centroid is definitionally
+        // outside the zone's influence — reaching it means the component is open.
+        float exteriorThreshold = targetSize + 10f;
+
+        // --- Phase B: Connected-component BFS on empty space ---
+        var visited = new HashSet<Vector2Int>();
+
+        foreach (Vector2Int startCell in frontier)
+        {
+            if (visited.Contains(startCell)) continue;
+
+            var component = new List<Vector2Int>();
+            var queue = new Queue<Vector2Int>();
+            bool isExterior = false;
+
+            visited.Add(startCell);
+            queue.Enqueue(startCell);
+
+            while (queue.Count > 0)
+            {
+                Vector2Int cell = queue.Dequeue();
+
+                // Exterior check: is this cell far enough to be "open world"?
+                float dx = cell.x - cx;
+                float dy = cell.y - cy;
+                if (dx * dx + dy * dy > exteriorThreshold * exteriorThreshold)
+                {
+                    isExterior = true;
+                    // Early exit — no need to map the full exterior component.
+                    // Remaining queued cells are already in `visited` so they
+                    // won't seed duplicate components.
+                    break;
+                }
+
+                component.Add(cell);
+
+                foreach (Vector2Int dir in Directions)
+                {
+                    Vector2Int nb = cell + dir;
+                    if (visited.Contains(nb)) continue;          // already seen
+                    if (chosen.Contains(nb)) continue;           // wall: new zone tile
+                    if (tileManager.GetTile(nb.x, nb.y) != null) continue; // wall: existing zone tile
+                    visited.Add(nb);
+                    queue.Enqueue(nb);
+                }
+            }
+
+            // --- Phase C: Fill holes ---
+            // Exterior components are open space — leave them alone.
+            // Enclosed components are holes — absorb into this zone.
+            if (!isExterior)
+            {
+                foreach (Vector2Int cell in component)
+                    chosen.Add(cell);
+            }
+        }
     }
     
     private ZoneProfile GetProfileForNextZone()
