@@ -134,7 +134,7 @@ public class TreeEntity : TileEntity
     private const float VEG_BOOST_PER_DAY = 2f;
     private const float ORG_BOOST_PER_DAY = 1f;
     private const float BIO_BOOST_PER_DAY = 1f;
-    private const float SOIL_THRESHOLD_DIE = 20f;
+    private const float SOIL_THRESHOLD_DIE = 10f;
 
     public TreeEntity()
     {
@@ -160,7 +160,7 @@ public class TreeEntity : TileEntity
 public class SaplingEntity : TileEntity
 {
     private const float NUTRIENT_CONSUME_PER_DAY = 1f;
-    private const float SOIL_THRESHOLD_DIE = 25f;
+    private const float SOIL_THRESHOLD_DIE = 15f;
     private const float ORGANIC_BOOST_ON_DEATH = 10f;
     private const int DAYS_UNTIL_GROWTH = 10;
     private int daysExisting = 0;
@@ -197,7 +197,7 @@ public class SaplingEntity : TileEntity
 public class SeedlingEntity : TileEntity
 {
     private const float NUTRIENT_CONSUME_PER_DAY = 2f;
-    private const float SOIL_THRESHOLD_DIE = 30f;
+    private const float SOIL_THRESHOLD_DIE = 20f;
     private const int DAYS_UNTIL_GROWTH = 5;
     private int daysExisting = 0;
 
