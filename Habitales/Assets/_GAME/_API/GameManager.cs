@@ -64,6 +64,14 @@ public class GameManager : MonoBehaviour {
         }
     }
     
+    void Update()
+    {
+    #if UNITY_EDITOR
+            if (Input.GetKeyDown(KeyCode.F1))
+                DebugAdvanceOneDay();
+    #endif
+    }
+    
     void InitializeSystems() {
         // Auto-find systems if not assigned
         if (tileManager == null) {
@@ -448,6 +456,37 @@ public class GameManager : MonoBehaviour {
         if (daysToAdvance > 0)
         {
             resourceManager.AdvanceTime(daysToAdvance);
+        }
+    }
+    
+    [ContextMenu("Debug: Advance One Day")]
+    void DebugAdvanceOneDay()
+    {
+        if (isGameOver || resourceManager == null || tileManager == null) return;
+
+        Debug.Log("[DEBUG] Advancing 1 day via shortcut.");
+
+        // 1. Advance time by 1 day (also rolls weather)
+        resourceManager.AdvanceTime(1);
+
+        // 2. Run the full post-action pipeline (same as after a real action)
+        CascadeTileUpdates();
+        tileManager.UpdateAllEntities();
+        foreach (Tile tile in tileManager.GetAllTiles())
+            tileManager.UpdateTileVisual(tile);
+        CheckCollapseCondition();
+
+        // 3. Check zone unlock
+        float totalAverageHealth = zoneManager.GetTotalAverageHealth();
+        if (showDebugInfo)
+            Debug.Log($"[DEBUG] Day passed. World Health: {totalAverageHealth:F1} | {resourceManager.GetFullTimeDisplay()}");
+
+        if (totalAverageHealth >= zoneUnlockThreshold &&
+            !unlockedRegions.Contains(zoneManager.NextRegionID - 1))
+        {
+            int newRegionFrom = zoneManager.NextRegionID - 1;
+            unlockedRegions.Add(newRegionFrom);
+            zoneManager.GenerateNewZone(newRegionFrom);
         }
     }
     
