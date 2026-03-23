@@ -1,36 +1,37 @@
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Tile {
+public class Tile
+{
+    public Vector2Int gridPosition;
     public TileStats stats;
     public TileEntity entity;
-    public List<IssueType> issues;
-    public Vector2Int gridPosition;
+    public List<TileIssue> issues = new List<TileIssue>();
+    public List<TileOverlayType> tv = new List<TileOverlayType>();
     public int regionID;
-    
-    public bool issuesRevealed = false;
-    
+
     public float CalculateHealth() => stats.CalculateHealth();
 }
 
 [SerializeField]
-public class TileStats {
-    public float soilQuality;
-    public float vegetationCover;
-    public float contamination;
-    public float waterPurity = 100f;
-    public bool hasFirebreak;
+public class TileStats
+{
+    public float nutrientBalance    = 50f;
+    public float soilOrganicMatter  = 50f;
+    public float soilStructure      = 50f;
+    public float biologicalActivity = 50f;
+    public float waterDynamics      = 50f;
+    public float erosionResistance  = 50f;
+    public float vegetationCover    = 50f;
+    public float contamination      = 0f;
 
-    public static readonly float SOIL_QUALITY_MAX = 100f;
-    public static readonly float VEGETATION_COVER_MAX = 100f;
-    public static readonly float CONTAMINATION_MAX = 100f;
+    public float soilComposite =>
+        (nutrientBalance + soilOrganicMatter + soilStructure +
+         biologicalActivity + waterDynamics + erosionResistance) / 6f;
 
-    
-    
-    public float CalculateHealth() {
-        return (0.4f * soilQuality) + // 40%
-               (0.4f * vegetationCover) + // 40%
-               (0.2f * (CONTAMINATION_MAX - contamination)); // 20%
+    public float CalculateHealth()
+    {
+        float baseHealth = (soilComposite + vegetationCover + (100f - contamination)) / 3f;
+        return contamination > 60f ? Mathf.Min(baseHealth, 33f) : baseHealth;
     }
 }

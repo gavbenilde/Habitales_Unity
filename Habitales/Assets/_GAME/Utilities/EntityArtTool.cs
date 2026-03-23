@@ -45,35 +45,35 @@ public class EntityArtTool : MonoBehaviour {
         mainCamera = Camera.main;
         
         if (generateGridOnStart) {
-            GenerateGridAndEntities();
+            // GenerateGridAndEntities();
         }
     }
 
-    [ContextMenu("Generate Grid + Place Entities")]
-    public void GenerateGridAndEntities() {
-        GenerateGrid();
-        PlaceAllEntities();
-    }
-    
-    [ContextMenu("Generate Grid Only")]
-    void GenerateGrid() {
-        if (tileManager == null) {
-            Debug.LogError("TileManager reference missing! Assign it in Inspector.");
-            return;
-        }
-        
-        Debug.Log($"Generating {tileManager.GridWidth}x{tileManager.GridHeight} grid...");
-        int tilesSpawned = 0;
-        
-        for (int x = 0; x < tileManager.GridWidth; x++) {
-            for (int y = 0; y < tileManager.GridHeight; y++) {
-                Tile tile = tileManager.SpawnTile(x, y);
-                if (tile != null) tilesSpawned++;
-            }
-        }
-        
-        Debug.Log($"✓ Successfully spawned {tilesSpawned} tiles!");
-    }
+    // [ContextMenu("Generate Grid + Place Entities")]
+    // public void GenerateGridAndEntities() {
+    //     GenerateGrid();
+    //     PlaceAllEntities();
+    // }
+    //
+    // [ContextMenu("Generate Grid Only")]
+    // void GenerateGrid() {
+    //     if (tileManager == null) {
+    //         Debug.LogError("TileManager reference missing! Assign it in Inspector.");
+    //         return;
+    //     }
+    //     
+    //     Debug.Log($"Generating {tileManager.GridWidth}x{tileManager.GridHeight} grid...");
+    //     int tilesSpawned = 0;
+    //     
+    //     for (int x = 0; x < tileManager.GridWidth; x++) {
+    //         for (int y = 0; y < tileManager.GridHeight; y++) {
+    //             Tile tile = tileManager.SpawnTile(x, y);
+    //             if (tile != null) tilesSpawned++;
+    //         }
+    //     }
+    //     
+    //     Debug.Log($"✓ Successfully spawned {tilesSpawned} tiles!");
+    // }
     
     [ContextMenu("Place All Entities")]
     public void PlaceAllEntities() {
