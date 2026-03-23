@@ -13,6 +13,10 @@ public class ZoneManager : MonoBehaviour
     [SerializeField] private TileManager tileManager;
     [SerializeField] private ResourceManager resourceManager;
 
+    [Header("Zone 1 (Initial Zone)")]
+    [Tooltip("Profile used exclusively for the first zone. If null, falls back to the random pool.")]
+    [SerializeField] private ZoneProfile zone1Profile;
+    
     [Header("Zone Profiles")]
     [Tooltip("Profiles used in order as zones unlock. Index 0 = Zone 2, Index 1 = Zone 3, etc.")]
     [SerializeField] private List<ZoneProfile> defaultProfiles = new List<ZoneProfile>();
@@ -115,6 +119,8 @@ public class ZoneManager : MonoBehaviour
         int villagesPlaced = 0;
         int factoriesPlaced = 0;
         PlaceBuildings(zoneTiles, profile, ref villagesPlaced, ref factoriesPlaced);
+        
+        PlaceOrganicEntities(zoneTiles, profile);
 
         // Step 7: Forced entity overrides (event-driven zones)
         if (profile.forceSpecificEntities)
@@ -670,12 +676,102 @@ public class ZoneManager : MonoBehaviour
         }
     }
     
+    private ZoneProfile lastUsedProfile = null;
+
     private ZoneProfile GetProfileForNextZone()
     {
-        int index = nextRegionID - 2; // Region 2 = index 0
-        if (defaultProfiles != null && index < defaultProfiles.Count)
-            return defaultProfiles[index];
-        return fallbackProfile;
+        // Build the candidate pool — fallback is always included as a safety net
+        List<ZoneProfile> pool = new List<ZoneProfile>();
+
+        if (defaultProfiles != null)
+            foreach (ZoneProfile p in defaultProfiles)
+                if (p != null) pool.Add(p);
+
+        if (fallbackProfile != null && !pool.Contains(fallbackProfile))
+            pool.Add(fallbackProfile);
+
+        if (pool.Count == 0)
+        {
+            Debug.LogError("ZoneManager: No profiles available! Assign defaultProfiles or fallbackProfile.");
+            return null;
+        }
+
+        // With more than one option, remove the last used to prevent back-to-back repeats
+        if (pool.Count > 1 && lastUsedProfile != null)
+            pool.Remove(lastUsedProfile);
+
+        ZoneProfile selected = pool[Random.Range(0, pool.Count)];
+        lastUsedProfile = selected;
+
+        if (showDebugInfo)
+            Debug.Log($"ZoneManager: Selected profile '{selected.name}' for Zone {nextRegionID}.");
+
+        return selected;
+    }
+    
+    /// <summary>
+    /// Generates Zone 1 using the same flood-fill + full pipeline as GenerateNewZone,
+    /// but accepts an explicit seed position instead of searching for one (no tiles
+    /// exist yet). Called exclusively by GameManager.SpawnInitialZone.
+    /// </summary>
+    public ZoneGenerationResult GenerateInitialZone(Vector2Int seed, ZoneProfile overrideProfile = null)
+    {
+        if (tileManager == null) { Debug.LogError("ZoneManager: TileManager missing!"); return null; }
+
+        ZoneProfile profile = overrideProfile ?? GetProfileForNextZone();
+        if (profile == null) { Debug.LogError("ZoneManager: No Zone 1 profile assigned!"); return null; }
+
+        const int regionID = 1;
+
+        // Step 2 — Organic flood-fill shape (identical to GenerateNewZone)
+        int targetSize = Random.Range(profile.sizeRange.x, profile.sizeRange.y + 1);
+        List<Vector2Int> positions = FloodFillShape(seed, targetSize, profile.flowFalloff, profile.enclosureBonus);
+        if (positions.Count == 0)
+        {
+            Debug.LogError("ZoneManager: GenerateInitialZone flood fill produced no positions!");
+            return null;
+        }
+
+        // Steps 3–8 are identical to GenerateNewZone
+        List<Tile> zoneTiles = SpawnZoneTiles(positions, regionID, profile);
+
+        ZoneTheme dominantTheme = profile.forceTheme ? profile.forcedTheme : RollTheme(profile);
+        int issuesAssigned = AssignIssues(zoneTiles, dominantTheme, profile);
+
+        int villagesPlaced = 0, factoriesPlaced = 0;
+        PlaceBuildings(zoneTiles, profile, ref villagesPlaced, ref factoriesPlaced);
+        PlaceOrganicEntities(zoneTiles, profile);
+
+        if (profile.forceSpecificEntities)
+            ApplyForcedEntities(seed, profile);
+
+        if (resourceManager != null && profile.workerReward > 0)
+            resourceManager.IncreaseTotalPeople(profile.workerReward);
+
+        float avgHealth = zoneTiles.Average(t => t.CalculateHealth());
+        float contamCoverage = (float)zoneTiles.Count(t => t.stats.contamination >= 60f) / zoneTiles.Count;
+
+        ZoneGenerationResult result = new ZoneGenerationResult
+        {
+            regionID              = regionID,
+            tileCount             = zoneTiles.Count,
+            dominantTheme         = dominantTheme,
+            averageStartingHealth = avgHealth,
+            villagesPlaced        = villagesPlaced,
+            factoriesPlaced       = factoriesPlaced,
+            issuesAssigned        = issuesAssigned,
+            contaminationCoverage = contamCoverage,
+            approximateCenter     = CalculateCenter(positions),
+            wasTriggeredByEvent   = false,
+            sourceEventID         = null
+        };
+        PopulateNotableFindings(result, dominantTheme);
+
+        if (showDebugInfo)
+            Debug.Log($"Zone 1 (initial) generated — {zoneTiles.Count} tiles | Theme: {dominantTheme} | Issues: {issuesAssigned} | Avg Health: {avgHealth:F1}");
+
+        OnZoneGenerated?.Invoke(result);
+        return result;
     }
 
     private Vector2Int CalculateCenter(List<Vector2Int> positions)

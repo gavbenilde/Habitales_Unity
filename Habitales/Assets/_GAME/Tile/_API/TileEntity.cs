@@ -12,52 +12,73 @@ public abstract class TileEntity
 
 public class FireEntity : TileEntity
 {
-    private int daysSinceSpreading = 0;
+    // Internal duration counter — never shown to player
+    private int fireDuration = 0;
 
-    public FireEntity()
-    {
-        entityType = "Fire";
-        health = 100f;
-    }
+    // Vegetation captured at ignition — used to normalize the spread ramp
+    private float startingVegetation = -1f;
+
+    // Fire cannot spread in its first N days (too fresh)
+    private const int MIN_SPREAD_DAYS = 3;
+
+    // Damage per day — kept at original value
+    private const float BASE_DAMAGE = 8f;
+
+    // Maximum spread probability reached at peak burn (mid-to-late life)
+    private const float PEAK_SPREAD_CHANCE = 0.2f;
+
+    // Spread is checked every day (daysSinceSpreading removed — duration handles pacing)
+    public FireEntity() { entityType = "Fire"; health = 100f; }
 
     public override void OnDailyUpdate(Tile tile, TileManager manager)
     {
-        
+        // Capture starting vegetation on the first tick
+        if (startingVegetation < 0f)
+            startingVegetation = Mathf.Max(1f, tile.stats.vegetationCover);
+
         float bonusDamage = WeatherManager.Instance != null
             ? WeatherManager.Instance.GetFireBonusDamage() : 0f;
-        const float BASE_DAMAGE = 8f;
         float totalDamage = BASE_DAMAGE + bonusDamage;
 
         tile.stats.vegetationCover    = Mathf.Clamp(tile.stats.vegetationCover    - totalDamage, 0f, 100f);
         tile.stats.nutrientBalance    = Mathf.Clamp(tile.stats.nutrientBalance    - totalDamage, 0f, 100f);
         tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity - totalDamage, 0f, 100f);
 
-        daysSinceSpreading++;
-        if (daysSinceSpreading >= 2)
-        {
-            if (tile.stats.vegetationCover > 5f)
-                TrySpread(tile, manager);
-            daysSinceSpreading = 0;
-        }
+        fireDuration++;
+
+        TrySpread(tile, manager);
+
         if (tile.stats.vegetationCover <= 0f)
             manager.RemoveEntity(tile);
     }
 
-
     private void TrySpread(Tile tile, TileManager manager)
     {
+        // Hard block: fire is too fresh to throw embers
+        if (fireDuration < MIN_SPREAD_DAYS) return;
+
+        // maxDuration = how many days this tile was always going to burn
+        // Ramp is 0 at MIN_SPREAD_DAYS, reaching 1.0 at maxDuration
+        float maxDuration = startingVegetation / BASE_DAMAGE;
+        float spreadProgress = Mathf.Clamp01(
+            (fireDuration - MIN_SPREAD_DAYS) / Mathf.Max(1f, maxDuration - MIN_SPREAD_DAYS)
+        );
+
         float spreadMult = WeatherManager.Instance != null
             ? WeatherManager.Instance.GetFireSpreadMultiplier() : 1f;
+        float spreadChance = PEAK_SPREAD_CHANCE * spreadProgress * spreadMult;
 
         foreach (Tile neighbor in manager.GetAdjacentTiles(tile))
         {
             if (neighbor.tv.Contains(TileOverlayType.Firebreak)) continue;
-            float spreadChance = 0.2f * Mathf.Clamp01(tile.stats.vegetationCover / 100f) * spreadMult;
-            if (UnityEngine.Random.value < spreadChance && neighbor.entity == null)
+            if (neighbor.entity != null) continue;
+
+            if (Random.value < spreadChance)
                 manager.SpawnEntity<FireEntity>(neighbor);
         }
     }
 }
+
 
 public class VillageEntity : TileEntity
 {
@@ -72,20 +93,15 @@ public class VillageEntity : TileEntity
 
     public override void OnDailyUpdate(Tile tile, TileManager manager)
     {
-        if (Random.value < 0.018f)
+        if (Random.value < 0.015f)
             SpawnKainginFire(tile, manager);
         daysPassed++;
-        if (daysPassed >= 5)
-        {
-            SpawnKainginFire(tile, manager);
-            daysPassed = 0;
-        }
     }
 
     private void SpawnKainginFire(Tile tile, TileManager manager)
     {
-        int fireCount = Random.Range(2, 4);
-        var potentialTargets = GetTilesInRadius(tile, manager, 2);
+        int fireCount = Random.Range(4, 8);
+        var potentialTargets = GetTilesInRadius(tile, manager, 4);
         for (int i = 0; i < fireCount && potentialTargets.Count > 0; i++)
         {
             int idx = Random.Range(0, potentialTargets.Count);
@@ -118,7 +134,7 @@ public class TreeEntity : TileEntity
     private const float VEG_BOOST_PER_DAY = 2f;
     private const float ORG_BOOST_PER_DAY = 1f;
     private const float BIO_BOOST_PER_DAY = 1f;
-    private const float SOIL_THRESHOLD_DIE = 20f;
+    private const float SOIL_THRESHOLD_DIE = 10f;
 
     public TreeEntity()
     {
@@ -144,7 +160,7 @@ public class TreeEntity : TileEntity
 public class SaplingEntity : TileEntity
 {
     private const float NUTRIENT_CONSUME_PER_DAY = 1f;
-    private const float SOIL_THRESHOLD_DIE = 25f;
+    private const float SOIL_THRESHOLD_DIE = 15f;
     private const float ORGANIC_BOOST_ON_DEATH = 10f;
     private const int DAYS_UNTIL_GROWTH = 10;
     private int daysExisting = 0;
@@ -181,7 +197,7 @@ public class SaplingEntity : TileEntity
 public class SeedlingEntity : TileEntity
 {
     private const float NUTRIENT_CONSUME_PER_DAY = 2f;
-    private const float SOIL_THRESHOLD_DIE = 30f;
+    private const float SOIL_THRESHOLD_DIE = 20f;
     private const int DAYS_UNTIL_GROWTH = 5;
     private int daysExisting = 0;
 

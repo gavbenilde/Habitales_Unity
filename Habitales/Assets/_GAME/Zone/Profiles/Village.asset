@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ba6e1b4d668228b4fac2b43e82af637c, type: 3}
-  m_Name: DefaultZoneProfile
+  m_Name: Village
   m_EditorClassIdentifier: 
   sizeRange: {x: 25, y: 40}
-  flowFalloff: 4.4
-  enclosureBonus: 0
+  flowFalloff: 1.2
+  enclosureBonus: 0.3
   nutrientBalanceRange: {x: 10, y: 25}
   soilOrganicMatterRange: {x: 10, y: 25}
   soilStructureRange: {x: 10, y: 25}
@@ -30,17 +30,21 @@ MonoBehaviour:
   drainageCollapseWeight: 2
   soilCompactionWeight: 2
   chemicalBurnoutWeight: 1
+  matureTreeSpawnChance: 0
+  saplingSpawnChance: 0
+  seedlingSpawnChance: 0
+  deadTreeSpawnChance: 0
+  stumpSpawnChance: 0
+  bioTrashSpawnChance: 0
   forceTheme: 0
   forcedTheme: 0
   issueDensityRange: {x: 0.3, y: 0.5}
   offThemeIssueProbability: 0.2
-  maxVillages: 1
-  maxFactories: 1
-  villageSpawnChance: 0.5
-  factorySpawnChance: 0.3
+  maxVillages: 2
+  maxFactories: 0
+  villageSpawnChance: 0.2
+  factorySpawnChance: 0
   workerReward: 4
   forceSpecificEntities: 0
-  forcedEntities:
-  - offset: {x: 0, y: 0}
-    entityType: 
+  forcedEntities: []
   aziCalloutKey: 

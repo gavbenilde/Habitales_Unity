@@ -4,8 +4,9 @@ using UnityEngine;
 
 public enum SelectionMode
 {
-    Adjacent,    // Tiles must form connected cluster (PlantTrees, Examine, FireSuppression)
-    NonAdjacent  // Any tiles can be selected (ClearStump, ClearTrash, CreateFirebreak)
+    FloodFill,
+    Adjacent,
+    NonAdjacent
 }
 
 public abstract class PlayerAction
@@ -41,13 +42,14 @@ public abstract class PlayerAction
     /// </summary>
     public int CalculateDays(int availablePeople, int targetTiles)
     {
-        if (targetTiles == 0) return MinDays;
+        if (targetTiles <= 0) return MinDays;
         float peoplePerTile = (float)availablePeople / targetTiles;
         float efficiency = peoplePerTile / MinPeoplePerTile;
         float efficiencyFactor = Mathf.Sqrt(efficiency);
         int calculatedDays = Mathf.CeilToInt(BaseDays / efficiencyFactor);
         return Mathf.Max(MinDays, calculatedDays);
     }
+
     
     /// <summary>
     /// Executes the action on target tiles.
