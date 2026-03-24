@@ -9,19 +9,12 @@ using UnityEngine;
 /// </summary>
 public class TileManager : MonoBehaviour
 {
-    [Header("Grid Configuration")] [SerializeField]
-    private int gridWidth = 10;
-
-    [SerializeField] private int gridHeight = 10;
-
     [Header("Visualization (Optional)")] [SerializeField]
     private GameObject tilePrefab; // 3D tile prefab with TileVisualizer
 
     [SerializeField] private Transform tileParent; // Parent object for organization
     [SerializeField] private GameObject entityVisualizerPrefab;
 
-    
-    private Tile[,] grid;
     private Dictionary<Vector2Int, Tile> tileCache;
     private Dictionary<Tile, GameObject> tileGameObjects; // Links data to GameObjects
 
@@ -37,20 +30,8 @@ public class TileManager : MonoBehaviour
     /// </summary>
     public void InitializeGrid()
     {
-        grid = new Tile[gridWidth, gridHeight];
         tileCache = new Dictionary<Vector2Int, Tile>();
         tileGameObjects = new Dictionary<Tile, GameObject>();
-    }
-
-    /// <summary>
-    /// Reinitializes grid with new dimensions. USE WITH CAUTION - destroys existing grid.
-    /// </summary>
-    public void ResizeGrid(int newWidth, int newHeight)
-    {
-        ClearGrid();
-        gridWidth = newWidth;
-        gridHeight = newHeight;
-        InitializeGrid();
     }
 
     #endregion
@@ -67,29 +48,25 @@ public class TileManager : MonoBehaviour
     /// <param name="regionID">Zone/region identifier</param>
     public Tile SpawnTile(int x, int y, TileStats stats = null, int regionID = 0)
     {
-        if (!IsValidPosition(x, y))
+        Vector2Int pos = new Vector2Int(x, y);
+
+        if (tileCache.ContainsKey(pos))
         {
-            Debug.LogError($"Cannot spawn tile at ({x}, {y}) - out of bounds!");
-            return null;
+            Debug.LogWarning($"Tile already exists at ({x}, {y}) — skipping.");
+            return tileCache[pos];
         }
 
-        // Create data object
         Tile tile = new Tile
         {
-            gridPosition = new Vector2Int(x, y),
+            gridPosition = pos,
             stats = stats ?? GenerateDefaultStats(),
             regionID = regionID
         };
 
-        // Store in grid
-        grid[x, y] = tile;
         tileCache[tile.gridPosition] = tile;
 
-        // Instantiate visual (if prefab provided)
         if (tilePrefab != null)
-        {
             InstantiateTileVisual(tile);
-        }
 
         return tile;
     }
@@ -145,13 +122,17 @@ public class TileManager : MonoBehaviour
     {
         return new TileStats
         {
-            soilQuality = Random.Range(10f, 20f),
-            vegetationCover = Random.Range(60f, 70f), //0f - 50f
-            contamination = Random.Range(0f, 20f),
-            waterPurity = 100f,
-            hasFirebreak = false
+            nutrientBalance    = Random.Range(10f, 20f),
+            soilOrganicMatter  = Random.Range(10f, 20f),
+            soilStructure      = Random.Range(10f, 20f),
+            biologicalActivity = Random.Range(5f,  15f),
+            waterDynamics      = Random.Range(10f, 20f),
+            erosionResistance  = Random.Range(5f,  15f),
+            vegetationCover    = Random.Range(60f, 70f),
+            contamination      = Random.Range(0f,  20f)
         };
     }
+
 
     #endregion
 
@@ -162,16 +143,14 @@ public class TileManager : MonoBehaviour
     /// </summary>
     public Tile GetTile(int x, int y)
     {
-        if (!IsValidPosition(x, y)) return null;
-        return grid[x, y];
+        tileCache.TryGetValue(new Vector2Int(x, y), out Tile tile);
+        return tile; // returns null naturally if not found
     }
 
-    /// <summary>
-    /// Gets tile at Vector2Int position.
-    /// </summary>
     public Tile GetTile(Vector2Int position)
     {
-        return GetTile(position.x, position.y);
+        tileCache.TryGetValue(position, out Tile tile);
+        return tile;
     }
 
     /// <summary>
@@ -282,9 +261,9 @@ public class TileManager : MonoBehaviour
     /// <summary>
     /// Checks if grid position is valid (within bounds).
     /// </summary>
-    public bool IsValidPosition(int x, int y)
+    public bool HasTileAt(int x, int y)
     {
-        return x >= 0 && x < gridWidth && y >= 0 && y < gridHeight;
+        return tileCache.ContainsKey(new Vector2Int(x, y));
     }
     
     /// <summary>
@@ -306,15 +285,23 @@ public class TileManager : MonoBehaviour
     /// <summary>
     /// Applies an IssueConfig to a tile (for zone generation).
     /// </summary>
-    public void ApplyIssue(Tile tile, IssueConfig issueConfig)
+    public void ApplyIssue(Tile tile, TileIssue issue)
     {
-        if (tile == null || issueConfig == null) return;
-
-        issueConfig.ApplyToTile(tile);
-        tile.issues.Add(issueConfig.type);
-
+        if (tile == null || issue == null) return;
+        tile.stats.nutrientBalance    *= issue.nutrientMult;
+        tile.stats.soilOrganicMatter  *= issue.organicMult;
+        tile.stats.soilStructure      *= issue.structureMult;
+        tile.stats.biologicalActivity *= issue.biologicalMult;
+        tile.stats.waterDynamics      *= issue.waterDynMult;
+        tile.stats.erosionResistance  *= issue.erosionMult;
+        tile.stats.vegetationCover    *= issue.vegetationMult;
+        tile.stats.contamination       = Mathf.Min(100f, tile.stats.contamination + issue.contaminationAdd);
+        tile.issues.Add(issue);
+        if (tile.stats.contamination > 60f && !tile.tv.Contains(TileOverlayType.Contaminated))
+            tile.tv.Add(TileOverlayType.Contaminated);
         UpdateTileVisual(tile);
     }
+
 
     /// <summary>
     /// Modifies tile stats directly and updates visual.
@@ -322,13 +309,21 @@ public class TileManager : MonoBehaviour
     public void ModifyTileStats(Tile tile, float soilDelta = 0, float vegDelta = 0, float contamDelta = 0)
     {
         if (tile == null) return;
-
-        tile.stats.soilQuality = Mathf.Clamp(tile.stats.soilQuality + soilDelta, 0f, 100f);
-        tile.stats.vegetationCover = Mathf.Clamp(tile.stats.vegetationCover + vegDelta, 0f, 100f);
-        tile.stats.contamination = Mathf.Clamp(tile.stats.contamination + contamDelta, 0f, 100f);
-
+        if (soilDelta != 0)
+        {
+            float perStat = soilDelta / 6f;
+            tile.stats.nutrientBalance    = Mathf.Clamp(tile.stats.nutrientBalance    + perStat, 0f, 100f);
+            tile.stats.soilOrganicMatter  = Mathf.Clamp(tile.stats.soilOrganicMatter  + perStat, 0f, 100f);
+            tile.stats.soilStructure      = Mathf.Clamp(tile.stats.soilStructure      + perStat, 0f, 100f);
+            tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity + perStat, 0f, 100f);
+            tile.stats.waterDynamics      = Mathf.Clamp(tile.stats.waterDynamics      + perStat, 0f, 100f);
+            tile.stats.erosionResistance  = Mathf.Clamp(tile.stats.erosionResistance  + perStat, 0f, 100f);
+        }
+        tile.stats.vegetationCover = Mathf.Clamp(tile.stats.vegetationCover + vegDelta,   0f, 100f);
+        tile.stats.contamination   = Mathf.Clamp(tile.stats.contamination   + contamDelta, 0f, 100f);
         UpdateTileVisual(tile);
     }
+
 
     #endregion
 
@@ -488,15 +483,11 @@ public class TileManager : MonoBehaviour
     public void UpdateTileVisual(Tile tile)
     {
         if (tile == null || !tileGameObjects.ContainsKey(tile)) return;
-
         GameObject tileObj = tileGameObjects[tile];
         TileVisualizer visualizer = tileObj.GetComponent<TileVisualizer>();
-
-        if (visualizer != null)
-        {
-            visualizer.UpdateVisuals();
-            visualizer.UpdateFirebreakVisual(tile.stats.hasFirebreak);
-        }
+        if (visualizer == null) return;
+        visualizer.UpdateVisuals();
+        visualizer.UpdateOverlays(tile.tv);
     }
 
     /// <summary>
@@ -516,33 +507,36 @@ public class TileManager : MonoBehaviour
 
     #endregion
 
-    #region Cleanup
-
-    /// <summary>
-    /// Destroys all tile GameObjects and clears data.
-    /// Use before resizing or restarting.
-    /// </summary>
-    public void ClearGrid()
+    #region Properties
+    
+    public Vector2Int WorldMin
     {
-        foreach (GameObject tileObj in tileGameObjects.Values)
+        get
         {
-            if (tileObj != null)
+            int minX = int.MaxValue, minY = int.MaxValue;
+            foreach (var pos in tileCache.Keys)
             {
-                Destroy(tileObj);
+                if (pos.x < minX) minX = pos.x;
+                if (pos.y < minY) minY = pos.y;
             }
+            return tileCache.Count == 0 ? Vector2Int.zero : new Vector2Int(minX, minY);
         }
-
-        grid = null;
-        tileCache?.Clear();
-        tileGameObjects?.Clear();
     }
 
-    #endregion
+    public Vector2Int WorldMax
+    {
+        get
+        {
+            int maxX = int.MinValue, maxY = int.MinValue;
+            foreach (var pos in tileCache.Keys)
+            {
+                if (pos.x > maxX) maxX = pos.x;
+                if (pos.y > maxY) maxY = pos.y;
+            }
+            return tileCache.Count == 0 ? Vector2Int.zero : new Vector2Int(maxX, maxY);
+        }
+    }
 
-    #region Properties
-
-    public int GridWidth => gridWidth;
-    public int GridHeight => gridHeight;
 
     #endregion
 }

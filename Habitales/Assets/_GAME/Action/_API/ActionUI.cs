@@ -39,6 +39,11 @@ public class ActionUI : MonoBehaviour
     [SerializeField] private GameObject warningTooltipPanel;
     [SerializeField] private TextMeshProUGUI warningTooltipText;
     
+    [Header("FloodFill Slider")]
+    [SerializeField] private GameObject floodFillSliderContainer;
+    [SerializeField] private Slider floodFillSlider;
+    [SerializeField] private TextMeshProUGUI floodFillSliderLabel;
+   
     [Header("Positioning")]
     [SerializeField] private Vector2 screenOffset = new Vector2(150f, 0f);
     
@@ -85,6 +90,10 @@ public class ActionUI : MonoBehaviour
         {
             cancelButton.onClick.AddListener(OnCancelClicked);
         }
+        
+        // FloodFill slider
+        if (floodFillSlider != null)
+            floodFillSlider.onValueChanged.AddListener(OnFloodFillSliderChanged);
         
         if (warningIcon != null)
         {
@@ -145,6 +154,14 @@ public class ActionUI : MonoBehaviour
             tileSelector.OnMultiSelectionConfirmed -= HandleMultiSelectionConfirmed;
         }
     }
+    
+    void OnDestroy()
+    
+    {
+        if (floodFillSlider != null)
+            floodFillSlider.onValueChanged.RemoveListener(OnFloodFillSliderChanged);
+    }
+
     
     void Update()
     {
@@ -422,7 +439,11 @@ public class ActionUI : MonoBehaviour
         // Enter multi-select mode via TileSelector
         if (tileSelector != null)
         {
-            tileSelector.EnterMultiSelectMode(action, currentTile);
+            if (action.selectionMode == SelectionMode.FloodFill)
+                tileSelector.EnterFloodFillMode(action, currentTile);
+            else
+                tileSelector.EnterMultiSelectMode(action, currentTile);
+
             ShowMultiSelect();
         }
         else
@@ -438,68 +459,75 @@ public class ActionUI : MonoBehaviour
     void ShowMultiSelect()
     {
         SetState(ActionPanelState.MultiSelect);
-        
+
         if (actionNameText != null && currentAction != null)
-        {
             actionNameText.text = currentAction.ActionName;
+
+        if (tileCounterText != null) tileCounterText.text = "";
+        if (daysText != null) daysText.text = "";
+
+        bool isFloodFill = tileSelector != null && tileSelector.IsFloodFillMode;
+
+        if (floodFillSliderContainer != null)
+            floodFillSliderContainer.SetActive(isFloodFill);
+
+        if (isFloodFill && floodFillSlider != null)
+        {
+            int max = Mathf.Min(tileSelector.MaxSelectableTiles, tileSelector.FloodFillReachableCount);
+            floodFillSlider.minValue = 1;
+            floodFillSlider.maxValue = Mathf.Max(1, max);
+            floodFillSlider.wholeNumbers = true;
+            floodFillSlider.value = 1;
+            UpdateFloodFillSliderLabel(1, max); // Resolves to "" anyway
         }
-        
+
         UpdateTileCounter();
     }
+    
+    void OnFloodFillSliderChanged(float value)
+    {
+        if (tileSelector == null || !tileSelector.IsFloodFillMode) return;
+
+        int count = Mathf.RoundToInt(value);
+        tileSelector.SetFloodFillSize(count);
+        UpdateFloodFillSliderLabel(count, tileSelector.FloodFillReachableCount);
+        UpdateTileCounter();
+    }
+
+    void UpdateFloodFillSliderLabel(int current, int max)
+    {
+        if (floodFillSliderLabel != null)
+            floodFillSliderLabel.text = "";
+    }
+
     
     void UpdateTileCounter()
     {
         if (tileCounterText == null || tileSelector == null) return;
 
         int selected = tileSelector.SelectedTileCount;
-        int max      = tileSelector.MaxSelectableTiles;
+        int max = tileSelector.MaxSelectableTiles;
 
-        // Update confirm button interactivity (unchanged)
+        tileCounterText.text = "";
+        if (daysText != null) daysText.text = "";
+
         if (confirmButton != null)
             confirmButton.interactable = selected > 0;
 
         if (selected == 0)
         {
-            tileCounterText.text  = "";
-            tileCounterText.color = Color.white;
-            
-            if (daysText != null) daysText.text = "";
             SetWarningIconActive(false);
             return;
         }
 
-        int people       = ResourceManager.Instance.AvailablePeople;
-        int minPPT       = currentAction != null ? currentAction.MinPeoplePerTile : 1;
-        int personsPerTile = people / selected;  // Integer — fractional people aren't meaningful
-
-        tileCounterText.text = $"~{personsPerTile} persons per tile";
-        
-        if (daysText != null && currentAction != null)
+        if (currentAction != null)
         {
-            int days = currentAction.CalculateDays(people, selected);
-            daysText.text = $"{days} day{(days == 1 ? "" : "s")}";
+            int people = ResourceManager.Instance.AvailablePeople;
+            int personsPerTile = people / selected;
+            float range = Mathf.Max(1f, people - currentAction.MinPeoplePerTile);
+            float t = Mathf.Clamp01((personsPerTile - currentAction.MinPeoplePerTile) / range);
+            SetWarningIconActive(t < 0.33f);
         }
-
-        // --- Red triggers ---
-        bool atMinimum  = personsPerTile <= minPPT;
-        bool atMaxTiles = selected >= max;
-
-        if (atMinimum || atMaxTiles)
-        {
-            tileCounterText.color = new Color(0.9f, 0.2f, 0.2f);
-            daysText.color = new Color(0.9f, 0.2f, 0.2f); // Red
-            return;
-        }
-
-        // --- Gradient: green (plenty) → yellow → orange → red (thin) ---
-        // t = 1.0 means maxed people per tile, t = 0.0 means at minimum
-        // Clamp so edge cases don't blow out
-        float range = Mathf.Max(1f, people - minPPT);  // Avoid divide-by-zero
-        float t     = Mathf.Clamp01((personsPerTile - minPPT) / range);
-
-        tileCounterText.color = GetCounterGradientColor(t);
-        daysText.color = GetCounterGradientColor(t);
-        SetWarningIconActive(t < 0.33f);
     }
     
     /// <summary>
