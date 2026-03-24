@@ -24,6 +24,7 @@ public class EntityVisualizer : MonoBehaviour {
     [Header("Positioning")]
     [SerializeField] private float forwardOffset = 0.5f;
 
+    /*VFX Temporary Test*/
     [Header("VFX")] 
     [SerializeField] private GameObject vfxPrefab;
     
