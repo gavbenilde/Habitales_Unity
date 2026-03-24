@@ -44,7 +44,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 79057aace6b0f53499332145789f8fee, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  seedlingTreeSprite: {fileID: 21300000, guid: e9687b7bc33f3f444b3d51ca4a6e80ba, type: 3}
+  seedlingTreeSprite: {fileID: 21300000, guid: da52709e4b5b80549b5ce7cb5df0e78b, type: 3}
   saplingTreeSprite: {fileID: 21300000, guid: 4fc0baf6b824d564eab0a75a7f5d9728, type: 3}
   matureTreeSprite: {fileID: 21300000, guid: 74b9b84c78bd39945a40bf4ddd232051, type: 3}
   deadTreeSprite: {fileID: 21300000, guid: bd7cfd6c12edbd448b1a88146d2b4c0a, type: 3}
@@ -53,4 +53,4 @@ MonoBehaviour:
   villageSprite: {fileID: 21300000, guid: 06a221e90bf16f547b444fc07451a499, type: 3}
   factorySprite: {fileID: 0}
   bioTrashSprite: {fileID: 0}
-  forwardOffset: 0.5
+  forwardOffset: 0.7

@@ -101,7 +101,7 @@ public class EntityVisualizer : MonoBehaviour
             if (parentRenderer != null) tileHeight = parentRenderer.bounds.size.y;
         }
         transform.localPosition = new Vector3(
-            forwardOffset,
+            (forwardOffset * 1.2f),
             tileHeight + spriteHeight * 0.5f,
             forwardOffset);
     }
