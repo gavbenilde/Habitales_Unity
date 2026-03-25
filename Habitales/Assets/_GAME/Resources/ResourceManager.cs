@@ -12,6 +12,8 @@ public class ResourceManager : MonoBehaviour
     [SerializeField] private int totalDays   = 0;
     [SerializeField] private int daysPerYear = 365;
     [SerializeField] private int maxYears    = 5;
+    
+    public int DaysPerYear => daysPerYear;
 
     // ── Workers ───────────────────────────────────────────────────────────────
     [Header("Workers")]

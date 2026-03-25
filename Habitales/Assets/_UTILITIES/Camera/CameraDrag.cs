@@ -1,6 +1,7 @@
 using System.Threading;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UTILITIES.Camera;
 
 namespace _UTILITIES.Camera
 {
@@ -22,6 +23,7 @@ namespace _UTILITIES.Camera
 
         void Update()
         {
+            if (EventCameraHandler.Instance != null && EventCameraHandler.Instance.IsPanning) return;
             if (Input.GetMouseButtonDown(0))
             {
                 isDraggingOnEmpty = CheckClickedOnNothing();

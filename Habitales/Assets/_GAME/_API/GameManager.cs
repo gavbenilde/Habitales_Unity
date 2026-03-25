@@ -71,8 +71,6 @@ public class GameManager : MonoBehaviour {
             if (Input.GetKeyDown(KeyCode.F1))
                 DebugAdvanceOneDay();
             
-            if (Input.GetKeyDown(KeyCode.F2))
-                DebugFireTestEvent();
     #endif
     }
     
@@ -511,18 +509,6 @@ public class GameManager : MonoBehaviour {
             unlockedRegions.Add(newRegionFrom);
             zoneManager.GenerateNewZone(newRegionFrom);
         }
-    }
-    
-    [ContextMenu("Debug: Fire Test Event")]
-    void DebugFireTestEvent()
-    {
-        if (EventManager.Instance == null)
-        {
-            Debug.LogError("DebugFireTestEvent: No EventManager in scene!");
-            return;
-        }
-        EventManager.Instance.FireEventByID("test_first_fire");
-        Debug.Log("GameManager: Fired test event via F2.");
     }
     
     void OnDestroy() {
