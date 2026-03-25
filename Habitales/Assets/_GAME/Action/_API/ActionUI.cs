@@ -544,7 +544,8 @@ public class ActionUI : MonoBehaviour
         Color red    = new Color(0.9f, 0.2f, 0.2f);
 
         if (t >= 0.66f)
-            return Color.Lerp(yellow, green, (t - 0.66f) / 0.34f);  // Yellow → Green
+            return Color.Lerp(yellow, green, (t - 0.66f) / 0.34f);  // Yellow → Greenyeah
+        
         else if (t >= 0.33f)
             return Color.Lerp(orange, yellow, (t - 0.33f) / 0.33f); // Orange → Yellow
         else
