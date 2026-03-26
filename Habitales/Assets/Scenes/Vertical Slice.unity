@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.17277353, g: 0.2158997, b: 0.29783306, a: 1}
+  m_IndirectSpecularColor: {r: 0.17277355, g: 0.2158997, b: 0.29783309, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -1959,7 +1959,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 540718018}
   m_HandleRect: {fileID: 1888631873}
   m_Direction: 0
-  m_Value: 0
+  m_Value: 1
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -2101,8 +2101,8 @@ MonoBehaviour:
   zoneManager: {fileID: 510870574}
   regionHealthUI: {fileID: 989360326}
   outlineWidth: 0.13
-  yOffset: 0.017
-  outlineColor: {r: 0, g: 0, b: 0, a: 1}
+  yOffset: 0.1
+  outlineColor: {r: 0.31008965, g: 0.30718225, b: 0.3679245, a: 1}
 --- !u!1 &572028785
 GameObject:
   m_ObjectHideFlags: 0
@@ -3138,7 +3138,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76875ddb850110e4ca4ebca0c763d8ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  tilePrefab: {fileID: 8964120617181234756, guid: dd29fa7b4b2461a41a1381ef10ea7075, type: 3}
+  tilePrefab: {fileID: 6709977283922037464, guid: f57348c7d1dd0eb44bc7c8500bf17175, type: 3}
   tileParent: {fileID: 1488361861}
   entityVisualizerPrefab: {fileID: 273496731299126067, guid: d90f3f5eec7b5154297d14a8f2689470, type: 3}
 --- !u!1 &836479115
@@ -5517,7 +5517,7 @@ Transform:
   m_GameObject: {fileID: 1771316768}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0.5, z: 0}
   m_LocalScale: {x: 100, y: 0.89, z: 100}
   m_ConstrainProportionsScale: 0
   m_Children: []
