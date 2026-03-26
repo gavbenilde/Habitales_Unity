@@ -3138,7 +3138,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76875ddb850110e4ca4ebca0c763d8ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  tilePrefab: {fileID: 7083731526152937495, guid: 5b81abfd3c9e4ce44b1c8bf682385fd5, type: 3}
+  tilePrefab: {fileID: 8964120617181234756, guid: dd29fa7b4b2461a41a1381ef10ea7075, type: 3}
   tileParent: {fileID: 1488361861}
   entityVisualizerPrefab: {fileID: 273496731299126067, guid: d90f3f5eec7b5154297d14a8f2689470, type: 3}
 --- !u!1 &836479115
