@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public class EntityVisualizer : MonoBehaviour
 {
@@ -20,6 +21,9 @@ public class EntityVisualizer : MonoBehaviour
     [Header("Positioning")]
     [SerializeField] private float forwardOffset = 0.5f;
 
+    [Header("Material")]
+    [SerializeField] private Material defaultMaterial; // assign a Lit material in Inspector
+    
     private SpriteRenderer spriteRenderer;
     private TileEntity     entityData;
     private Tile           parentTile;
@@ -30,6 +34,13 @@ public class EntityVisualizer : MonoBehaviour
         spriteRenderer = GetComponent<SpriteRenderer>();
         if (spriteRenderer == null)
             spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
+
+        if (defaultMaterial != null)
+            spriteRenderer.material = defaultMaterial;
+        
+        spriteRenderer.shadowCastingMode = ShadowCastingMode.On;
+        spriteRenderer.receiveShadows = true;
+        
         mainCamera = Camera.main;
     }
 
@@ -87,6 +98,9 @@ public class EntityVisualizer : MonoBehaviour
                 spriteRenderer.sprite = null;
                 break;
         }
+        spriteRenderer.shadowCastingMode = ShadowCastingMode.On;
+        spriteRenderer.receiveShadows = true;
+        
         PositionSprite();
     }
 
