@@ -50,6 +50,12 @@ public static class RegionBoundaryMeshBuilder
                     worldCenter.x + edge.seamB.x,
                     worldCenter.y + yOffset,
                     worldCenter.z + edge.seamB.y);
+                
+                Vector3 edgeDir = (seamB - seamA).normalized;
+                float extend = outlineWidth * 0.5f;
+
+                seamA -= edgeDir * extend;
+                seamB += edgeDir * extend;
 
                 Vector3 stride = new Vector3(edge.straddleDir.x, 0f, edge.straddleDir.y) * halfWidth;
 

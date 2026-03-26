@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 public class ClickVFX : MonoBehaviour
 {
@@ -11,10 +12,13 @@ public class ClickVFX : MonoBehaviour
     {
         if (Input.GetMouseButtonDown(0))
         {
+            if (EventSystem.current.IsPointerOverGameObject())
+                return;
+            
             Ray ray = cam.ScreenPointToRay(Input.mousePosition);
             RaycastHit hit;
 
-            if (Physics.Raycast(ray, out hit))
+            if (Physics.Raycast(ray, out hit) && hit.collider.CompareTag("Tile"))
             {
                 // Spawn at hit point
                 GameObject vfx = Instantiate(vfxPrefab, hit.point, vfxPrefab.transform.rotation);
