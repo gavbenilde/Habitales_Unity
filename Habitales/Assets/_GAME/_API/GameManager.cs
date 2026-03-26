@@ -29,6 +29,7 @@ public class GameManager : MonoBehaviour {
     [SerializeField] private float criticalHealthThreshold = 33f; // Critical state
     [SerializeField] private float thrivingHealthThreshold = 67f; // Thriving state
     private bool isGameOver = false;
+    public bool IsEventPaused { get; private set; } = false;
 
     
     [Header("Initial Zone Setup")]
@@ -69,6 +70,7 @@ public class GameManager : MonoBehaviour {
     #if UNITY_EDITOR
             if (Input.GetKeyDown(KeyCode.F1))
                 DebugAdvanceOneDay();
+            
     #endif
     }
     
@@ -183,7 +185,7 @@ public class GameManager : MonoBehaviour {
     /// </summary>
     void HandleActionCompleted(Tile targetTile, int daysElapsed)
     {
-        if (targetTile == null || isGameOver) return;
+        if (targetTile == null || isGameOver || IsEventPaused) return;
 
         if (showDebugInfo)
             Debug.Log($"─── Action Complete — Updating World ───");
@@ -302,6 +304,25 @@ public class GameManager : MonoBehaviour {
         {
             Debug.Log($"⏰ Time advanced by {days} days | Now: {resourceManager.GetFullTimeDisplay()}");
         }
+    }
+    
+    public void PauseForEvent()
+    {
+        IsEventPaused = true;
+        if (showDebugInfo) Debug.Log("GameManager: Paused for event.");
+    }
+
+    public void ResumeFromEvent()
+    {
+        IsEventPaused = false;
+        if (showDebugInfo) Debug.Log("GameManager: Resumed from event.");
+    }
+
+    // Stub — flesh out in Step 4 when action interruption is implemented
+    public void AbortCurrentAction()
+    {
+        if (showDebugInfo) Debug.Log("GameManager: Action aborted by event.");
+        // TODO: apply partial tile progress here
     }
 
     void HandlePeopleFatigued(int count, int returnDay)

@@ -234,6 +234,8 @@ public class TileSelector : MonoBehaviour
 
     void HandleMouseInput()
     {
+        if (EventManager.Instance != null && EventManager.Instance.IsShowingEvent) return;
+        
         if (Input.GetMouseButtonDown(0))
         {
             if (IsPointerOverUI()) return;
@@ -558,6 +560,8 @@ public class TileSelector : MonoBehaviour
 
     void HandleDeselectInput()
     {
+        if (EventManager.Instance != null && EventManager.Instance.IsShowingEvent) return;
+
         if (Input.GetKeyDown(deselectKey))
         {
             if (multiSelectMode) CancelSelection();
