@@ -23,7 +23,7 @@ public class ClickVFX : MonoBehaviour
                 // Spawn at hit point
                 GameObject vfx = Instantiate(vfxPrefab, hit.point, vfxPrefab.transform.rotation);
                 
-                Destroy(vfx, 2f);
+                Destroy(vfx, 1f);
 
                 // Optional: align to surface normal
                 // Instantiate(vfxPrefab, hit.point, Quaternion.LookRotation(hit.normal));

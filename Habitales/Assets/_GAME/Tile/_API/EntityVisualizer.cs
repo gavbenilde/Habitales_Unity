@@ -20,6 +20,7 @@ public class EntityVisualizer : MonoBehaviour
 
     [Header("Positioning")]
     [SerializeField] private float forwardOffset = 0.5f;
+    [SerializeField] private float heightOffset = 0.5f;
 
     [Header("Material")]
     [SerializeField] private Material defaultMaterial; // assign a Lit material in Inspector
@@ -116,7 +117,7 @@ public class EntityVisualizer : MonoBehaviour
         }
         transform.localPosition = new Vector3(
             (forwardOffset * 1.2f),
-            tileHeight + spriteHeight * 0.5f,
+            tileHeight + spriteHeight * heightOffset,
             forwardOffset);
     }
 
