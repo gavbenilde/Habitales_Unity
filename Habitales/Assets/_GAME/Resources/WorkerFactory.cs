@@ -1,8 +1,32 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Habitales;
 
 public static class WorkerFactory
 {
+    public static WorkerPortraitPool portraitPool;
+    
+    private static void AssignPortrait(Worker worker)
+    {
+        bool useStock = portraitPool != null
+                        && portraitPool.stockPhotos != null
+                        && portraitPool.stockPhotos.Count > 0
+                        && Random.value <= 0.60f;
+
+        if (useStock)
+        {
+            worker.portraitType = WorkerPortraitType.StockPhoto;
+            worker.stockPhoto   = portraitPool.GetNextPortrait();
+            worker.initialColor = Color.white;
+        }
+        else
+        {
+            worker.portraitType = WorkerPortraitType.GeneratedInitial;
+            worker.stockPhoto   = null;
+            worker.initialColor = Color.HSVToRGB(Random.value, 0.55f, 0.85f);
+        }
+    }
+    
     private static readonly string[] FirstNames =
     {
         "Aling", "Mang", "Nena", "Rodel", "Lita", "Cris", "Tito",

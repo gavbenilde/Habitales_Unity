@@ -7,6 +7,12 @@ public enum WorkerTrait
     Stoic, Curious, Grumpy, Optimistic, Pragmatic
 }
 
+public enum WorkerPortraitType
+{
+    GeneratedInitial,
+    StockPhoto
+}
+
 [Serializable]
 public class Worker
 {
@@ -17,6 +23,11 @@ public class Worker
     public int        actionsParticipated;
     public bool       isFatigued;
     public int        returnDay;          // game day they become available again
+
+    // portrait system
+    public WorkerPortraitType portraitType;
+    public Color              initialColor;
+    public Sprite             stockPhoto;    // already added — keep as-is
 
     public string DisplayName => workerName;
 
