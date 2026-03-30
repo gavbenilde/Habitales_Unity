@@ -41,7 +41,7 @@ MonoBehaviour:
   issueDensityRange: {x: 0.3, y: 0.5}
   offThemeIssueProbability: 0.2
   maxVillages: 0
-  maxFactories: 0
+  maxFactories: 1
   villageSpawnChance: 0.5
   factorySpawnChance: 0.3
   workerReward: 4

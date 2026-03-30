@@ -51,8 +51,8 @@ MonoBehaviour:
   stumpSprite: {fileID: 21300000, guid: c8aa917b9ccb33443a03922f2788b204, type: 3}
   fireSprite: {fileID: 21300000, guid: f6f8daca1d0d83a45a67103d8925a8b1, type: 3}
   villageSprite: {fileID: 21300000, guid: 5147fc04af0bdc24e9c1382c7f123946, type: 3}
-  factorySprite: {fileID: 0}
-  bioTrashSprite: {fileID: 0}
+  factorySprite: {fileID: 21300000, guid: ebfe152c26361d84dab9285b6f56b6b9, type: 3}
+  bioTrashSprite: {fileID: 21300000, guid: 5fff0d476cbaf974cb208a4cef8fc395, type: 3}
   forwardOffset: 0.35
   heightOffset: 0.321
   defaultMaterial: {fileID: 2100000, guid: 70fee81558b5ea142992d0a133bbb5b0, type: 2}

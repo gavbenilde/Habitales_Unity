@@ -101,6 +101,7 @@ public class EntityVisualizer : MonoBehaviour
         }
         spriteRenderer.shadowCastingMode = ShadowCastingMode.On;
         spriteRenderer.receiveShadows = true;
+        spriteRenderer.flipX = true;
         
         PositionSprite();
     }
