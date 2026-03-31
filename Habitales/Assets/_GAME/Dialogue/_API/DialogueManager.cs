@@ -50,8 +50,17 @@ namespace Habitales.Dialogue
 
         private void OnEnable()
         {
-            ResourceManager.Instance.OnTimeAdvanced  += HandleTimeAdvanced;
-            ZoneManager.Instance.OnZoneGenerated     += HandleZoneGenerated;
+            InitializeFixedTabs(); // safe, no external dependencies
+
+            if (ResourceManager.Instance != null)
+                ResourceManager.Instance.OnTimeAdvanced += HandleTimeAdvanced;
+            else
+                Debug.LogWarning("[DialogueManager] ResourceManager not ready on OnEnable — skipping subscription.");
+
+            if (ZoneManager.Instance != null)
+                ZoneManager.Instance.OnZoneGenerated += HandleZoneGenerated;
+            else
+                Debug.LogWarning("[DialogueManager] ZoneManager not ready on OnEnable — skipping subscription.");
         }
 
         private void OnDisable()
@@ -66,6 +75,15 @@ namespace Habitales.Dialogue
             foreach (var tab in registry.tabs)
                 if (tab != null && !_fixedTabEntries.ContainsKey(tab.tabID))
                     _fixedTabEntries[tab.tabID] = new List<RuntimeChatEntry>();
+        }
+        
+        private void Start()
+        {
+            if (ResourceManager.Instance != null)
+                ResourceManager.Instance.OnTimeAdvanced += HandleTimeAdvanced;
+
+            if (ZoneManager.Instance != null)
+                ZoneManager.Instance.OnZoneGenerated += HandleZoneGenerated;
         }
 
         // ─── Core Public Methods ──────────────────────────────────────────────
