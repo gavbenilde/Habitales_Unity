@@ -1,13 +1,15 @@
+using System;
 using System.Collections;
 using UnityEngine;
 
 public class DayNightCycleHandler : MonoBehaviour
 {
     [SerializeField] private GameObject directionalLight;
-
-    public float dayDuration = 5f;
-
+    private readonly float dayDuration = 5f;
+    
     private Coroutine currentCycle;
+
+    public event Action<int> OnCycleEnd;
 
     void OnEnable()
     {
@@ -31,13 +33,18 @@ public class DayNightCycleHandler : MonoBehaviour
 
     private IEnumerator RunCycles(int cycles)
     {
-        float rotationSpeed = 360f / dayDuration;
+        float baseDuration = dayDuration;
+        
+        float minDuration = 0.3125f;
+
+        float currentDuration = baseDuration;
 
         for (int i = 0; i < cycles; i++)
         {
             float elapsed = 0f;
+            float rotationSpeed = 360f / currentDuration;
 
-            while (elapsed < dayDuration)
+            while (elapsed < currentDuration)
             {
                 float delta = Time.deltaTime;
                 float rotationThisFrame = rotationSpeed * delta;
@@ -47,6 +54,12 @@ public class DayNightCycleHandler : MonoBehaviour
                 elapsed += delta;
                 yield return null;
             }
+            
+            OnCycleEnd?.Invoke(i + 1);
+            
+            currentDuration *= 0.5f;
+            
+            currentDuration = Mathf.Max(currentDuration, minDuration);
         }
 
         currentCycle = null;
