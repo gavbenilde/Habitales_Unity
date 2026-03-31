@@ -2728,6 +2728,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 4d32fdd8d8b43504fb83e720f203d079, type: 2}
   - {fileID: 11400000, guid: bd4b7f7b79cf0cc49982b66e3b184cbc, type: 2}
   - {fileID: 11400000, guid: e3c9189b91125ce4c9e49c97dcddfb29, type: 2}
+  - {fileID: 11400000, guid: fe185dd676baf3f4a9c9e79fd551f6c2, type: 2}
   fallbackProfile: {fileID: 11400000, guid: c9768c6d6ac7b654fbe633476ce9dc61, type: 2}
   showDebugInfo: 1
 --- !u!4 &510870575
@@ -3610,7 +3611,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 7.782}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 54.7, y: -72.3}
+  m_AnchoredPosition: {x: 54.2, y: -72.3}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &648440453

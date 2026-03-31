@@ -11,6 +11,8 @@ public class Tile
     public int regionID;
 
     public float CalculateHealth() => stats.CalculateHealth();
+    public float GetSoilComposite() => stats.soilComposite;
+    public float GetVegetationCover() => stats.vegetationCover;
 }
 
 [SerializeField]

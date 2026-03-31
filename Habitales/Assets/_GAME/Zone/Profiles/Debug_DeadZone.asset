@@ -10,18 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ba6e1b4d668228b4fac2b43e82af637c, type: 3}
-  m_Name: DebugProfile
+  m_Name: Debug_DeadZone
   m_EditorClassIdentifier: 
   sizeRange: {x: 25, y: 40}
   flowFalloff: 1.2
   enclosureBonus: 0.3
-  nutrientBalanceRange: {x: 10, y: 25}
-  soilOrganicMatterRange: {x: 10, y: 25}
-  soilStructureRange: {x: 10, y: 25}
-  biologicalActivityRange: {x: 8, y: 20}
-  waterDynamicsRange: {x: 10, y: 25}
-  erosionResistanceRange: {x: 10, y: 25}
-  vegetationCoverRange: {x: 5, y: 25}
+  nutrientBalanceRange: {x: 0, y: 10}
+  soilOrganicMatterRange: {x: 0, y: 10}
+  soilStructureRange: {x: 0, y: 10}
+  biologicalActivityRange: {x: 0, y: 10}
+  waterDynamicsRange: {x: 0, y: 10}
+  erosionResistanceRange: {x: 0, y: 10}
+  vegetationCoverRange: {x: 0, y: 50}
   contaminationRange: {x: 5, y: 20}
   loggedTreesWeight: 3
   nutrientDepletionWeight: 3
@@ -30,7 +30,7 @@ MonoBehaviour:
   drainageCollapseWeight: 2
   soilCompactionWeight: 2
   chemicalBurnoutWeight: 1
-  matureTreeSpawnChance: 1
+  matureTreeSpawnChance: 0.684
   saplingSpawnChance: 0
   seedlingSpawnChance: 0
   deadTreeSpawnChance: 0

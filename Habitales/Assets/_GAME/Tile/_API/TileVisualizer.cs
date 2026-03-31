@@ -52,6 +52,7 @@ public class TileVisualizer : MonoBehaviour
 
         // Base health colour
         Color baseColor = GetHealthColor(tile.CalculateHealth());
+        meshRenderer = GetTileRenderer();
 
         // Contamination tint — blends toward sickly purple above 60
         if (tile.stats.contamination > 60f)
@@ -113,9 +114,19 @@ public class TileVisualizer : MonoBehaviour
     // ── Helpers ───────────────────────────────────────────────────────────────
     Color GetHealthColor(float health)
     {
-        if (health < 33f) return new Color(0.8f, 0.2f, 0.2f);  // Red   — Critical
-        if (health < 67f) return new Color(0.9f, 0.8f, 0.3f);  // Yellow — Degraded
-        return             new Color(0.3f, 0.8f, 0.3f);         // Green  — Thriving
+        // if (health < 33f) return new Color(0.8f, 0.2f, 0.2f);  // Red   — Critical
+        // if (health < 67f) return new Color(0.9f, 0.8f, 0.3f);  // Yellow — Degraded
+        // return             new Color(0.3f, 0.8f, 0.3f);         // Green  — Thriving
+
+        return new Color(1.0f, 1.0f, 1.0f);
+    }
+
+    MeshRenderer GetTileRenderer()
+    {
+        meshRenderer.material.SetFloat("_Soil_Composite", (tile.GetSoilComposite() / 100f));
+        meshRenderer.material.SetFloat("_Vegetation_Cover", (tile.GetVegetationCover() / 100f));
+        
+        return meshRenderer;
     }
 
     public Color GetBaseColor() =>
