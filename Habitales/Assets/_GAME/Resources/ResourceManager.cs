@@ -14,6 +14,7 @@ public class ResourceManager : MonoBehaviour
     [SerializeField] private int maxYears    = 5;
     
     public int DaysPerYear => daysPerYear;
+    public int CurrentYear => (totalDays / daysPerYear) + 1;
 
     // ── Workers ───────────────────────────────────────────────────────────────
     [Header("Workers")]

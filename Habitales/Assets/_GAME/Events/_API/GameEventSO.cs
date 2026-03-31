@@ -32,4 +32,7 @@ public class GameEventSO : ScriptableObject
     public int triggerOnDay = -1;       // used by OnDay type; -1 = ignore
     [Range(0f, 100f)]
     public float triggerBelowWorldHealth = -1f; // used by OnHealthThreshold; -1 = ignore
+    
+    [Header("Dialogue Bridge")]
+    public Habitales.Dialogue.DialogueThreadSO linkedThread;
 }

@@ -9,6 +9,8 @@ using UnityEngine;
 /// </summary>
 public class ZoneManager : MonoBehaviour
 {
+    public static ZoneManager Instance { get; private set; }
+    
     [Header("References")]
     [SerializeField] private TileManager tileManager;
     [SerializeField] private ResourceManager resourceManager;
@@ -48,6 +50,9 @@ public class ZoneManager : MonoBehaviour
 
     private void Awake()
     {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
+        
         if (tileManager == null)
             tileManager = FindObjectOfType<TileManager>();
         if (tileManager == null)

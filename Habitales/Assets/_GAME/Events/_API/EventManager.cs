@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UTILITIES.Camera;
+using Habitales.Dialogue; 
 
 public class EventManager : MonoBehaviour
 {
@@ -191,6 +192,11 @@ public class EventManager : MonoBehaviour
         {
             ShowPopup();
         }
+        
+        if (ev.linkedThread != null)
+            DialogueManager.Instance.AppendThread(ev.linkedThread);
+        
+        Habitales.Dialogue.DialogueManager.Instance.AppendThread(ev.linkedThread);
     }
 
     void ResumeAfterEvent()
