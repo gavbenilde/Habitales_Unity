@@ -153,7 +153,9 @@ public class GameManager : MonoBehaviour {
     }
 
     
-    void HandleTileSelected(Tile tile, Vector3 worldPosition) {
+    void HandleTileSelected(Tile tile, Vector3 worldPosition)
+    {
+        if (actionManager != null && actionManager.IsActionRunning) return;
         if (showDebugInfo) {
             Debug.Log($"Tile selected: {tile.gridPosition} | Health: {tile.CalculateHealth():F1}%");
         }
@@ -188,25 +190,18 @@ public class GameManager : MonoBehaviour {
         if (targetTile == null || isGameOver || IsEventPaused) return;
 
         if (showDebugInfo)
-            Debug.Log($"─── Action Complete — Updating World ───");
+            Debug.Log($"─── Action Complete — Finalizing World ───");
 
-        // Step 1: Cascade ALL tiles across ALL regions
+        // Cascade runs once per action (stat diffusion between neighbours)
         CascadeTileUpdates();
 
-        // Step 3: Update all entities for every day elapsed
-        for (int day = 0; day < daysElapsed; day++)
-            tileManager.UpdateAllEntities();
-
-        // Step 4: Refresh visuals for ALL tiles
+        // Final visual pass after cascade has adjusted stats
         foreach (Tile tile in tileManager.GetAllTiles())
             tileManager.UpdateTileVisual(tile);
 
-        // Step 5: Check collapse condition
         CheckCollapseCondition();
 
-        // Step 6: Check zone unlock against TOTAL average health across all zones
         float totalAverageHealth = zoneManager.GetTotalAverageHealth();
-
         if (showDebugInfo)
             Debug.Log($"Total World Health: {totalAverageHealth:F1} / Unlock Threshold: {zoneUnlockThreshold}");
 
@@ -300,10 +295,16 @@ public class GameManager : MonoBehaviour {
     
     void HandleTimeAdvanced(int days)
     {
+        if (isGameOver) return;
         if (showDebugInfo)
-        {
             Debug.Log($"⏰ Time advanced by {days} days | Now: {resourceManager.GetFullTimeDisplay()}");
-        }
+
+        // Entity ticks happen every day — fire spread, kaingin, tree growth, etc.
+        for (int d = 0; d < days; d++)
+            tileManager.UpdateAllEntities();
+
+        foreach (Tile tile in tileManager.GetAllTiles())
+            tileManager.UpdateTileVisual(tile);
     }
     
     public void PauseForEvent()
@@ -487,23 +488,20 @@ public class GameManager : MonoBehaviour {
 
         Debug.Log("[DEBUG] Advancing 1 day via shortcut.");
 
-        // 1. Advance time by 1 day (also rolls weather)
+        // Fires OnTimeAdvanced → HandleTimeAdvanced handles entity ticks + visuals
         resourceManager.AdvanceTime(1);
 
-        // 2. Run the full post-action pipeline (same as after a real action)
+        // Cascade + endgame are per-action, not per-day — simulate them manually here
         CascadeTileUpdates();
-        tileManager.UpdateAllEntities();
         foreach (Tile tile in tileManager.GetAllTiles())
             tileManager.UpdateTileVisual(tile);
         CheckCollapseCondition();
 
-        // 3. Check zone unlock
         float totalAverageHealth = zoneManager.GetTotalAverageHealth();
         if (showDebugInfo)
             Debug.Log($"[DEBUG] Day passed. World Health: {totalAverageHealth:F1} | {resourceManager.GetFullTimeDisplay()}");
 
-        if (totalAverageHealth >= zoneUnlockThreshold &&
-            !unlockedRegions.Contains(zoneManager.NextRegionID - 1))
+        if (totalAverageHealth >= zoneUnlockThreshold && !unlockedRegions.Contains(zoneManager.NextRegionID - 1))
         {
             int newRegionFrom = zoneManager.NextRegionID - 1;
             unlockedRegions.Add(newRegionFrom);

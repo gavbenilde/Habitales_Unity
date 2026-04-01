@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 
 public class ActionManager : MonoBehaviour
@@ -10,61 +11,57 @@ public class ActionManager : MonoBehaviour
     private TileManager tileManager;
     private List<PlayerAction> availableActions = new List<PlayerAction>();
 
-    // Event fired when action completes successfully
     public event Action<Tile, int> OnActionCompleted;
 
     void Awake()
     {
         tileManager = FindObjectOfType<TileManager>();
         if (tileManager == null)
-        {
             Debug.LogError("ActionManager requires TileManager in scene!");
-        }
-        
+
         RegisterActions();
     }
-    
+
     void RegisterActions()
     {
         availableActions.Clear();
         availableActions.Add(new ApplyFertilizerAction());
         availableActions.Add(new PlantTreesAction());
         availableActions.Add(new FireSuppressionAction());
-        availableActions.Add(new CreateFirebreakAction()); 
-        
+        availableActions.Add(new CreateFirebreakAction());
+
         Debug.Log($"✓ ActionManager registered {availableActions.Count} actions");
     }
-    
-    public List<PlayerAction> GetAvailableActions()
-    {
-        return availableActions;
-    }
 
-    /// <summary>
-    /// Executes a single action on multiple tiles.
-    /// Fires OnActionCompleted event if successful.
-    /// </summary>
+    public bool IsActionRunning { get; private set; } = false;
+    public List<PlayerAction> GetAvailableActions() => availableActions;
+
     public void ExecuteAction(PlayerAction action, List<Tile> targetTiles)
     {
         if (action == null || targetTiles == null || targetTiles.Count == 0 || tileManager == null)
         {
-            Debug.LogError("Cannot execute action - missing components!");
+            Debug.LogError("Cannot execute action — missing components!");
             return;
         }
-
-        if (showDebugInfo)
-            Debug.Log($"ACTION: {action.ActionName} on {targetTiles.Count} tiles");
 
         ResourceManager rm = ResourceManager.Instance;
         int availablePeople = rm.AvailablePeople;
         int maxTiles = action.GetMaxTiles(availablePeople);
+
         if (targetTiles.Count > maxTiles)
         {
             Debug.LogWarning($"Not enough people! Need {action.MinPeoplePerTile * targetTiles.Count}, have {availablePeople}");
             return;
         }
 
-        // Calculate days, then apply weather work speed multiplier
+        // Preflight validation — Execute no longer touches tiles
+        bool success = action.Execute(targetTiles, tileManager);
+        if (!success)
+        {
+            Debug.LogWarning($"Action {action.ActionName} blocked by CanExecute.");
+            return;
+        }
+
         int baseDays = action.CalculateDays(availablePeople, targetTiles.Count);
         float weatherMult = WeatherManager.Instance != null
             ? WeatherManager.Instance.GetWorkSpeedMultiplier()
@@ -72,13 +69,45 @@ public class ActionManager : MonoBehaviour
         int days = Mathf.Max(1, Mathf.RoundToInt(baseDays * weatherMult));
 
         if (showDebugInfo)
-            Debug.Log($"Tiles: {targetTiles.Count} | People: {availablePeople} | Days: {baseDays} → {days} (weather ×{weatherMult:F2})");
+            Debug.Log($"ACTION: {action.ActionName} | Tiles: {targetTiles.Count} | People: {availablePeople} | Days: {baseDays} → {days} (×{weatherMult:F2})");
 
-        bool success = action.Execute(targetTiles, tileManager);
-        if (!success) { Debug.LogWarning($"Action {action.ActionName} failed!"); return; }
+        // Tell the day/night handler this is a fresh action so durations reset
+        IsActionRunning = true;
+        DayNightCycleHandler dayNight = FindObjectOfType<DayNightCycleHandler>();
+        dayNight?.ResetForNewAction();
 
-        rm.AdvanceTime(days);
+        StartCoroutine(FinishAction(rm, action, targetTiles, days));
+    }
+
+    private IEnumerator FinishAction(ResourceManager rm, PlayerAction action, List<Tile> targetTiles, int days)
+    {
+        int totalTiles     = targetTiles.Count;
+        int baseTilesPerDay = totalTiles / days;
+        int remainder       = totalTiles % days;
+        int processedTiles  = 0;
+
+        for (int day = 0; day < days; day++)
+        {
+            // Wait for one full day/night cycle to complete
+            yield return StartCoroutine(rm.AdvanceTimeStepped(1));
+
+            // Apply this day's tile batch — spreads remainder tiles across early days
+            int tilesThisDay = baseTilesPerDay + (day < remainder ? 1 : 0);
+
+            for (int i = 0; i < tilesThisDay && processedTiles < totalTiles; i++)
+            {
+                Tile tile = targetTiles[processedTiles];
+                action.ExecuteOnTile(tile, tileManager);
+                tileManager.UpdateTileVisual(tile);   // tiles light up progressively
+                processedTiles++;
+            }
+        }
+
         rm.ApplyFatigue(targetTiles.Count, days, action.FatigueMultiplierPerTile);
+        IsActionRunning = false;
         OnActionCompleted?.Invoke(targetTiles[0], days);
+
+        if (showDebugInfo)
+            Debug.Log($"✓ {action.ActionName} complete — {processedTiles}/{totalTiles} tiles processed.");
     }
 }

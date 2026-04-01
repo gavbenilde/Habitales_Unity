@@ -14,27 +14,6 @@ public class CreateFirebreakAction : PlayerAction
 
     private const float VEGETATION_REDUCTION = 0.5f;
 
-    public override bool Execute(List<Tile> tiles, TileManager tileManager)
-    {
-        if (tiles == null || tiles.Count == 0)
-        {
-            Debug.LogError("CreateFirebreakAction: No tiles provided!");
-            return false;
-        }
-        foreach (Tile tile in tiles)
-        {
-            if (tile == null) continue;
-            if (!tile.tv.Contains(TileOverlayType.Firebreak))
-                tile.tv.Add(TileOverlayType.Firebreak);
-            float oldVeg = tile.stats.vegetationCover;
-            tile.stats.vegetationCover = Mathf.Max(0f, tile.stats.vegetationCover * VEGETATION_REDUCTION);
-            tileManager.UpdateTileVisual(tile);
-            Debug.Log($"Firebreak created at {tile.gridPosition}. Veg {oldVeg:F1} → {tile.stats.vegetationCover:F1}");
-        }
-        Debug.Log($"Firebreak created on {tiles.Count} tiles. Vegetation halved.");
-        return true;
-    }
-
     public override bool CanExecute(List<Tile> tiles)
     {
         if (tiles == null || tiles.Count == 0) return false;
@@ -42,10 +21,20 @@ public class CreateFirebreakAction : PlayerAction
         {
             if (tile.entity is FireEntity)
             {
-                Debug.LogWarning($"Cannot create firebreak on burning tile at {tile.gridPosition}! Extinguish fire first.");
+                Debug.LogWarning($"Cannot create firebreak on burning tile at {tile.gridPosition}. Extinguish fire first.");
                 return false;
             }
         }
         return true;
+    }
+
+    public override void ExecuteOnTile(Tile tile, TileManager tileManager)
+    {
+        if (tile == null) return;
+        if (!tile.tv.Contains(TileOverlayType.Firebreak))
+            tile.tv.Add(TileOverlayType.Firebreak);
+        float oldVeg = tile.stats.vegetationCover;
+        tile.stats.vegetationCover = Mathf.Max(0f, tile.stats.vegetationCover * VEGETATION_REDUCTION);
+        Debug.Log($"Firebreak at {tile.gridPosition}. Veg {oldVeg:F1} → {tile.stats.vegetationCover:F1}");
     }
 }

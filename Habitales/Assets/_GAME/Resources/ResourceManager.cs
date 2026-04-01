@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -9,10 +10,10 @@ public class ResourceManager : MonoBehaviour
 
     // ── Time ─────────────────────────────────────────────────────────────────
     [Header("Time")]
-    [SerializeField] private int totalDays   = 0;
+    [SerializeField] private int totalDays = 0;
     [SerializeField] private int daysPerYear = 365;
-    [SerializeField] private int maxYears    = 5;
-    
+    [SerializeField] private int maxYears = 5;
+
     public int DaysPerYear => daysPerYear;
     public int CurrentYear => (totalDays / daysPerYear) + 1;
 
@@ -37,15 +38,14 @@ public class ResourceManager : MonoBehaviour
     public event Action<int>      OnRPChanged;
 
     // ── Public Accessors ──────────────────────────────────────────────────────
-    public int TotalDays       => totalDays;                                  // FIX 1
-    public int TotalPeople     => allWorkers.Count;
+    public int TotalDays => totalDays;
+    public int TotalPeople => allWorkers.Count;
     public int AvailablePeople => allWorkers.Count(w => !w.isFatigued);
     public int RecoveringPeopleCount => allWorkers.Count(w => w.isFatigued);
 
-    public List<Worker> AllWorkers       => allWorkers;
+    public List<Worker> AllWorkers => allWorkers;
     public List<Worker> AvailableWorkers => allWorkers.Where(w => !w.isFatigued).ToList();
-    public List<Worker> FatiguedWorkers  => allWorkers.Where(w =>  w.isFatigued).ToList();
-    
+    public List<Worker> FatiguedWorkers => allWorkers.Where(w => w.isFatigued).ToList();
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     void Awake()
@@ -66,27 +66,57 @@ public class ResourceManager : MonoBehaviour
     }
 
     // ── Time ──────────────────────────────────────────────────────────────────
+
+    // Original batch advance — used by debug tools (DebugAdvanceOneDay, TestYearComplete).
+    // Does NOT wait for the day/night cycle; fires OnTimeAdvanced(days) once in bulk.
     public void AdvanceTime(int days)
     {
         totalDays += days;
         CheckWorkerRecovery();
-        
+
         if (WeatherManager.Instance != null)
-            WeatherManager.Instance.RollWeather(totalDays); 
+            WeatherManager.Instance.RollWeather(totalDays);
 
         if (totalDays >= daysPerYear * maxYears)
         {
             OnGameOver?.Invoke();
             return;
         }
+
         OnTimeAdvanced?.Invoke(days);
         Debug.Log($"Day {totalDays} ({GetFullTimeDisplay()}) | Available: {AvailablePeople}/{TotalPeople}");
+    }
+
+    // Stepped advance — used by ActionManager after real player actions.
+    // Advances one day at a time, firing OnTimeAdvanced(1) each iteration,
+    // then waits for DayNightCycleHandler to finish before moving to the next day.
+    public IEnumerator AdvanceTimeStepped(int days)
+    {
+        for (int i = 0; i < days; i++)
+        {
+            totalDays++;
+            CheckWorkerRecovery();
+
+            if (WeatherManager.Instance != null)
+                WeatherManager.Instance.RollWeather(totalDays);
+
+            if (totalDays >= daysPerYear * maxYears)
+            {
+                OnGameOver?.Invoke();
+                yield break;
+            }
+
+            OnTimeAdvanced?.Invoke(1); // triggers DayNightCycleHandler.StartCycle(1)
+            Debug.Log($"Day {totalDays} ({GetFullTimeDisplay()}) | Available: {AvailablePeople}/{TotalPeople}");
+
+            yield return new WaitUntil(() => DayNightCycleHandler.IsIdle);
+        }
     }
 
     public string GetFullTimeDisplay()
     {
         int year = totalDays / daysPerYear + 1;
-        int day  = totalDays % daysPerYear + 1;
+        int day = totalDays % daysPerYear + 1;
         return $"Year {year}, Day {day}";
     }
 
@@ -99,24 +129,24 @@ public class ResourceManager : MonoBehaviour
         int toFatigue = Mathf.Min(workerCount, available.Count);
         Shuffle(available);
 
-        // FIX 2: increment FIRST — all available workers participated in the action
+        // Increment FIRST — all available workers participated in the action
         foreach (Worker w in available)
             w.actionsParticipated++;
 
         // Then mark the subset as fatigued
-        int fatiguedCount   = 0;
+        int fatiguedCount = 0;
         int latestReturnDay = totalDays;
 
         for (int i = 0; i < toFatigue; i++)
         {
             Worker w = available[i];
 
-            float r            = UnityEngine.Random.value;
-            float x            = Mathf.Pow(r, weatherK);
-            int   recoveryDays = Mathf.Max(1, Mathf.CeilToInt(x * daysWorked * 0.5f * multiplier));
+            float r = UnityEngine.Random.value;
+            float x = Mathf.Pow(r, weatherK);
+            int recoveryDays = Mathf.Max(1, Mathf.CeilToInt(x * daysWorked * 0.5f * multiplier));
 
-            w.isFatigued    = true;
-            w.returnDay     = totalDays + recoveryDays;
+            w.isFatigued = true;
+            w.returnDay = totalDays + recoveryDays;
             latestReturnDay = Mathf.Max(latestReturnDay, w.returnDay);
             fatiguedCount++;
         }
@@ -136,7 +166,7 @@ public class ResourceManager : MonoBehaviour
             if (w.isFatigued && totalDays >= w.returnDay)
             {
                 w.isFatigued = false;
-                w.returnDay  = 0;
+                w.returnDay = 0;
                 recovered++;
             }
         }
@@ -166,7 +196,6 @@ public class ResourceManager : MonoBehaviour
     }
 
     // ── Utility ───────────────────────────────────────────────────────────────
-    
     public void IncreaseTotalPeople(int count)
     {
         if (count <= 0) return;
@@ -174,7 +203,7 @@ public class ResourceManager : MonoBehaviour
         allWorkers.AddRange(newWorkers);
         Debug.Log($"ResourceManager: +{count} workers added. Total: {TotalPeople}");
     }
-    
+
     private void Shuffle<T>(List<T> list)
     {
         for (int i = list.Count - 1; i > 0; i--)

@@ -12,20 +12,20 @@ public class RegionOutlineRenderer : MonoBehaviour
     [SerializeField] private TileManager tileManager;
     [SerializeField] private ZoneManager zoneManager;
     [SerializeField] private RegionHealthUI regionHealthUI;
-    
+
     [Header("Outline Settings")]
+    [Tooltip("Assign a Material asset here that uses the 'Unlit/Color' or equivalent URP unlit shader.")]
+    [SerializeField] private Material outlineMaterialTemplate;
+
     [Tooltip("Thickness of the outline in world units. 0.08–0.15 works well for 1-unit tiles.")]
     [SerializeField] private float outlineWidth = 0.12f;
 
     [Tooltip("How far above tile surface to draw the mesh. Prevents Z-fighting.")]
     [SerializeField] private float yOffset = 0.02f;
 
-    [Tooltip("Outline color. Black gives the classic Borderlands ink look.")]
-    [SerializeField] private Color outlineColor = Color.black;
-
     // Runtime objects — created once and reused
     private GameObject outlineGO;
-    private MeshFilter  meshFilter;
+    private MeshFilter meshFilter;
     private MeshRenderer meshRenderer;
     private Material outlineMaterial;
 
@@ -38,10 +38,7 @@ public class RegionOutlineRenderer : MonoBehaviour
 
     void Awake()
     {
-        if (tileManager == null)
-            tileManager = FindObjectOfType<TileManager>();
-        
-        
+        if (tileManager == null) tileManager = FindObjectOfType<TileManager>();
         if (zoneManager == null) zoneManager = FindObjectOfType<ZoneManager>();
 
         BuildRenderObjects();
@@ -53,15 +50,22 @@ public class RegionOutlineRenderer : MonoBehaviour
         outlineGO.transform.SetParent(transform);
         outlineGO.transform.localPosition = Vector3.zero;
 
-        meshFilter   = outlineGO.AddComponent<MeshFilter>();
+        meshFilter = outlineGO.AddComponent<MeshFilter>();
         meshRenderer = outlineGO.AddComponent<MeshRenderer>();
 
-        // Unlit/Color works in both Built-in and URP without any custom shader
-        outlineMaterial = new Material(Shader.Find("Unlit/Color"));
-        outlineMaterial.color = outlineColor;
-        meshRenderer.material = outlineMaterial;
+        // Create an instance of the assigned material template so we don't modify the project asset
+        if (outlineMaterialTemplate != null)
+        {
+            outlineMaterial = new Material(outlineMaterialTemplate);
+            meshRenderer.material = outlineMaterial;
+        }
+        else
+        {
+            Debug.LogError("RegionOutlineRenderer: Please assign an Outline Material Template in the Inspector!");
+        }
+        
         meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        meshRenderer.receiveShadows    = false;
+        meshRenderer.receiveShadows = false;
 
         outlineGO.SetActive(false);
     }
@@ -91,14 +95,24 @@ public class RegionOutlineRenderer : MonoBehaviour
         Mesh mesh = RegionBoundaryMeshBuilder.Build(regionTiles, tileManager, outlineWidth, yOffset);
         meshFilter.mesh = mesh;
 
-        // Sync color in case it was changed in Inspector at runtime
-        outlineMaterial.color = outlineColor;
+        // Determine health and dynamically shift outline color from Black (0) to White (100)
+        float avgHealth = 0f;
+        if (zoneManager != null)
+        {
+            avgHealth = zoneManager.GetRegionHealth(regionID);
+            
+            if (outlineMaterial != null)
+            {
+                // Health scale in Habitales is 0 to 100, so we divide by 100f for Lerp
+                Color dynamicHealthColor = Color.Lerp(Color.black, Color.white, avgHealth / 100f);
+                outlineMaterial.color = dynamicHealthColor;
+            }
+        }
 
         outlineGO.SetActive(true);
-        
+
         if (regionHealthUI != null && zoneManager != null)
         {
-            float avgHealth = zoneManager.GetRegionHealth(regionID);
             regionHealthUI.Show(regionID, avgHealth);
         }
     }
@@ -119,13 +133,6 @@ public class RegionOutlineRenderer : MonoBehaviour
     // ─────────────────────────────────────────────────────
     // EDITOR HELPERS
     // ─────────────────────────────────────────────────────
-
-    void OnValidate()
-    {
-        // Live-update color while tweaking in Inspector during Play Mode
-        if (outlineMaterial != null)
-            outlineMaterial.color = outlineColor;
-    }
 
     void OnDestroy()
     {
