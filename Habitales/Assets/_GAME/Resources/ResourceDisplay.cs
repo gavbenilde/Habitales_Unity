@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using Unity.VisualScripting;
 
 /// <summary>
 /// Simple HUD display for Time and People resources.
@@ -49,7 +50,7 @@ public class ResourceDisplay : MonoBehaviour
             int total = resourceManager.TotalPeople;
             int recovering = resourceManager.RecoveringPeopleCount;
             
-            string color = available > 15 ? "green" : available > 5 ? "yellow" : "red";
+            string color = available > 15 ? "#61c415" : available > 5 ? "#e7b81d" : "#c41515";
             peopleText.text = $"<color={color}>{available}</color>/{total}";
             
             if (recovering > 0)
