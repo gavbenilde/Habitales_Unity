@@ -12,7 +12,7 @@ public class DayNightCycleHandler : MonoBehaviour
     private Coroutine currentCycle;
     private int actionDayIndex = 0;
     
-    private float _dayStartAngle;
+    private Quaternion _dayStartRotation;
 
     // ── Idle gate ────────────────────────────────────────────────────────────
     // ResourceManager.AdvanceTimeStepped yields on this.
@@ -23,7 +23,7 @@ public class DayNightCycleHandler : MonoBehaviour
     
     void Awake()
     {
-        _dayStartAngle = directionalLight.transform.eulerAngles.x;
+        _dayStartRotation = directionalLight.transform.rotation;
     }
 
     void OnEnable()
@@ -76,9 +76,7 @@ public class DayNightCycleHandler : MonoBehaviour
 
             // Snap back to exact start angle — kills any float drift from delta accumulation
             
-            Vector3 angles = directionalLight.transform.eulerAngles;
-            angles.x = _dayStartAngle;
-            directionalLight.transform.eulerAngles = angles;
+            directionalLight.transform.rotation = _dayStartRotation;
 
             actionDayIndex++;
             OnCycleEnd?.Invoke(i + 1);
