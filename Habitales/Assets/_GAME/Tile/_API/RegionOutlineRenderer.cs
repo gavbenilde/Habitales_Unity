@@ -104,7 +104,7 @@ public class RegionOutlineRenderer : MonoBehaviour
             if (outlineMaterial != null)
             {
                 // Health scale in Habitales is 0 to 100, so we divide by 100f for Lerp
-                Color dynamicHealthColor = Color.Lerp(Color.black, Color.white, avgHealth / 100f);
+                Color dynamicHealthColor = Color.Lerp(Color.red, Color.green, avgHealth / 100f);
                 outlineMaterial.color = dynamicHealthColor;
             }
         }
