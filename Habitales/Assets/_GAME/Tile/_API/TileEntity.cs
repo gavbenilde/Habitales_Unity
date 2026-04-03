@@ -94,14 +94,15 @@ public class VillageEntity : TileEntity
     public override void OnDailyUpdate(Tile tile, TileManager manager)
     {
         if (Random.value < 0.015f)
+        {
+            EventManager.Instance?.FireEventByID("first_kaingin");
             SpawnKainginFire(tile, manager);
+        }
         daysPassed++;
     }
 
     private void SpawnKainginFire(Tile tile, TileManager manager)
     {
-        EventManager.Instance?.FireEventByID("first_kaingin");
-        
         int fireCount = Random.Range(4, 8);
         var potentialTargets = GetTilesInRadius(tile, manager, 4);
         for (int i = 0; i < fireCount && potentialTargets.Count > 0; i++)
