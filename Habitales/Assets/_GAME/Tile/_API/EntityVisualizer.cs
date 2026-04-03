@@ -30,6 +30,8 @@ public class EntityVisualizer : MonoBehaviour
     private Tile           parentTile;
     private Camera         mainCamera;
 
+    public void SetSprite(Sprite s) => spriteRenderer.sprite = s;
+    
     void Awake()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();

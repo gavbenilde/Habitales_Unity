@@ -29,7 +29,18 @@ public class ActionManager : MonoBehaviour
         availableActions.Add(new PlantTreesAction());
         availableActions.Add(new FireSuppressionAction());
         availableActions.Add(new CreateFirebreakAction());
+        availableActions.Add(new ClearTrashAction());
+        availableActions.Add(new StumpDeadTreeRemovalAction());
+        availableActions.Add(new AnalyzeSoilSampleAction());
+        availableActions.Add(new InspectTrashAction());
+        availableActions.Add(new EcologicalSurveyAction());
+        availableActions.Add(new CoverCroppingAction { cropVariant = CoverCropEntity.CoverCropVariant.Legume });   // ← new
+        availableActions.Add(new CoverCroppingAction { cropVariant = CoverCropEntity.CoverCropVariant.DeepRoot }); // ← new
+        availableActions.Add(new CoverCroppingAction { cropVariant = CoverCropEntity.CoverCropVariant.General });  // ← new
+        availableActions.Add(new PhytoremedationPlantingAction());                                                 // ← new
+        availableActions.Add(new PlantNitrogenFixingSpeciesAction());                                              // ← new
 
+        
         Debug.Log($"✓ ActionManager registered {availableActions.Count} actions");
     }
 

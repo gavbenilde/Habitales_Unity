@@ -13,6 +13,11 @@ public class Tile
     public float CalculateHealth() => stats.CalculateHealth();
     public float GetSoilComposite() => stats.soilComposite;
     public float GetVegetationCover() => stats.vegetationCover;
+    
+    public bool isAnalyzed = false;
+    public bool issuesRevealed = false;
+
+
 }
 
 [SerializeField]

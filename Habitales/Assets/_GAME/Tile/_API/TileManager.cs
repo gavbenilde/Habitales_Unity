@@ -417,7 +417,12 @@ public class TileManager : MonoBehaviour
         EntityVisualizer visualizer = entityObj.GetComponent<EntityVisualizer>();
         visualizer.Initialize(tile.entity, tile);
     }
-
+    
+    public EntityVisualizer GetEntityVisualizer(Tile tile)
+    {
+        if (!tileGameObjects.ContainsKey(tile)) return null;
+        return tileGameObjects[tile].GetComponentInChildren<EntityVisualizer>();
+    }
 
     /// <summary>
     /// Calls OnDailyUpdate for all entities in a region.

@@ -252,6 +252,12 @@ public class ActionUI : MonoBehaviour
                 // categoryTitleText.gameObject.SetActive(true);
                 // categoryTitleText.text = selectedCategory.GetDisplayName();
                 break;
+            
+            case ActionPanelState.VariantSelect:
+                actionPanel.gameObject.SetActive(true);
+                actionListPanel.SetActive(true);
+                backButton.gameObject.SetActive(true);
+                break;
                 
             case ActionPanelState.MultiSelect:
                 // Hide action panel, show multi-select panel
@@ -279,10 +285,8 @@ public class ActionUI : MonoBehaviour
     /// </summary>
     void ShowActionList(ActionCategory category)
     {
-        // Clear any existing cards first
         ClearActionCards();
         
-        // Get actions in this category
         List<PlayerAction> actions = GetActionsInCategory(category);
         
         if (actions.Count == 0)
@@ -291,15 +295,30 @@ public class ActionUI : MonoBehaviour
             return;
         }
         
-        // Spawn action cards into the horizontal Content
+        var renderedGroups = new HashSet<string>();
+        
         foreach (PlayerAction action in actions)
         {
-            CreateActionCard(action);
+            if (action.VariantGroupName == null)
+            {
+                // Standalone action — existing behavior, untouched
+                CreateActionCard(action);
+            }
+            else if (!renderedGroups.Contains(action.VariantGroupName))
+            {
+                // First variant seen for this group — render one group button
+                renderedGroups.Add(action.VariantGroupName);
+                List<PlayerAction> variants = actions
+                    .Where(a => a.VariantGroupName == action.VariantGroupName)
+                    .ToList();
+                CreateGroupCard(action.VariantGroupName, variants);
+            }
+            // Subsequent variants in the same group — skip; already covered by group button
         }
         
-        // Show action list state
         SetState(ActionPanelState.ActionList);
     }
+
     
     /// <summary>
     /// Updates the badge counts on category buttons.
@@ -405,6 +424,50 @@ public class ActionUI : MonoBehaviour
         // Optional: Set card name for debugging
         card.name = $"Card_{action.ActionName}";
     }
+    
+    void CreateGroupCard(string groupName, List<PlayerAction> variants)
+    {
+        if (actionCardPrefab == null || actionListContent == null)
+        {
+            Debug.LogError("ActionCardPrefab or ActionListContent is null! Check Inspector assignments.");
+            return;
+        }
+
+        GameObject card = Instantiate(actionCardPrefab, actionListContent);
+        spawnedActionCards.Add(card);
+
+        Button cardButton = card.GetComponent<Button>();
+        Image iconImage   = card.transform.Find("ActionIcon")?.GetComponent<Image>();
+
+        if (iconImage != null && actionIconConfig != null)
+        {
+            // Look up a sprite by the group name — add "Cover Cropping" as a key in ActionIconConfig
+            Sprite groupSprite = actionIconConfig.GetSpriteForAction(groupName);
+            if (groupSprite != null)
+            {
+                iconImage.sprite  = groupSprite;
+                iconImage.enabled = true;
+            }
+            else
+            {
+                iconImage.enabled = false;
+            }
+        }
+
+        if (cardButton != null)
+            cardButton.onClick.AddListener(() => ShowVariantList(variants));
+
+        card.name = $"Card_Group_{groupName}";
+    }
+
+    void ShowVariantList(List<PlayerAction> variants)
+    {
+        ClearActionCards();
+        foreach (PlayerAction variant in variants)
+            CreateActionCard(variant);   // reuses existing card — variant click flows straight into FloodFill
+        SetState(ActionPanelState.VariantSelect);
+    }
+
     
     /// <summary>
     /// Destroys all spawned action cards.
@@ -596,14 +659,16 @@ public class ActionUI : MonoBehaviour
     {
         if (currentState == ActionPanelState.ActionList)
         {
-            // Clear action cards
             ClearActionCards();
-            
-            // Return to category selection
             SetState(ActionPanelState.CategorySelect);
         }
+        else if (currentState == ActionPanelState.VariantSelect)
+        {
+            // Back from variant sub-panel → rebuild the grouped action list
+            ShowActionList(selectedCategory);
+        }
     }
-    
+
     void HandleEscapeKey()
     {
         switch (currentState)
@@ -615,13 +680,15 @@ public class ActionUI : MonoBehaviour
             case ActionPanelState.ActionList:
                 OnBackButtonClicked();
                 break;
+
+            case ActionPanelState.VariantSelect:
+                // Escape from variant sub-panel → back to grouped action list
+                ShowActionList(selectedCategory);
+                break;
                 
             case ActionPanelState.MultiSelect:
-                // ESC in multi-select returns to action list
                 if (tileSelector != null)
-                {
                     tileSelector.CancelSelection();
-                }
                 ShowActionList(selectedCategory);
                 break;
         }

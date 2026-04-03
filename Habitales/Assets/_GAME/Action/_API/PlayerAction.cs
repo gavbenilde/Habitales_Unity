@@ -20,6 +20,8 @@ public abstract class PlayerAction
     public abstract int MinDays              { get; }
 
     public virtual float FatigueMultiplierPerTile => 2.0f;
+    
+    public virtual string VariantGroupName => null;
 
     // ── Calculation helpers (unchanged) ─────────────────────────────────────
     public int GetMaxTiles(int availablePeople)
