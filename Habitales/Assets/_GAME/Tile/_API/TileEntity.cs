@@ -190,6 +190,7 @@ public class SaplingEntity : TileEntity
         if (daysExisting >= DAYS_UNTIL_GROWTH)
         {
             manager.TransformEntity<TreeEntity>(tile);
+            // VFXManager.Instance?.SpawnVFX();
             Debug.Log($"Sapling grew into a Tree at {tile.gridPosition}.");
         }
 

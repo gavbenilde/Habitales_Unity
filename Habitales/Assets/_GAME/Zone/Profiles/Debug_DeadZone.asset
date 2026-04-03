@@ -21,7 +21,7 @@ MonoBehaviour:
   biologicalActivityRange: {x: 0, y: 10}
   waterDynamicsRange: {x: 0, y: 10}
   erosionResistanceRange: {x: 0, y: 10}
-  vegetationCoverRange: {x: 0, y: 50}
+  vegetationCoverRange: {x: 0, y: 5}
   contaminationRange: {x: 5, y: 20}
   loggedTreesWeight: 3
   nutrientDepletionWeight: 3

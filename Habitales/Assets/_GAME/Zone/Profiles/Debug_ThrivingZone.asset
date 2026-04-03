@@ -15,13 +15,13 @@ MonoBehaviour:
   sizeRange: {x: 25, y: 40}
   flowFalloff: 1.2
   enclosureBonus: 0.3
-  nutrientBalanceRange: {x: 40, y: 50}
-  soilOrganicMatterRange: {x: 40, y: 50}
-  soilStructureRange: {x: 40, y: 50}
-  biologicalActivityRange: {x: 40, y: 50}
-  waterDynamicsRange: {x: 40, y: 50}
-  erosionResistanceRange: {x: 40, y: 50}
-  vegetationCoverRange: {x: 0, y: 50}
+  nutrientBalanceRange: {x: 80, y: 100}
+  soilOrganicMatterRange: {x: 80, y: 100}
+  soilStructureRange: {x: 80, y: 100}
+  biologicalActivityRange: {x: 80, y: 100}
+  waterDynamicsRange: {x: 80, y: 100}
+  erosionResistanceRange: {x: 80, y: 100}
+  vegetationCoverRange: {x: 80, y: 100}
   contaminationRange: {x: 5, y: 20}
   loggedTreesWeight: 3
   nutrientDepletionWeight: 3
@@ -30,7 +30,7 @@ MonoBehaviour:
   drainageCollapseWeight: 2
   soilCompactionWeight: 2
   chemicalBurnoutWeight: 1
-  matureTreeSpawnChance: 0
+  matureTreeSpawnChance: 0.497
   saplingSpawnChance: 0
   seedlingSpawnChance: 0
   deadTreeSpawnChance: 0
