@@ -17,6 +17,12 @@ public class EntityVisualizer : MonoBehaviour
     [Header("Factory Sprites")]
     [SerializeField] private Sprite factorySprite;
     [SerializeField] private Sprite bioTrashSprite;
+    
+    [Header("Cover Crop Sprites")]
+    [SerializeField] private Sprite seedlingCCSprite;
+    [SerializeField] private Sprite saplingPhytoSprite;
+    [SerializeField] private Sprite matureCCSprite;
+    [SerializeField] private Sprite maturePhytoSprite;
 
     [Header("Positioning")]
     [SerializeField] private float forwardOffset = 0.5f;
@@ -94,6 +100,26 @@ public class EntityVisualizer : MonoBehaviour
                 break;
             case "TrashBio":
                 spriteRenderer.sprite = bioTrashSprite;
+                spriteRenderer.color  = Color.white;
+                break;
+            case "CoverCropSeedling":
+                spriteRenderer.sprite = seedlingCCSprite;
+                spriteRenderer.color  = Color.white;
+                break;
+            case "CoverCropSapling Phyto":
+                spriteRenderer.sprite = saplingPhytoSprite;
+                spriteRenderer.color  = Color.white;
+                break;
+            case "CoverCropMature Legume":
+                spriteRenderer.sprite = matureCCSprite;
+                spriteRenderer.color  = Color.white;
+                break;
+            case "CoverCropMature Grass":
+                spriteRenderer.sprite = matureCCSprite;
+                spriteRenderer.color  = Color.white;
+                break;
+            case "CoverCropMature Phyto":
+                spriteRenderer.sprite = maturePhytoSprite;
                 spriteRenderer.color  = Color.white;
                 break;
             default:

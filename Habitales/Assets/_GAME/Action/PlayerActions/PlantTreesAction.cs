@@ -11,8 +11,6 @@ public class PlantTreesAction : PlayerAction
     public override int BaseDays                   => 2;
     public override int MinDays                    => 1;
 
-    private const float VEGETATION_BOOST = 30f;
-    // SOIL_BOOST removed — gradual improvement now handled by tree entity lifecycle
 
     public override bool CanExecute(List<Tile> tiles)
     {
@@ -25,9 +23,8 @@ public class PlantTreesAction : PlayerAction
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
     {
         if (tile == null) return;
-        tileManager.ModifyTileStats(tile, soilDelta: 0f, vegDelta: VEGETATION_BOOST);  // ← soil boost removed
         if (tile.entity == null)
             tileManager.SpawnEntity<SeedlingEntity>(tile);
-        Debug.Log($"Planted at {tile.gridPosition}. +{VEGETATION_BOOST} veg.");
+        Debug.Log($"Planted at {tile.gridPosition}.");
     }
 }

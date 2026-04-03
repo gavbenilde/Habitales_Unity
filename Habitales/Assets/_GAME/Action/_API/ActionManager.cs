@@ -34,11 +34,9 @@ public class ActionManager : MonoBehaviour
         availableActions.Add(new AnalyzeSoilSampleAction());
         availableActions.Add(new InspectTrashAction());
         availableActions.Add(new EcologicalSurveyAction());
-        availableActions.Add(new CoverCroppingAction { cropVariant = CoverCropEntity.CoverCropVariant.Legume });   // ← new
-        availableActions.Add(new CoverCroppingAction { cropVariant = CoverCropEntity.CoverCropVariant.DeepRoot }); // ← new
-        availableActions.Add(new CoverCroppingAction { cropVariant = CoverCropEntity.CoverCropVariant.General });  // ← new
-        availableActions.Add(new PhytoremedationPlantingAction());                                                 // ← new
-        availableActions.Add(new PlantNitrogenFixingSpeciesAction());                                              // ← new
+        availableActions.Add(new CoverCroppingAction { cropVariant = CoverCroppingAction.Variant.Legume });
+        availableActions.Add(new CoverCroppingAction { cropVariant = CoverCroppingAction.Variant.Grass });
+        availableActions.Add(new CoverCroppingAction { cropVariant = CoverCroppingAction.Variant.Phyto });
 
         
         Debug.Log($"✓ ActionManager registered {availableActions.Count} actions");

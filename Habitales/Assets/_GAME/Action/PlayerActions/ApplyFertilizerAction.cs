@@ -14,7 +14,6 @@ public class ApplyFertilizerAction : PlayerAction
 
     private const float SOIL_BOOST = 20f;
 
-    // Warn if soil is already high, but never block — player's call.
     public override bool CanExecute(List<Tile> tiles)
     {
         foreach (Tile tile in tiles)
@@ -25,9 +24,13 @@ public class ApplyFertilizerAction : PlayerAction
 
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
     {
-        if (tile == null) return;
-        float oldComposite = tile.stats.soilComposite;
-        tileManager.ModifyTileStats(tile, soilDelta: SOIL_BOOST);
-        Debug.Log($"Fertilized {tile.gridPosition}. Soil {oldComposite:F1} → {tile.stats.soilComposite:F1}");
+        tile.stats.nutrientBalance = Mathf.Clamp(tile.stats.nutrientBalance + SOIL_BOOST, 0f, 100f);
+        if (tile.stats.nutrientBalance > 100f)
+            tile.stats.nutrientBalance = Mathf.Clamp(tile.stats.nutrientBalance - (2 * (tile.stats.nutrientBalance - 100f)), 0f, 100f);
+
+        tile.stats.soilOrganicMatter  = Mathf.Clamp(tile.stats.soilOrganicMatter  + 3.0f, 0f, 100f);
+        tile.stats.soilStructure      = Mathf.Clamp(tile.stats.soilStructure      - 3.0f, 0f, 100f);
+        tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity - 3.0f, 0f, 100f);
+        tile.stats.waterDynamics      = Mathf.Clamp(tile.stats.waterDynamics      - 3.0f, 0f, 100f);
     }
 }

@@ -134,10 +134,14 @@ public class VillageEntity : TileEntity
 
 public class TreeEntity : TileEntity
 {
-    private const float VEG_BOOST_PER_DAY = 2f;
-    private const float ORG_BOOST_PER_DAY = 1f;
-    private const float BIO_BOOST_PER_DAY = 1f;
-    private const float SOIL_THRESHOLD_DIE = 10f;
+    private const float VC_BOOST_PER_DAY   = 2.0f;
+    private const float BA_BOOST_PER_DAY   = 1.2f;
+    private const float ER_BOOST_PER_DAY   = 1.2f;
+    private const float SOM_BOOST_PER_DAY  = 0.8f;
+    private const float SS_BOOST_PER_DAY   = 0.6f;
+    private const float WD_BOOST_PER_DAY   = 0.6f;
+    private const float NB_BOOST_PER_DAY   = 0.3f;
+    private const float SOIL_THRESHOLD_DIE = 15f;
 
     public TreeEntity()
     {
@@ -147,13 +151,19 @@ public class TreeEntity : TileEntity
 
     public override void OnDailyUpdate(Tile tile, TileManager manager)
     {
-        tile.stats.vegetationCover = Mathf.Clamp(tile.stats.vegetationCover + VEG_BOOST_PER_DAY, 0f, 100f);
-        tile.stats.soilOrganicMatter = Mathf.Clamp(tile.stats.soilOrganicMatter + ORG_BOOST_PER_DAY, 0f, 100f);
-        tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity + BIO_BOOST_PER_DAY, 0f, 100f);
+        tile.stats.vegetationCover    = Mathf.Clamp(tile.stats.vegetationCover    + VC_BOOST_PER_DAY,  0f, 100f);
+        tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity + BA_BOOST_PER_DAY,  0f, 100f);
+        tile.stats.erosionResistance  = Mathf.Clamp(tile.stats.erosionResistance  + ER_BOOST_PER_DAY,  0f, 100f);
+        tile.stats.soilOrganicMatter  = Mathf.Clamp(tile.stats.soilOrganicMatter  + SOM_BOOST_PER_DAY, 0f, 100f);
+        tile.stats.soilStructure      = Mathf.Clamp(tile.stats.soilStructure      + SS_BOOST_PER_DAY,  0f, 100f);
+        tile.stats.waterDynamics      = Mathf.Clamp(tile.stats.waterDynamics      + WD_BOOST_PER_DAY,  0f, 100f);
+        tile.stats.nutrientBalance    = Mathf.Clamp(tile.stats.nutrientBalance    + NB_BOOST_PER_DAY,  0f, 100f);
+
         if (tile.stats.soilComposite < SOIL_THRESHOLD_DIE)
         {
             manager.TransformEntity<DeadTreeEntity>(tile);
             Debug.Log($"Tree died at {tile.gridPosition} due to poor soil.");
+            return;
         }
 
         manager.UpdateTileVisual(tile);
@@ -162,10 +172,16 @@ public class TreeEntity : TileEntity
 
 public class SaplingEntity : TileEntity
 {
-    private const float NUTRIENT_CONSUME_PER_DAY = 1f;
-    private const float SOIL_THRESHOLD_DIE = 15f;
+    private const float NB_CONSUME_PER_DAY  = 1.0f;
+    private const float VC_BOOST_PER_DAY    = 1.0f;
+    private const float BA_BOOST_PER_DAY    = 0.6f;
+    private const float ER_BOOST_PER_DAY    = 0.6f;
+    private const float SOM_BOOST_PER_DAY   = 0.4f;
+    private const float SS_BOOST_PER_DAY    = 0.3f;
+    private const float WD_BOOST_PER_DAY    = 0.3f;
+    private const float SOIL_THRESHOLD_DIE  = 15f;
     private const float ORGANIC_BOOST_ON_DEATH = 10f;
-    private const int DAYS_UNTIL_GROWTH = 10;
+    private const int   DAYS_UNTIL_GROWTH   = 10;
     private int daysExisting = 0;
 
     public SaplingEntity()
@@ -177,11 +193,24 @@ public class SaplingEntity : TileEntity
     public override void OnDailyUpdate(Tile tile, TileManager manager)
     {
         daysExisting++;
-        tile.stats.nutrientBalance = Mathf.Clamp(tile.stats.nutrientBalance - NUTRIENT_CONSUME_PER_DAY, 0f, 100f);
+
+        // Nutrient cost of growing
+        tile.stats.nutrientBalance = Mathf.Clamp(
+            tile.stats.nutrientBalance - NB_CONSUME_PER_DAY, 0f, 100f);
+
+        // Early ecosystem contributions
+        tile.stats.vegetationCover   = Mathf.Clamp(tile.stats.vegetationCover   + VC_BOOST_PER_DAY,  0f, 100f);
+        tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity + BA_BOOST_PER_DAY, 0f, 100f);
+        tile.stats.erosionResistance  = Mathf.Clamp(tile.stats.erosionResistance  + ER_BOOST_PER_DAY, 0f, 100f);
+        tile.stats.soilOrganicMatter  = Mathf.Clamp(tile.stats.soilOrganicMatter  + SOM_BOOST_PER_DAY, 0f, 100f);
+        tile.stats.soilStructure      = Mathf.Clamp(tile.stats.soilStructure      + SS_BOOST_PER_DAY, 0f, 100f);
+        tile.stats.waterDynamics      = Mathf.Clamp(tile.stats.waterDynamics      + WD_BOOST_PER_DAY, 0f, 100f);
+
         if (tile.stats.soilComposite < SOIL_THRESHOLD_DIE)
         {
-            tile.stats.soilOrganicMatter =
-                Mathf.Clamp(tile.stats.soilOrganicMatter + ORGANIC_BOOST_ON_DEATH, 0f, 100f);
+            // Dying sapling returns what it took to grow
+            tile.stats.soilOrganicMatter = Mathf.Clamp(
+                tile.stats.soilOrganicMatter + ORGANIC_BOOST_ON_DEATH, 0f, 100f);
             manager.RemoveEntity(tile);
             Debug.Log($"Sapling died at {tile.gridPosition} — nutrients returned to soil.");
             return;
@@ -192,6 +221,7 @@ public class SaplingEntity : TileEntity
             manager.TransformEntity<TreeEntity>(tile);
             // VFXManager.Instance?.SpawnVFX();
             Debug.Log($"Sapling grew into a Tree at {tile.gridPosition}.");
+            return;
         }
 
         manager.UpdateTileVisual(tile);
@@ -200,8 +230,10 @@ public class SaplingEntity : TileEntity
 
 public class SeedlingEntity : TileEntity
 {
-    private const float SOIL_THRESHOLD_DIE = 20f;
-    private const int DAYS_UNTIL_GROWTH = 5;
+    private const float NB_CONSUME_PER_DAY  = 2.0f;
+    private const float SOIL_THRESHOLD_DIE  = 20f;
+    private const float VC_BUMP_ON_PROMOTE  = 10f;
+    private const int   DAYS_UNTIL_GROWTH   = 5;
     private int daysExisting = 0;
 
     public SeedlingEntity()
@@ -213,7 +245,9 @@ public class SeedlingEntity : TileEntity
     public override void OnDailyUpdate(Tile tile, TileManager manager)
     {
         daysExisting++;
-        tile.stats.nutrientBalance = Mathf.Clamp(tile.stats.nutrientBalance, 0f, 100f);
+        tile.stats.nutrientBalance = Mathf.Clamp(
+            tile.stats.nutrientBalance - NB_CONSUME_PER_DAY, 0f, 100f);
+
         if (tile.stats.soilComposite < SOIL_THRESHOLD_DIE)
         {
             manager.RemoveEntity(tile);
@@ -223,8 +257,13 @@ public class SeedlingEntity : TileEntity
 
         if (daysExisting >= DAYS_UNTIL_GROWTH)
         {
+            // Visual bump — the "something appeared" moment for the player
+            tile.stats.vegetationCover = Mathf.Clamp(
+                tile.stats.vegetationCover + VC_BUMP_ON_PROMOTE, 0f, 100f);
+
             manager.TransformEntity<SaplingEntity>(tile);
             Debug.Log($"Seedling grew into a Sapling at {tile.gridPosition}.");
+            return;
         }
 
         manager.UpdateTileVisual(tile);
@@ -314,89 +353,13 @@ public class FactoryEntity : TileEntity
     }
 }
 
-public class CoverCropEntity : TileEntity
-{
-    public enum CoverCropVariant { Legume, DeepRoot, General }
-
-    public CoverCropVariant variant;
-    private int daysRemaining = 30;
-
-    public CoverCropEntity()
-    {
-        entityType = "CoverCrop";
-    }
-
-    public override void OnDailyUpdate(Tile tile, TileManager manager)
-    {
-        switch (variant)
-        {
-            case CoverCropVariant.Legume:
-                // Targeted boost — nutrient + organic only
-                tile.stats.nutrientBalance   += 2f;
-                tile.stats.soilOrganicMatter += 1f;
-                break;
-
-            case CoverCropVariant.DeepRoot:
-                // Targeted boost — erosion + structure + water only
-                tile.stats.erosionResistance += 2f;
-                tile.stats.soilStructure     += 1f;
-                tile.stats.waterDynamics     += 1f;
-                break;
-
-            case CoverCropVariant.General:
-                // soilDelta 3f ÷ 6 stats = +0.5 to all soil stats
-                manager.ModifyTileStats(tile, soilDelta: 3f, vegDelta: 0f, contamDelta: 0f);
-                break;
-        }
-
-        daysRemaining--;
-        if (daysRemaining <= 0)
-            manager.RemoveEntity(tile);
-    }
-}
-
-public class PhytoEntity : TileEntity
-{
-    public PhytoEntity()
-    {
-        entityType = "Phyto";
-    }
-
-    public override void OnDailyUpdate(Tile tile, TileManager manager)
-    {
-        manager.ModifyTileStats(tile, soilDelta: 0f, vegDelta: 0f, contamDelta: -1.5f);
-
-        if (tile.stats.contamination <= 0f)
-            manager.RemoveEntity(tile);
-    }
-}
-
-public class NitrogenFixerEntity : TileEntity
-{
-    public NitrogenFixerEntity()
-    {
-        entityType = "NitrogenFixer";
-    }
-
-    public override void OnDailyUpdate(Tile tile, TileManager manager)
-    {
-        tile.stats.nutrientBalance    += 2f;
-        tile.stats.biologicalActivity += 1f;
-        // Intentionally no removal condition — cleared manually via ClearOrganicsAction
-    }
-}
-
 public class CoverCropSeedlingEntity : TileEntity
 {
-    public CoverCropEntity.CoverCropVariant variant;
-
+    public CoverCroppingAction.Variant variant;
     private const int DAYS_UNTIL_GROWTH = 5;
     private int daysExisting = 0;
 
-    public CoverCropSeedlingEntity()
-    {
-        entityType = "CoverCropSeedling";
-    }
+    public CoverCropSeedlingEntity() { entityType = "CoverCropSeedling"; }
 
     public override void OnDailyUpdate(Tile tile, TileManager manager)
     {
@@ -404,166 +367,92 @@ public class CoverCropSeedlingEntity : TileEntity
 
         if (daysExisting >= DAYS_UNTIL_GROWTH)
         {
-            manager.TransformEntity<CoverCropSaplingEntity>(tile);
-            if (tile.entity is CoverCropSaplingEntity sapling)
-                sapling.variant = variant;
-            Debug.Log($"Cover crop ({variant}) seedling → sapling at {tile.gridPosition}.");
+            if (variant == CoverCroppingAction.Variant.Phyto)
+            {
+                // Phyto Path: Seedling -> Sapling
+                manager.TransformEntity<CoverCropSaplingEntity>(tile);
+                if (tile.entity is CoverCropSaplingEntity sapling) sapling.variant = variant;
+            }
+            else
+            {
+                // Legume/Grass Path: Seedling -> Mature
+                manager.TransformEntity<CoverCropMatureEntity>(tile);
+                if (tile.entity is CoverCropMatureEntity mature) mature.variant = variant;
+            }
         }
-
         manager.UpdateTileVisual(tile);
     }
 }
 
 public class CoverCropSaplingEntity : TileEntity
 {
-    public CoverCropEntity.CoverCropVariant variant;
-
-    private const int DAYS_UNTIL_GROWTH = 10;
+    public CoverCroppingAction.Variant variant;
+    private const int DAYS_UNTIL_GROWTH = 30; // 30-day stage for Phyto
+    private const float PHYTO_DRAIN_RATE     = 0.5f; 
     private int daysExisting = 0;
 
-    public CoverCropSaplingEntity()
-    {
-        entityType = "CoverCropSapling";
-    }
+    public CoverCropSaplingEntity() { entityType = "CoverCropSapling " + variant; }
 
     public override void OnDailyUpdate(Tile tile, TileManager manager)
     {
         daysExisting++;
 
-        // Half of mature effects
+        if (variant == CoverCroppingAction.Variant.Phyto)
+        {
+            tile.stats.contamination = Mathf.Max(0f, tile.stats.contamination - PHYTO_DRAIN_RATE);
+        }
+
+        if (daysExisting >= DAYS_UNTIL_GROWTH)
+        {
+            manager.TransformEntity<CoverCropMatureEntity>(tile);
+            if (tile.entity is CoverCropMatureEntity mature) mature.variant = variant;
+        }
+        manager.UpdateTileVisual(tile);
+    }
+}
+
+public class CoverCropMatureEntity : TileEntity
+{
+    public CoverCroppingAction.Variant variant;
+
+    public CoverCropMatureEntity() { entityType = "CoverCropMature " + variant; }
+
+    public override void OnDailyUpdate(Tile tile, TileManager manager)
+    {
         switch (variant)
         {
-            case CoverCropEntity.CoverCropVariant.Legume:
-                tile.stats.nutrientBalance   += 1f;
-                tile.stats.soilOrganicMatter += 0.5f;
+            case CoverCroppingAction.Variant.Legume:
+                // Nitrogen-fixing cover crop — NB and BA primary, broad secondary support
+                tile.stats.nutrientBalance    = Mathf.Clamp(tile.stats.nutrientBalance    + 1.2f, 0f, 100f);
+                tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity + 1.0f, 0f, 100f);
+                tile.stats.soilOrganicMatter  = Mathf.Clamp(tile.stats.soilOrganicMatter  + 0.6f, 0f, 100f);
+                tile.stats.erosionResistance  = Mathf.Clamp(tile.stats.erosionResistance  + 0.5f, 0f, 100f);
+                tile.stats.soilStructure      = Mathf.Clamp(tile.stats.soilStructure      + 0.4f, 0f, 100f);
+                tile.stats.waterDynamics      = Mathf.Clamp(tile.stats.waterDynamics      + 0.3f, 0f, 100f);
+                tile.stats.vegetationCover    = Mathf.Clamp(tile.stats.vegetationCover    + 0.2f, 0f, 100f);
                 break;
 
-            case CoverCropEntity.CoverCropVariant.DeepRoot:
-                tile.stats.erosionResistance += 1f;
-                tile.stats.soilStructure     += 0.5f;
-                tile.stats.waterDynamics     += 0.5f;
+            case CoverCroppingAction.Variant.Grass:
+                // Comprehensive all-rounder — SOM and ER primary
+                tile.stats.soilOrganicMatter  = Mathf.Clamp(tile.stats.soilOrganicMatter  + 1.0f, 0f, 100f);
+                tile.stats.erosionResistance  = Mathf.Clamp(tile.stats.erosionResistance  + 0.8f, 0f, 100f);
+                tile.stats.nutrientBalance    = Mathf.Clamp(tile.stats.nutrientBalance    + 0.5f, 0f, 100f);
+                tile.stats.soilStructure      = Mathf.Clamp(tile.stats.soilStructure      + 0.4f, 0f, 100f);
+                tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity + 0.4f, 0f, 100f);
+                tile.stats.waterDynamics      = Mathf.Clamp(tile.stats.waterDynamics      + 0.3f, 0f, 100f);
+                tile.stats.vegetationCover    = Mathf.Clamp(tile.stats.vegetationCover    + 0.2f, 0f, 100f);
                 break;
 
-            case CoverCropEntity.CoverCropVariant.General:
-                manager.ModifyTileStats(tile, soilDelta: 1.5f, vegDelta: 0f, contamDelta: 0f);
+            case CoverCroppingAction.Variant.Phyto:
+                // Hyperaccumulator — contam primary, slight soil secondary, NB cost
+                tile.stats.contamination      = Mathf.Max(0f, tile.stats.contamination    - 1.0f);
+                tile.stats.soilOrganicMatter  = Mathf.Clamp(tile.stats.soilOrganicMatter  + 0.3f, 0f, 100f);
+                tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity + 0.2f, 0f, 100f);
+                tile.stats.soilStructure      = Mathf.Clamp(tile.stats.soilStructure      + 0.2f, 0f, 100f);
+                tile.stats.erosionResistance  = Mathf.Clamp(tile.stats.erosionResistance  + 0.2f, 0f, 100f);
+                tile.stats.vegetationCover    = Mathf.Clamp(tile.stats.vegetationCover    + 0.1f, 0f, 100f);
+                tile.stats.nutrientBalance    = Mathf.Clamp(tile.stats.nutrientBalance    - 0.2f, 0f, 100f);
                 break;
-        }
-
-        if (daysExisting >= DAYS_UNTIL_GROWTH)
-        {
-            manager.TransformEntity<CoverCropEntity>(tile);
-            if (tile.entity is CoverCropEntity mature)
-                mature.variant = variant;
-            Debug.Log($"Cover crop ({variant}) sapling → mature at {tile.gridPosition}.");
-        }
-
-        manager.UpdateTileVisual(tile);
-    }
-}
-
-public class PhytoSeedlingEntity : TileEntity
-{
-    private const int DAYS_UNTIL_GROWTH = 5;
-    private int daysExisting = 0;
-
-    public PhytoSeedlingEntity()
-    {
-        entityType = "PhytoSeedling";
-    }
-
-    public override void OnDailyUpdate(Tile tile, TileManager manager)
-    {
-        daysExisting++;
-
-        if (daysExisting >= DAYS_UNTIL_GROWTH)
-        {
-            manager.TransformEntity<PhytoSaplingEntity>(tile);
-            Debug.Log($"Phyto seedling → sapling at {tile.gridPosition}.");
-        }
-
-        manager.UpdateTileVisual(tile);
-    }
-}
-
-public class PhytoSaplingEntity : TileEntity
-{
-    private const int DAYS_UNTIL_GROWTH = 10;
-    private int daysExisting = 0;
-
-    public PhytoSaplingEntity()
-    {
-        entityType = "PhytoSapling";
-    }
-
-    public override void OnDailyUpdate(Tile tile, TileManager manager)
-    {
-        daysExisting++;
-
-        // Half of mature contamination removal
-        manager.ModifyTileStats(tile, soilDelta: 0f, vegDelta: 0f, contamDelta: -0.75f);
-
-        if (tile.stats.contamination <= 0f)
-        {
-            manager.RemoveEntity(tile);
-            return; // tile is clean — no further work
-        }
-
-        if (daysExisting >= DAYS_UNTIL_GROWTH)
-        {
-            manager.TransformEntity<PhytoEntity>(tile);
-            Debug.Log($"Phyto sapling → mature at {tile.gridPosition}.");
-        }
-
-        manager.UpdateTileVisual(tile);
-    }
-}
-
-public class NitrogenFixerSeedlingEntity : TileEntity
-{
-    private const int DAYS_UNTIL_GROWTH = 5;
-    private int daysExisting = 0;
-
-    public NitrogenFixerSeedlingEntity()
-    {
-        entityType = "NitrogenFixerSeedling";
-    }
-
-    public override void OnDailyUpdate(Tile tile, TileManager manager)
-    {
-        daysExisting++;
-
-        if (daysExisting >= DAYS_UNTIL_GROWTH)
-        {
-            manager.TransformEntity<NitrogenFixerSaplingEntity>(tile);
-            Debug.Log($"Nitrogen fixer seedling → sapling at {tile.gridPosition}.");
-        }
-
-        manager.UpdateTileVisual(tile);
-    }
-}
-
-public class NitrogenFixerSaplingEntity : TileEntity
-{
-    private const int DAYS_UNTIL_GROWTH = 10;
-    private int daysExisting = 0;
-
-    public NitrogenFixerSaplingEntity()
-    {
-        entityType = "NitrogenFixerSapling";
-    }
-
-    public override void OnDailyUpdate(Tile tile, TileManager manager)
-    {
-        daysExisting++;
-
-        // Half of mature effects
-        tile.stats.nutrientBalance    += 1f;
-        tile.stats.biologicalActivity += 0.5f;
-
-        if (daysExisting >= DAYS_UNTIL_GROWTH)
-        {
-            manager.TransformEntity<NitrogenFixerEntity>(tile);
-            Debug.Log($"Nitrogen fixer sapling → mature at {tile.gridPosition}.");
         }
 
         manager.UpdateTileVisual(tile);
