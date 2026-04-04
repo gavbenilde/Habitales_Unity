@@ -35,6 +35,14 @@ namespace UTILITIES.Camera
             if (_activeCoroutine != null) StopCoroutine(_activeCoroutine);
             _activeCoroutine = StartCoroutine(PanCoroutine(destination, onComplete));
         }
+        
+        public void PanTo(Vector3 worldTarget)
+        {
+            _originPosition = transform.position;
+            // Only move XZ — Y is locked to preserve camera angle
+            Vector3 destination = new Vector3(worldTarget.x, transform.position.y, worldTarget.z);
+        }
+        
 
         // Called by EventManager when the event queue empties.
         // Pans back to stored origin, then fires onComplete (which resumes the game).
