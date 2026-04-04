@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
+using Habitales.Dialogue;
 
 /// <summary>
 /// Central game loop coordinator.  
@@ -12,8 +14,11 @@ public class GameManager : MonoBehaviour {
     [SerializeField] private ActionUI actionUI;
     [SerializeField] private ActionManager actionManager;
     [SerializeField] private ZoneManager zoneManager;
+    [SerializeField] private DialogueManager dialogueManager;
     [SerializeField] private ResourceManager resourceManager;
     [SerializeField] private RegionOutlineRenderer regionOutlineRenderer;
+    
+    [SerializeField] private EndGameScreenUI endGameScreenUI;
 
     
     [Header("Cascade Settings")]
@@ -45,6 +50,7 @@ public class GameManager : MonoBehaviour {
     
     private HashSet<int> unlockedRegions = new HashSet<int>();
     
+    private List<float> healthHistory = new List<float>();
     
     public static GameManager Instance { get; private set; }
     
@@ -155,6 +161,7 @@ public class GameManager : MonoBehaviour {
     
     void HandleTileSelected(Tile tile, Vector3 worldPosition)
     {
+        if (isGameOver) return; 
         if (actionManager != null && actionManager.IsActionRunning) return;
         if (showDebugInfo) {
             Debug.Log($"Tile selected: {tile.gridPosition} | Health: {tile.CalculateHealth():F1}%");
@@ -283,12 +290,12 @@ public class GameManager : MonoBehaviour {
     /// </summary>
     void TriggerGameOver(string reason, int thrivingTiles)
     {
-        if (isGameOver) return; // Prevent double-trigger
-    
+        if (isGameOver) return;
         isGameOver = true;
-        Debug.Log($"🏁 GAME OVER: {reason} | Thriving Tiles: {thrivingTiles}");
-    
-        // TODO: Show end screen UI with score
+        Debug.Log($"GAME OVER: {reason} | Thriving Tiles: {thrivingTiles}");
+
+        EndGameData data = BuildEndGameData(reason);
+        endGameScreenUI?.Show(data);
     }
 
     
@@ -303,6 +310,9 @@ public class GameManager : MonoBehaviour {
         for (int d = 0; d < days; d++)
             tileManager.UpdateAllEntities();
 
+        healthHistory.Add(zoneManager.GetTotalAverageHealth());
+
+        // update visuals
         foreach (Tile tile in tileManager.GetAllTiles())
             tileManager.UpdateTileVisual(tile);
     }
@@ -340,16 +350,66 @@ public class GameManager : MonoBehaviour {
 
     void HandleGameOver()
     {
-        if (isGameOver) return; // Already handled by collapse
-    
-        isGameOver = true;
-        int thrivingTiles = GetThrivingTileCount();
-    
-        Debug.Log($"🏁 GAME OVER: Year Complete! | Final time: {resourceManager.GetFullTimeDisplay()} | Thriving tiles: {thrivingTiles}");
-    
-        // TODO: Show end screen UI with score
+        TriggerGameOver("Field Season Complete", GetThrivingTileCount());
     }
 
+    private EndGameData BuildEndGameData(string reason)
+    {
+        var data = new EndGameData
+        {
+            endReason      = reason,
+            currentYear    = resourceManager.CurrentYear,
+            totalDays      = resourceManager.TotalDays,
+            worldHealth    = zoneManager.GetTotalAverageHealth(),
+            healthHistory  = new List<float>(healthHistory),
+            researchPoints = resourceManager.ResearchPoints,
+        };
+
+        // Tile counts — reuses existing threshold fields on this class
+        ComputeTileCounts(out data.thrivingCount, out data.degradedCount, out data.criticalCount);
+
+        // Top worker by actions participated
+        var allWorkers = resourceManager.AllWorkers;
+        if (allWorkers != null && allWorkers.Count > 0)
+            data.topWorker = allWorkers.OrderByDescending(w => w.actionsParticipated).First();
+
+        // Action stats — only actions the player actually used are in this dict,
+        // so "most avoided" = least-used of tried actions (never-touched actions excluded)
+        var counts = actionManager.actionUsageCounts;
+        if (counts.Count > 0)
+        {
+            data.favouriteAction   = counts.OrderByDescending(kvp => kvp.Value).First().Key;
+            data.mostAvoidedAction = counts.OrderBy(kvp => kvp.Value).First().Key;
+        }
+
+        // Most chatted worker — falls back to top worker if nobody was ever chatted with
+        var chatCounts = DialogueManager.Instance?.chatOpenCounts;
+        if (chatCounts != null && chatCounts.Count > 0)
+            data.mostChattedWorker = chatCounts.OrderByDescending(kvp => kvp.Value).First().Key;
+        else if (data.topWorker != null)
+            data.mostChattedWorker = data.topWorker.workerName;
+
+        // Zone healths — iterate the existing unlockedRegions HashSet on this class
+        data.zoneHealths = new Dictionary<int, float>();
+        foreach (int regionID in unlockedRegions)
+            data.zoneHealths[regionID] = zoneManager.GetRegionHealth(regionID);
+
+        return data;
+    }
+
+    private void ComputeTileCounts(out int thriving, out int degraded, out int critical)
+    {
+        thriving = degraded = critical = 0;
+        foreach (var tile in tileManager.GetAllTiles())
+        {
+            float h = tile.CalculateHealth();
+            if      (h > thrivingHealthThreshold)  thriving++;
+            else if (h > criticalHealthThreshold)  degraded++;
+            else                                   critical++;
+        }
+    }
+
+    
 
     
     

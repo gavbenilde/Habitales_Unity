@@ -121,6 +121,8 @@ namespace Habitales.UI
         public void OpenThread(string tabID)
         {
             _currentTabID = tabID;
+            
+            DialogueManager.Instance?.IncrementChatOpen(tabID);
             tabListView.SetActive(false);
             threadView.SetActive(true);
 

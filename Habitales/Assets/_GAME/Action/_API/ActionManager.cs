@@ -13,6 +13,8 @@ public class ActionManager : MonoBehaviour
 
     public event Action<Tile, int> OnActionCompleted;
 
+    public Dictionary<string, int> actionUsageCounts = new Dictionary<string, int>();
+
     void Awake()
     {
         tileManager = FindObjectOfType<TileManager>();
@@ -113,6 +115,13 @@ public class ActionManager : MonoBehaviour
         }
 
         rm.ApplyFatigue(targetTiles.Count, days, action.FatigueMultiplierPerTile);
+        
+        
+        if (!actionUsageCounts.ContainsKey(action.ActionName))
+            actionUsageCounts[action.ActionName] = 0;
+        actionUsageCounts[action.ActionName]++;
+
+        
         IsActionRunning = false;
         OnActionCompleted?.Invoke(targetTiles[0], days);
 

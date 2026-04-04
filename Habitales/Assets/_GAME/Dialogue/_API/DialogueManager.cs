@@ -26,6 +26,8 @@ namespace Habitales.Dialogue
             = new Dictionary<string, int>();
         private Dictionary<string, int> _birthdayShoutoutSentYear
             = new Dictionary<string, int>();
+        public Dictionary<string, int> chatOpenCounts = new Dictionary<string, int>();
+
 
         // Pending sticker response — stored for Invoke delay
         private string _pendingStickerTabID;
@@ -88,6 +90,12 @@ namespace Habitales.Dialogue
 
         // ─── Core Public Methods ──────────────────────────────────────────────
 
+        public void IncrementChatOpen(string tabID)
+        {
+            chatOpenCounts.TryGetValue(tabID, out int n);
+            chatOpenCounts[tabID] = n + 1;
+        }
+        
         public void AppendThread(DialogueThreadSO thread)
         {
             if (thread == null) return;
