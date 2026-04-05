@@ -24,13 +24,13 @@ namespace _UTILITIES.Camera
         void Update()
         {
             float scroll = Input.GetAxis("Mouse ScrollWheel");
-
+            
             if (scroll != 0f)
             {
                 targetZoom -= scroll * zoomSpeed * cam.orthographicSize * 0.1f;
                 targetZoom = Mathf.Clamp(targetZoom, minZoom, maxZoom);
             }
-
+            
             if (smoothZoom)
             {
                 cam.orthographicSize = Mathf.Lerp(
@@ -43,6 +43,11 @@ namespace _UTILITIES.Camera
             {
                 cam.orthographicSize = targetZoom;
             }
+        }
+        
+        public void SetZoom(float zoom)
+        {
+            targetZoom = Mathf.Clamp(zoom, minZoom, maxZoom);
         }
     }
 }

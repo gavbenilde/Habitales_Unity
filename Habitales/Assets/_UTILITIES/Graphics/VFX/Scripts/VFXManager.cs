@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.VFX;
 
@@ -7,33 +8,97 @@ public class VFXManager : MonoBehaviour
 {
     public static VFXManager Instance { get; private set; }
 
-    // Start is called before the first frame update
-    void Start()
+    [Header("Manager References")]
+    [SerializeField] private TileManager tileManager;
+    [SerializeField] private GameManager gameManager;
+    
+    [SerializeField] private List<VFXTypes> vfxList;
+    
+    private void Awake()
     {
+        // Singleton pattern
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
         
+        // temp
+        List<Tile> tiles = tileManager.GetAllTiles();
+        
+        foreach (Tile tile in tiles)
+        {
+            
+        }
     }
 
-    // Update is called once per frame
-    void Update()
+    // -----------------------------
+    // Basic spawn with lifetime
+    // -----------------------------
+    public void SpawnVFX(string key, Vector3 position, Quaternion rotation)
     {
-        
+        VFXTypes vfxData = GetVFX(key);
+
+        if (vfxData == null) return;
+
+        VisualEffect vfx = Instantiate(vfxData.prefab, position, rotation);
+
+        vfx.Play();
+
+        if (vfxData.defaultLifetime > 0)
+            Destroy(vfx.gameObject, vfxData.defaultLifetime);
     }
 
-    public void SpawnVFX(VisualEffect vfx, float lifetime)
+    // -----------------------------
+    // Spawn with parameters (Color, Intensity)
+    // -----------------------------
+    public VisualEffect SpawnVFX(VisualEffect vfxPrefab, Vector3 position, Quaternion rotation, Color color, float intensity, float lifetime = 2f)
     {
-        VisualEffect _vfx = Instantiate(vfx);
-        
+        VisualEffect vfx = Instantiate(vfxPrefab, position, rotation);
+
+        // Set exposed parameters in VFX Graph
+        vfx.SetVector4("Color", color);
+        vfx.SetFloat("Intensity", intensity);
+
+        vfx.Play();
+
         if (lifetime > 0)
-            Destroy(_vfx, lifetime);
+            Destroy(vfx.gameObject, lifetime);
+
+        return vfx;
     }
 
-    public void DestroyVFX(VisualEffect vfx)
+    // -----------------------------
+    // Manual destroy (optional)
+    // -----------------------------
+    public void DestroyVFX(VisualEffect vfx, float delay = 0f)
     {
-        Destroy(vfx, 1f);
+        if (vfx != null)
+            Destroy(vfx.gameObject, delay);
+    }
+    
+    private VFXTypes GetVFX(string key)
+    {
+        foreach (var vfx in vfxList)
+        {
+            if (vfx.key == key)
+                return vfx;
+        }
+
+        Debug.LogWarning("VFX not found: " + key);
+        return null;
     }
 }
 
+// -----------------------------
+// Optional: VFX Types container
+// -----------------------------
+[System.Serializable]
 public class VFXTypes
 {
-    [SerializeField] private GameObject vfx;
+    public string key;
+    public VisualEffect prefab;
+    public float defaultLifetime = 2f;
 }

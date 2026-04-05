@@ -1,8 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using Unity.VisualScripting;
+using UTILITIES.Camera;
 
 public class ActionUI : MonoBehaviour
 {
@@ -24,9 +27,12 @@ public class ActionUI : MonoBehaviour
     
     [Header("Action List")]
     [SerializeField] private GameObject actionListPanel;
+    [SerializeField] private GameObject actionCardsPanel;
     [SerializeField] private Transform actionListContent;
     [SerializeField] private GameObject actionCardPrefab;
     [SerializeField] private ActionIconConfig actionIconConfig;
+    [SerializeField] private Image selectedCardImage;
+    [SerializeField] private TextMeshProUGUI selectedCardDesc;
     
     [Header("Multi-Select UI")]
     [SerializeField] private GameObject multiSelectPanel;
@@ -57,6 +63,15 @@ public class ActionUI : MonoBehaviour
     private PlayerAction currentAction;
     private ActionCategory selectedCategory;
     private List<GameObject> spawnedActionCards = new List<GameObject>();
+
+    // Action panning & zooming
+    private Action<Tile, Vector3> selectedTileHandler;  
+    private Tile selectedTile;
+    private Vector3 selectedTilePosition;
+    private float originZoom;
+    
+    private float xPosOffset = 7.5f;
+    private float zPosOffset = 8f;
     
     void Awake()
     {
@@ -144,6 +159,12 @@ public class ActionUI : MonoBehaviour
         if (tileSelector != null)
         {
             tileSelector.OnMultiSelectionConfirmed += HandleMultiSelectionConfirmed;
+            selectedTileHandler = (tile, position) =>
+            {
+                selectedTile = tile;
+                selectedTilePosition = position;
+            };
+            tileSelector.OnTileSelected += selectedTileHandler;
         }
     }
     
@@ -152,6 +173,7 @@ public class ActionUI : MonoBehaviour
         if (tileSelector != null)
         {
             tileSelector.OnMultiSelectionConfirmed -= HandleMultiSelectionConfirmed;
+            tileSelector.OnTileSelected -= selectedTileHandler;
         }
     }
     
@@ -181,7 +203,6 @@ public class ActionUI : MonoBehaviour
     // ═══════════════════════════════════════════════════════
     // PUBLIC API
     // ═══════════════════════════════════════════════════════
-    
     /// <summary>
     /// Shows the category selection panel near the clicked tile.
     /// Called by GameManager when player clicks a tile.
@@ -226,6 +247,8 @@ public class ActionUI : MonoBehaviour
         if (actionPanel != null) actionPanel.gameObject.SetActive(false);
         if (categoryIconsPanel != null) categoryIconsPanel.SetActive(false);
         if (actionListPanel != null) actionListPanel.SetActive(false);
+        if (actionCardsPanel != null) actionCardsPanel.SetActive(false);
+        if (selectedCardImage != null) selectedCardImage.gameObject.SetActive(false);
         if (multiSelectPanel != null) multiSelectPanel.SetActive(false);
         if (backButton != null) backButton.gameObject.SetActive(false);
         // if (categoryTitleText != null) categoryTitleText.gameObject.SetActive(false);
@@ -239,6 +262,7 @@ public class ActionUI : MonoBehaviour
                 
             case ActionPanelState.CategorySelect:
                 // Show main panel with category icons
+                originZoom = mainCamera.orthographicSize; // band-aid selection flow solution
                 actionPanel.gameObject.SetActive(true);
                 categoryIconsPanel.SetActive(true);
                 if (tileHealthText != null) tileHealthText.gameObject.SetActive(true);
@@ -247,6 +271,8 @@ public class ActionUI : MonoBehaviour
             case ActionPanelState.ActionList:
                 // Show main panel with action list (horizontal scroll)
                 actionPanel.gameObject.SetActive(true);
+                actionCardsPanel.gameObject.SetActive(true);
+                selectedCardImage.gameObject.SetActive(false);
                 actionListPanel.SetActive(true);
                 backButton.gameObject.SetActive(true);
                 // categoryTitleText.gameObject.SetActive(true);
@@ -255,6 +281,8 @@ public class ActionUI : MonoBehaviour
             
             case ActionPanelState.VariantSelect:
                 actionPanel.gameObject.SetActive(true);
+                actionCardsPanel.gameObject.SetActive(true);
+                selectedCardImage.gameObject.SetActive(false);
                 actionListPanel.SetActive(true);
                 backButton.gameObject.SetActive(true);
                 break;
@@ -262,6 +290,8 @@ public class ActionUI : MonoBehaviour
             case ActionPanelState.MultiSelect:
                 // Hide action panel, show multi-select panel
                 actionPanel.gameObject.SetActive(false);
+                actionCardsPanel.gameObject.SetActive(true);
+                selectedCardImage.gameObject.SetActive(true);
                 multiSelectPanel.SetActive(true);
                 break;
         }
@@ -278,6 +308,25 @@ public class ActionUI : MonoBehaviour
     {
         selectedCategory = category;
         ShowActionList(category);
+        
+        Vector3 tileWorldPos = new Vector3(
+            selectedTile.gridPosition.x + (xPosOffset),
+            0f,
+            selectedTile.gridPosition.y + (zPosOffset)
+        );
+        
+        float distance = mainCamera.transform.position.y; // Distance from camera to ground (preserve current distance)
+        Vector3 offset = -mainCamera.transform.forward * distance; // Move backwards along camera's forward direction
+        Vector3 target = tileWorldPos + offset;
+        
+        if (originZoom != null)
+            originZoom = mainCamera.orthographicSize;
+        
+        if (target != null)
+        {
+            EventCameraHandler.Instance.PanTo(target);
+            EventCameraHandler.Instance.ZoomTo(3f);
+        }
     }
     
     /// <summary>
@@ -460,6 +509,18 @@ public class ActionUI : MonoBehaviour
         card.name = $"Card_Group_{groupName}";
     }
 
+    void DisplaySelectedCard(PlayerAction action)
+    {
+        Sprite actionSprite = actionIconConfig.GetSpriteForAction(action.ActionName);
+
+        selectedCardImage.sprite = actionSprite;
+    }
+
+    void DisplayCardDescription(PlayerAction action)
+    {
+        selectedCardDesc.text = action.Description;
+    }
+
     void ShowVariantList(List<PlayerAction> variants)
     {
         ClearActionCards();
@@ -498,6 +559,8 @@ public class ActionUI : MonoBehaviour
         }
         
         currentAction = action;
+        DisplaySelectedCard(currentAction);
+        DisplayCardDescription(currentAction);
         
         // Enter multi-select mode via TileSelector
         if (tileSelector != null)
@@ -629,6 +692,7 @@ public class ActionUI : MonoBehaviour
     {
         if (tileSelector == null) return;
         tileSelector.ConfirmSelection();
+        EventCameraHandler.Instance.ZoomTo(10f);
     }
     
     void OnCancelClicked()
@@ -700,9 +764,21 @@ public class ActionUI : MonoBehaviour
     
     void PositionPanel(Vector3 worldPosition)
     {
+        // Convert world position to screen space
         Vector3 screenPos = mainCamera.WorldToScreenPoint(worldPosition);
+
+        // Apply your offset
         screenPos.x += screenOffset.x;
         screenPos.y += screenOffset.y;
+
+        // Get panel size
+        Vector2 panelSize = actionPanel.GetComponent<RectTransform>().rect.size;
+
+        // Clamp X and Y so panel stays fully inside the screen
+        screenPos.x = Mathf.Clamp(screenPos.x, panelSize.x / 2f, Screen.width - panelSize.x / 2f);
+        screenPos.y = Mathf.Clamp(screenPos.y, panelSize.y / 5f, Screen.height - panelSize.y / 5f);
+
+        // Assign the position
         actionPanel.position = screenPos;
     }
     

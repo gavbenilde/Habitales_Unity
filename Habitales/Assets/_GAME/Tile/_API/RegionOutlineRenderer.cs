@@ -101,10 +101,13 @@ public class RegionOutlineRenderer : MonoBehaviour
         {
             avgHealth = zoneManager.GetRegionHealth(regionID);
             
+            float t = avgHealth / 100f;
             if (outlineMaterial != null)
             {
                 // Health scale in Habitales is 0 to 100, so we divide by 100f for Lerp
-                Color dynamicHealthColor = Color.Lerp(Color.red, Color.green, avgHealth / 100f);
+                t = Mathf.Pow(t, 2f); // try 2, 2.5, or 3
+
+                Color dynamicHealthColor = Color.Lerp(Color.red, Color.green, t);
                 outlineMaterial.color = dynamicHealthColor;
             }
         }
