@@ -196,7 +196,7 @@ public class EventManager : MonoBehaviour
         if (ev.linkedThread != null)
             DialogueManager.Instance.AppendThread(ev.linkedThread);
         
-        Habitales.Dialogue.DialogueManager.Instance.AppendThread(ev.linkedThread);
+        // Habitales.Dialogue.DialogueManager.Instance.AppendThread(ev.linkedThread);
     }
 
     void ResumeAfterEvent()

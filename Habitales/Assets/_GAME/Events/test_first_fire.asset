@@ -20,6 +20,8 @@ MonoBehaviour:
   speakerName: 
   speakerPortrait: {fileID: 0}
   canInterruptAction: 1
+  focusCameraOnTarget: 0
   triggerChance: 1
   triggerOnDay: 3
   triggerBelowWorldHealth: -1
+  linkedThread: {fileID: 11400000, guid: 8c443c38cde293047aaa5c5b007a800b, type: 2}

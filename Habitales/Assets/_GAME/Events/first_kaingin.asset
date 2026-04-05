@@ -24,4 +24,4 @@ MonoBehaviour:
   triggerChance: 1
   triggerOnDay: -1
   triggerBelowWorldHealth: -1
-  linkedThread: {fileID: 0}
+  linkedThread: {fileID: 11400000, guid: e0749aec0b0326342b6809ecf95775e2, type: 2}
