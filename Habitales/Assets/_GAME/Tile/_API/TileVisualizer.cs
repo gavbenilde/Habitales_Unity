@@ -7,6 +7,7 @@ public class TileVisualizer : MonoBehaviour
     private MeshRenderer meshRenderer;
     private Material     materialInstance;
     private Tile         tile;
+    private Color originalColor;
     private TileVisualState currentState = TileVisualState.Default;
 
     // ── Firebreak ─────────────────────────────────────────────────────────────
@@ -14,12 +15,16 @@ public class TileVisualizer : MonoBehaviour
     [SerializeField] private GameObject firebreakPrefab;
     private GameObject firebreakInstance;
 
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     void Awake()
     {
         meshRenderer = GetComponent<MeshRenderer>();
         if (meshRenderer != null)
+        {
             materialInstance = meshRenderer.material;
+            originalColor = materialInstance.GetColor("_BaseColor");
+        }
     }
 
     public void Initialize(Tile tileData)
@@ -53,7 +58,7 @@ public class TileVisualizer : MonoBehaviour
         
         // Base health colour
         // Color baseColor = GetHealthColor(tile.CalculateHealth());
-        Color baseColor = meshRenderer.sharedMaterial.color;
+        Color baseColor = originalColor;
 
         // Contamination tint — blends toward sickly purple above 60
         if (tile.stats.contamination > 60f)
@@ -81,7 +86,7 @@ public class TileVisualizer : MonoBehaviour
             default: // Default
                 finalColor = baseColor;                                              break;
         }
-        materialInstance.color = finalColor;
+        materialInstance.SetColor("_BaseColor", finalColor);
     }
 
     // ── Overlay list reader ───────────────────────────────────────────────────

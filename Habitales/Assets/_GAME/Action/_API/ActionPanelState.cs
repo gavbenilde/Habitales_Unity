@@ -7,5 +7,6 @@ public enum ActionPanelState
     CategorySelect,  // Showing 4 category icons
     ActionList,      // Showing actions in selected category
     VariantSelect,  // sub-panel showing variants for a grouped action
-    MultiSelect      // Multi-select mode active
+    MultiSelect,      // Multi-select mode active
+    InspectMode      // Tile inspect panel open; action panel suppressed 
 }

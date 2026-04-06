@@ -20,7 +20,7 @@ public class AnalyzeSoilSampleAction : PlayerAction
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
     {
         tile.isAnalyzed = true;
-        OverflowTipSpawner.Instance.SpawnAtCursor(BuildReport(tile));
+        // OverflowTipSpawner.Instance.SpawnAtCursor(BuildReport(tile));
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

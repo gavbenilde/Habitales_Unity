@@ -77,7 +77,7 @@ public class ResourceManager : MonoBehaviour
         if (WeatherManager.Instance != null)
             WeatherManager.Instance.RollWeather(totalDays);
 
-        if (totalDays >= daysPerYear * maxYears)
+        if (totalDays >= 100)
         {
             OnGameOver?.Invoke();
             return;
@@ -100,7 +100,7 @@ public class ResourceManager : MonoBehaviour
             if (WeatherManager.Instance != null)
                 WeatherManager.Instance.RollWeather(totalDays);
 
-            if (totalDays >= daysPerYear * maxYears)
+            if (totalDays >= 100)
             {
                 OnGameOver?.Invoke();
                 yield break;
@@ -121,40 +121,53 @@ public class ResourceManager : MonoBehaviour
     }
 
     // ── Fatigue ───────────────────────────────────────────────────────────────
-    public void ApplyFatigue(int workerCount, int daysWorked, float multiplier)
+    // Inside ResourceManager.cs
+
+    public void ApplyFatigue(int workerCount, int duration, float multiplier, float exertion)
     {
-        List<Worker> available = AvailableWorkers;
-        if (available.Count == 0) return;
-
-        int toFatigue = Mathf.Min(workerCount, available.Count);
-        Shuffle(available);
-
-        // Increment FIRST — all available workers participated in the action
-        foreach (Worker w in available)
-            w.actionsParticipated++;
-
-        // Then mark the subset as fatigued
+        // Ensure exertion is clamped between a tiny minimum and 1.0
+        exertion = Mathf.Clamp(exertion, 0.05f, 1.0f);
+    
         int fatiguedCount = 0;
-        int latestReturnDay = totalDays;
+        int maxReturnDay = 0;
 
-        for (int i = 0; i < toFatigue; i++)
+        // Get all available workers to potentially fatigue them
+        var candidates = allWorkers.Where(w => !w.isFatigued).ToList();
+        Shuffle(candidates);
+
+        // Only look at the number of people who actually went to work
+        int workersToProcess = Mathf.Min(workerCount, candidates.Count);
+
+        for (int i = 0; i < workersToProcess; i++)
         {
-            Worker w = available[i];
+            Worker w = candidates[i];
+
+            // NEW: Probability Gate based on exertion
+            // If exertion is 0.1, there's only a 10% chance they get fatigued.
+            if (UnityEngine.Random.value > exertion) 
+                continue;
 
             float r = UnityEngine.Random.value;
-            float x = Mathf.Pow(r, weatherK);
-            int recoveryDays = Mathf.Max(1, Mathf.CeilToInt(x * daysWorked * 0.5f * multiplier));
+            float severity = Mathf.Pow(r, weatherK);
+        
+            // Duration * Multiplier * Severity (the Random^3 curve)
+            int fatigueDays = Mathf.CeilToInt(duration * multiplier * severity);
 
-            w.isFatigued = true;
-            w.returnDay = totalDays + recoveryDays;
-            latestReturnDay = Mathf.Max(latestReturnDay, w.returnDay);
-            fatiguedCount++;
+            if (fatigueDays > 0)
+            {
+                w.isFatigued = true;
+                w.returnDay = totalDays + fatigueDays;
+                w.actionsParticipated++;
+            
+                fatiguedCount++;
+                maxReturnDay = Mathf.Max(maxReturnDay, w.returnDay);
+            }
         }
 
         if (fatiguedCount > 0)
         {
-            OnPeopleFatigued?.Invoke(fatiguedCount, latestReturnDay);
-            Debug.Log($"{fatiguedCount} worker(s) fatigued. Latest return: day {latestReturnDay}.");
+            OnPeopleFatigued?.Invoke(fatiguedCount, maxReturnDay);
+            Debug.Log($"[Fatigue] {fatiguedCount} workers fatigued from job (Exertion: {exertion:P0})");
         }
     }
 

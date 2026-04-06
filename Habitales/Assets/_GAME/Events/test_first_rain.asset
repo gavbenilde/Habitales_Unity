@@ -23,6 +23,6 @@ MonoBehaviour:
   canInterruptAction: 1
   focusCameraOnTarget: 0
   triggerChance: 1
-  triggerOnDay: 3
+  triggerOnDay: -1
   triggerBelowWorldHealth: -1
   linkedThread: {fileID: 11400000, guid: b913c9d05bb748f468fedbc9478e1072, type: 2}

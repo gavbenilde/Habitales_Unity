@@ -37,7 +37,7 @@ public class InspectTrashAction : PlayerAction
                 if (vis != null) vis.SetSprite(pick);
             }
 
-            OverflowTipSpawner.Instance.SpawnAtCursor("Bio waste — will decompose on its own");
+            // OverflowTipSpawner.Instance.SpawnAtCursor("Bio waste — will decompose on its own");
         }
         else if (tile.entity is TrashNonBioEntity nonBio)
         {
@@ -52,7 +52,7 @@ public class InspectTrashAction : PlayerAction
                 if (vis != null) vis.SetSprite(pick);
             }
 
-            OverflowTipSpawner.Instance.SpawnAtCursor("Non-bio waste — must be manually cleared");
+            // OverflowTipSpawner.Instance.SpawnAtCursor("Non-bio waste — must be manually cleared");
         }
     }
 }

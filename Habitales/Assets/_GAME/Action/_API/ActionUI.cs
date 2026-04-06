@@ -45,11 +45,19 @@ public class ActionUI : MonoBehaviour
     [SerializeField] private GameObject warningTooltipPanel;
     [SerializeField] private TextMeshProUGUI warningTooltipText;
     
+    [Header("UI Estimations")]
+    [SerializeField] private TMP_Text tileCountText;
+    [SerializeField] private TMP_Text daysEstimateText;
+    [SerializeField] private TMP_Text fatigueEstimateText;
+    
     [Header("FloodFill Slider")]
     [SerializeField] private GameObject floodFillSliderContainer;
     [SerializeField] private Slider floodFillSlider;
     [SerializeField] private TextMeshProUGUI floodFillSliderLabel;
    
+    [Header("Inspect Mode")]
+    [SerializeField] private InspectPanelUI inspectPanel;
+    
     [Header("Positioning")]
     [SerializeField] private Vector2 screenOffset = new Vector2(150f, 0f);
     
@@ -63,9 +71,10 @@ public class ActionUI : MonoBehaviour
     private PlayerAction currentAction;
     private ActionCategory selectedCategory;
     private List<GameObject> spawnedActionCards = new List<GameObject>();
+    public ActionPanelState CurrentState => currentState;
 
     // Action panning & zooming
-    private Action<Tile, Vector3> selectedTileHandler;  
+    private Action<Tile, Vector3> selectedTileHandler;
     private Tile selectedTile;
     private Vector3 selectedTilePosition;
     private float originZoom;
@@ -209,6 +218,8 @@ public class ActionUI : MonoBehaviour
     /// </summary>
     public void ShowActionsForTile(Tile tile, Vector3 worldPosition)
     {
+        if (CurrentState == ActionPanelState.InspectMode)
+            return;
         currentTile = tile;
         
         // Position panel near cursor/tile
@@ -235,6 +246,32 @@ public class ActionUI : MonoBehaviour
         SetState(ActionPanelState.Hidden);
     }
     
+    /// <summary>
+    /// Enters Inspect Mode. Collapses any open action flow first.
+    /// Called by InspectModeManager.
+    /// </summary>
+    public void EnterInspectMode()
+    {
+        // Cancel any in-progress tile selection cleanly
+        if (currentState == ActionPanelState.MultiSelect && tileSelector != null)
+            tileSelector.CancelSelection();
+ 
+        currentTile   = null;
+        currentAction = null;
+        ClearActionCards();
+        SetState(ActionPanelState.InspectMode);
+    }
+ 
+    /// <summary>
+    /// Exits Inspect Mode and returns to Hidden.
+    /// Called by InspectModeManager.
+    /// </summary>
+    public void ExitInspectMode()
+    {
+        if (currentState != ActionPanelState.InspectMode) return;
+        SetState(ActionPanelState.Hidden);
+    }
+    
     // ═══════════════════════════════════════════════════════
     // STATE MANAGEMENT
     // ═══════════════════════════════════════════════════════
@@ -251,6 +288,7 @@ public class ActionUI : MonoBehaviour
         if (selectedCardImage != null) selectedCardImage.gameObject.SetActive(false);
         if (multiSelectPanel != null) multiSelectPanel.SetActive(false);
         if (backButton != null) backButton.gameObject.SetActive(false);
+        if (inspectPanel != null) inspectPanel.gameObject.SetActive(false);
         // if (categoryTitleText != null) categoryTitleText.gameObject.SetActive(false);
         
         // Show relevant UI based on state
@@ -293,6 +331,14 @@ public class ActionUI : MonoBehaviour
                 actionCardsPanel.gameObject.SetActive(true);
                 selectedCardImage.gameObject.SetActive(true);
                 multiSelectPanel.SetActive(true);
+                break;
+            
+            case ActionPanelState.InspectMode:
+                
+                categoryIconsPanel.SetActive(false);
+                categoryIconsPanel.SetActive(false);
+                // Action panel stays hidden; inspect panel is shown by InspectModeManager.
+                // Nothing to activate here — SetState already hid everything above.
                 break;
         }
     }
@@ -589,9 +635,6 @@ public class ActionUI : MonoBehaviour
         if (actionNameText != null && currentAction != null)
             actionNameText.text = currentAction.ActionName;
 
-        if (tileCounterText != null) tileCounterText.text = "";
-        if (daysText != null) daysText.text = "";
-
         bool isFloodFill = tileSelector != null && tileSelector.IsFloodFillMode;
 
         if (floodFillSliderContainer != null)
@@ -600,11 +643,13 @@ public class ActionUI : MonoBehaviour
         if (isFloodFill && floodFillSlider != null)
         {
             int max = Mathf.Min(tileSelector.MaxSelectableTiles, tileSelector.FloodFillReachableCount);
-            floodFillSlider.minValue = 1;
-            floodFillSlider.maxValue = Mathf.Max(1, max);
+            int min = tileSelector.MinSelectableTiles; // Grab the new floor limit
+
+            floodFillSlider.minValue = min;
+            floodFillSlider.maxValue = Mathf.Max(min, max);
             floodFillSlider.wholeNumbers = true;
-            floodFillSlider.value = 1;
-            UpdateFloodFillSliderLabel(1, max); // Resolves to "" anyway
+            floodFillSlider.value = min;
+            UpdateFloodFillSliderLabel(min, max); 
         }
 
         UpdateTileCounter();
@@ -629,23 +674,20 @@ public class ActionUI : MonoBehaviour
     
     void UpdateTileCounter()
     {
-        if (tileCounterText == null || tileSelector == null) return;
-
+        if (tileSelector == null) return;
         int selected = tileSelector.SelectedTileCount;
-        int max = tileSelector.MaxSelectableTiles;
-
-        tileCounterText.text = "";
-        if (daysText != null) daysText.text = "";
 
         if (confirmButton != null)
             confirmButton.interactable = selected > 0;
 
+        // Hide warning icon if 0 selected
         if (selected == 0)
         {
             SetWarningIconActive(false);
             return;
         }
 
+        // Warning Icon Logic (unchanged)
         if (currentAction != null)
         {
             int people = ResourceManager.Instance.AvailablePeople;
@@ -653,6 +695,46 @@ public class ActionUI : MonoBehaviour
             float range = Mathf.Max(1f, people - currentAction.MinPeoplePerTile);
             float t = Mathf.Clamp01((personsPerTile - currentAction.MinPeoplePerTile) / range);
             SetWarningIconActive(t < 0.33f);
+        }
+
+        // UPDATE THE NEW ESTIMATION UI HERE
+        UpdateEstimationUI(selected);
+    }
+    
+    private void UpdateEstimationUI(int selectedCount)
+    {
+        if (currentAction == null || ResourceManager.Instance == null) return;
+
+        int totalWorkers = ResourceManager.Instance.AvailablePeople;
+        int minRequired = selectedCount * currentAction.MinPeoplePerTile;
+    
+        // Calculate exertion for the UI
+        float exertion = Mathf.Clamp01((float)minRequired / totalWorkers);
+
+        // 1. Tile Count
+        if (tileCountText != null)
+            tileCountText.text = $"{selectedCount} Tiles";
+
+        // 2. Day Count
+        int baseDays = currentAction.CalculateDays(totalWorkers, selectedCount);
+        // (Apply weather multiplier if applicable)
+        if (daysEstimateText != null)
+            daysEstimateText.text = $"{baseDays} Days";
+
+        // 3. Fatigue Estimation
+        if (fatigueEstimateText != null)
+        {
+            // Expected fatigue = Total Workers * Exertion * AvgSeverity (0.25)
+            float expectedFatigued = totalWorkers * exertion * 0.25f;
+            int displayCount = Mathf.Max(1, Mathf.RoundToInt(expectedFatigued));
+
+            string riskLevel = exertion < 0.3f ? "Low" : (exertion < 0.7f ? "Moderate" : "High");
+        
+            fatigueEstimateText.text = $"~{displayCount}";
+            // fatigueEstimateText.text = $"Fatigue Risk: {riskLevel} (~{displayCount} workers)";
+        
+            // Optional: Color code the risk
+            // fatigueEstimateText.color = exertion < 0.3f ? Color.green : (exertion < 0.7f ? Color.yellow : Color.red);
         }
     }
     
@@ -755,12 +837,19 @@ public class ActionUI : MonoBehaviour
                     tileSelector.CancelSelection();
                 ShowActionList(selectedCategory);
                 break;
+            
+            case ActionPanelState.InspectMode:
+                // Delegate back to InspectModeManager so it can clean up its own state
+                InspectModeManager.Instance?.ExitInspectMode();
+                break;
+
         }
     }
     
     // ═══════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════
+    
     
     void PositionPanel(Vector3 worldPosition)
     {

@@ -112,7 +112,7 @@ public class ZoneManager : MonoBehaviour
         }
 
         // Step 3: Spawn tiles with profile-scaled stats
-        List<Tile> zoneTiles = SpawnZoneTiles(positions, regionID, profile);
+        List<Tile> zoneTiles = SpawnZoneTiles(positions, regionID, profile, 0.05f);
 
         // Step 4: Resolve theme
         ZoneTheme dominantTheme = profile.forceTheme ? profile.forcedTheme : RollTheme(profile);
@@ -131,6 +131,13 @@ public class ZoneManager : MonoBehaviour
         if (profile.forceSpecificEntities)
             ApplyForcedEntities(seed.Value, profile);
 
+        foreach (Tile tile in zoneTiles)
+        {
+            GameObject tileGO = tileManager.GetTileGameObject(tile);
+            tileGO.transform.localScale = Vector3.zero;
+        }
+        StartCoroutine(AnimateTiles(zoneTiles, 0.05f));
+        
         // Step 8: Worker reward
         if (resourceManager != null && profile.workerReward > 0)
             resourceManager.IncreaseTotalPeople(profile.workerReward);
@@ -361,6 +368,64 @@ public class ZoneManager : MonoBehaviour
 
         return spawned;
     }
+    
+    public List<Tile> SpawnZoneTiles(List<Vector2Int> positions, int regionID, ZoneProfile profile, float tweenDelay)
+    {
+        List<Tile> spawned = new List<Tile>();
+
+        foreach (Vector2Int pos in positions)
+        {
+            // Create TileStats based on the profile for this position
+            TileStats stats = new TileStats
+            {
+                nutrientBalance    = Random.Range(profile.nutrientBalanceRange.x,    profile.nutrientBalanceRange.y),
+                soilOrganicMatter  = Random.Range(profile.soilOrganicMatterRange.x,  profile.soilOrganicMatterRange.y),
+                soilStructure      = Random.Range(profile.soilStructureRange.x,      profile.soilStructureRange.y),
+                biologicalActivity = Random.Range(profile.biologicalActivityRange.x, profile.biologicalActivityRange.y),
+                waterDynamics      = Random.Range(profile.waterDynamicsRange.x,      profile.waterDynamicsRange.y),
+                erosionResistance  = Random.Range(profile.erosionResistanceRange.x,  profile.erosionResistanceRange.y),
+                vegetationCover    = Random.Range(profile.vegetationCoverRange.x,    profile.vegetationCoverRange.y),
+                contamination      = Random.Range(profile.contaminationRange.x,      profile.contaminationRange.y)
+            };
+
+            // Spawn the tile with the generated stats
+            Tile tile = tileManager.SpawnTile(pos.x, pos.y, stats, regionID);
+
+            if (tile != null)
+            {
+                tile.issues = new List<TileIssue>();  // Initialize the issues list
+                tile.tv = new List<TileOverlayType>();  // Initialize the overlays list
+                tileManager.UpdateTileVisual(tile);
+                
+                // GameObject tileGO = tileManager.GetTileGameObject(tile);
+                // tileGO.transform.localScale = Vector3.zero;
+                // tileManager.GetTileGameObject(tile).SetActive(true);
+                spawned.Add(tile);
+            }
+        }
+        
+        // StartCoroutine(AnimateTiles(spawned, tweenDelay));
+        return spawned;
+    }
+    
+    // Run animation separately
+    private System.Collections.IEnumerator AnimateTiles(List<Tile> tiles, float delay)
+    {
+        foreach (Tile tile in tiles)
+        {
+            GameObject t = tileManager.GetTileGameObject(tile);
+            Vector3 targetScale = t.gameObject.transform.localScale;
+            t.gameObject.transform.localScale = Vector3.one;
+            // t.gameObject.SetActive(true);
+            
+            // Use LeanTween to animate the scaling of the tile
+            LeanTween.scale(t.gameObject, new Vector3(0.55f,0.55f,0.55f), 0.27f)
+                .setEase(LeanTweenType.easeOutBack);
+
+            // Yield to wait for the specified delay before continuing to the next tile
+            yield return new WaitForSeconds(delay);
+        }
+    }
 
     // =====================================================================
     // STEP 4 — ISSUE ASSIGNMENT
@@ -494,6 +559,8 @@ public class ZoneManager : MonoBehaviour
         if (showDebugInfo)
             Debug.Log($"ZoneManager: PlaceOrganicEntities placed {placed} entities across {tiles.Count} tiles.");
     }
+    
+    
 
     // =====================================================================
     // THEME ROLLING
@@ -572,6 +639,8 @@ public class ZoneManager : MonoBehaviour
     // HELPERS
     // =====================================================================
 
+
+    
     /// <summary>
     /// Applies issue assignment and building placement to an already-spawned set of tiles.
     /// Used by GameManager.SpawnInitialZone() so Zone 1 goes through the same pipeline as all other zones.

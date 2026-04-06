@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   eventID: test_first_fire
   triggerType: 0
-  fireOnce: 1
+  fireOnce: 0
   headline: 
   bodyText: it's HELLFIRE
   speakerName: 
@@ -22,6 +22,6 @@ MonoBehaviour:
   canInterruptAction: 1
   focusCameraOnTarget: 0
   triggerChance: 1
-  triggerOnDay: 3
+  triggerOnDay: -1
   triggerBelowWorldHealth: -1
   linkedThread: {fileID: 11400000, guid: 8c443c38cde293047aaa5c5b007a800b, type: 2}

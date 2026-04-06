@@ -28,6 +28,7 @@ public class TileSelector : MonoBehaviour
     private bool multiSelectMode = false;
     private PlayerAction currentAction = null;
     private List<Tile> selectedTiles = new List<Tile>();
+    public int MinSelectableTiles { get; private set; } = 1;
     private int maxSelectableTiles = 0;
     private Tile hoveredTile = null;
     private Tile lastHoveredTile = null;
@@ -84,7 +85,13 @@ public class TileSelector : MonoBehaviour
         originalTile = seedTile;
 
         ResourceManager rm = ResourceManager.Instance;
+        
+        // Calculate max selectable (minimum people per tile)
         maxSelectableTiles = Mathf.Max(1, rm.AvailablePeople / action.MinPeoplePerTile);
+        
+        // Calculate min selectable (maximum people per tile = 2x min)
+        int maxPeoplePerTile = action.MinPeoplePerTile * 2;
+        MinSelectableTiles = Mathf.Max(1, rm.AvailablePeople / maxPeoplePerTile);
 
         ClearSelectionVisuals();
         selectedTiles.Clear();
@@ -93,11 +100,12 @@ public class TileSelector : MonoBehaviour
         _floodFillOrder = ComputeFloodFillOrder(seedTile);
         _currentFloodFillSize = 0;
 
-        SetFloodFillSize(1);
+        // Initialize using the calculated minimum instead of 1
+        SetFloodFillSize(MinSelectableTiles);
 
-        Debug.Log($"FloodFill mode entered | Max tiles: {maxSelectableTiles} | Reachable: {_floodFillOrder.Count}");
+        Debug.Log($"FloodFill mode entered | Min: {MinSelectableTiles} | Max: {maxSelectableTiles}");
     }
-
+    
     /// <summary>
     /// Rebuilds the selected tile set to the first <paramref name="count"/> tiles
     /// in the precomputed BFS order. Called every time the slider value changes.
@@ -106,7 +114,8 @@ public class TileSelector : MonoBehaviour
     {
         if (!floodFillMode) return;
 
-        count = Mathf.Clamp(count, 1, Mathf.Min(maxSelectableTiles, _floodFillOrder.Count));
+        // Clamp using the new minimum boundary
+        count = Mathf.Clamp(count, MinSelectableTiles, Mathf.Min(maxSelectableTiles, _floodFillOrder.Count));
         if (count == _currentFloodFillSize) return;
 
         if (count < _currentFloodFillSize)
@@ -249,6 +258,7 @@ public class TileSelector : MonoBehaviour
                 if (visualizer != null)
                 {
                     Tile clickedTile = visualizer.GetTileData();
+                    
                     HandleTileClick(clickedTile, hit.point);
                 }
             }
@@ -454,7 +464,7 @@ public class TileSelector : MonoBehaviour
         Debug.Log($"Deselected tile {tile.gridPosition} | Total: {selectedTiles.Count}/{maxSelectableTiles}");
     }
 
-    void ClearSelection()
+    public void ClearSelection()
     {
         foreach (Tile tile in selectedTiles)
             UpdateTileVisual(tile, TileVisualState.Default);

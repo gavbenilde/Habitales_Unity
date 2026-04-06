@@ -56,7 +56,7 @@ public class ActionManager : MonoBehaviour
         }
 
         ResourceManager rm = ResourceManager.Instance;
-        int availablePeople = rm.AvailablePeople;
+        int availablePeople = rm.AvailablePeople; // Capture exact workforce
         int maxTiles = action.GetMaxTiles(availablePeople);
 
         if (targetTiles.Count > maxTiles)
@@ -65,7 +65,6 @@ public class ActionManager : MonoBehaviour
             return;
         }
 
-        // Preflight validation — Execute no longer touches tiles
         bool success = action.Execute(targetTiles, tileManager);
         if (!success)
         {
@@ -80,29 +79,29 @@ public class ActionManager : MonoBehaviour
         int days = Mathf.Max(1, Mathf.RoundToInt(baseDays * weatherMult));
 
         if (showDebugInfo)
-            Debug.Log($"ACTION: {action.ActionName} | Tiles: {targetTiles.Count} | People: {availablePeople} | Days: {baseDays} → {days} (×{weatherMult:F2})");
+            Debug.Log($"ACTION: {action.ActionName} | Tiles: {targetTiles.Count} | People: {availablePeople} | Days: {baseDays} → {days}");
 
-        // Tell the day/night handler this is a fresh action so durations reset
         IsActionRunning = true;
         DayNightCycleHandler dayNight = FindObjectOfType<DayNightCycleHandler>();
         dayNight?.ResetForNewAction();
 
-        StartCoroutine(FinishAction(rm, action, targetTiles, days));
+        // Pass assigned people into the Coroutine
+        StartCoroutine(FinishAction(rm, action, targetTiles, days, availablePeople));
     }
 
-    private IEnumerator FinishAction(ResourceManager rm, PlayerAction action, List<Tile> targetTiles, int days)
+    private IEnumerator FinishAction(ResourceManager rm, PlayerAction action, List<Tile> targetTiles, int days, int assignedPeople)
     {
-        int totalTiles     = targetTiles.Count;
-        int baseTilesPerDay = totalTiles / days;
-        int remainder       = totalTiles % days;
-        int processedTiles  = 0;
+        int totalTiles       = targetTiles.Count;
+        int baseTilesPerDay  = totalTiles / days;
+        int remainder        = totalTiles % days;
+        int processedTiles   = 0;
+        int actualDaysPassed = 0; // Track days actually elapsed
 
         for (int day = 0; day < days; day++)
         {
-            // Wait for one full day/night cycle to complete
             yield return StartCoroutine(rm.AdvanceTimeStepped(1));
+            actualDaysPassed++;
 
-            // Apply this day's tile batch — spreads remainder tiles across early days
             int tilesThisDay = baseTilesPerDay + (day < remainder ? 1 : 0);
 
             for (int i = 0; i < tilesThisDay && processedTiles < totalTiles; i++)
@@ -113,19 +112,33 @@ public class ActionManager : MonoBehaviour
                 Vector3 pos = tileManager.GridToWorldPosition(tile.gridPosition);
                 VFXManager.Instance.SpawnVFX("Default", pos);
                 
-                tileManager.UpdateTileVisual(tile);   // tiles light up progressively
+                tileManager.UpdateTileVisual(tile);   
                 processedTiles++;
             }
         }
-
-        rm.ApplyFatigue(targetTiles.Count, days, action.FatigueMultiplierPerTile);
         
+        int minRequiredTotal = targetTiles.Count * action.MinPeoplePerTile;
+        float exertion = (float)minRequiredTotal / assignedPeople;
+        
+        if (actualDaysPassed > 0)
+        {
+            rm.ApplyFatigue(assignedPeople, actualDaysPassed, action.FatigueMultiplierPerTile, exertion);
+        }
+        
+        if (ExamineResultPopupUI.Instance != null)
+        {
+            if (action is EcologicalSurveyAction)
+                ExamineResultPopupUI.Instance.ShowExamineResult(targetTiles, ExamineActionType.EcologicalSurvey);
+            else if (action is AnalyzeSoilSampleAction)
+                ExamineResultPopupUI.Instance.ShowExamineResult(targetTiles, ExamineActionType.SoilAnalysis);
+            else if (action is InspectTrashAction)
+                ExamineResultPopupUI.Instance.ShowExamineResult(targetTiles, ExamineActionType.InspectTrash);
+        }
         
         if (!actionUsageCounts.ContainsKey(action.ActionName))
             actionUsageCounts[action.ActionName] = 0;
         actionUsageCounts[action.ActionName]++;
 
-        
         IsActionRunning = false;
         OnActionCompleted?.Invoke(targetTiles[0], days);
 
