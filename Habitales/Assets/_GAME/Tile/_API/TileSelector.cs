@@ -260,6 +260,21 @@ public class TileSelector : MonoBehaviour
                     Tile clickedTile = visualizer.GetTileData();
                     
                     HandleTileClick(clickedTile, hit.point);
+
+                    float currentHealth = clickedTile.stats.CalculateHealth();
+                    
+                    if (currentHealth >= 66f)
+                    {
+                        AudioManager.instance.PlayOneShot(FMODEvents.instance.tileSelectedHealthy, mainCamera.transform.position);
+                    }
+                    else if (currentHealth >= 0f)
+                    {
+                        AudioManager.instance.PlayOneShot(FMODEvents.instance.tileSelectedCritical, mainCamera.transform.position);
+                    }
+                    else
+                    {
+                        AudioManager.instance.PlayOneShot(FMODEvents.instance.tileSelectedHealthy, mainCamera.transform.position);
+                    }
                 }
             }
             else if (!multiSelectMode)

@@ -16,13 +16,13 @@ MonoBehaviour:
   flowFalloff: 1.2
   enclosureBonus: 0.3
   nutrientBalanceRange: {x: 10, y: 25}
-  soilOrganicMatterRange: {x: 10, y: 25}
-  soilStructureRange: {x: 10, y: 25}
-  biologicalActivityRange: {x: 8, y: 20}
-  waterDynamicsRange: {x: 10, y: 25}
-  erosionResistanceRange: {x: 10, y: 25}
-  vegetationCoverRange: {x: 5, y: 25}
-  contaminationRange: {x: 5, y: 20}
+  soilOrganicMatterRange: {x: 25, y: 40}
+  soilStructureRange: {x: 10, y: 20}
+  biologicalActivityRange: {x: 25, y: 40}
+  waterDynamicsRange: {x: 20, y: 30}
+  erosionResistanceRange: {x: 20, y: 30}
+  vegetationCoverRange: {x: 35, y: 50}
+  contaminationRange: {x: 5, y: 10}
   loggedTreesWeight: 3
   nutrientDepletionWeight: 3
   heavyMetalContaminationWeight: 1
@@ -33,10 +33,10 @@ MonoBehaviour:
   matureTreeSpawnChance: 0
   saplingSpawnChance: 0
   seedlingSpawnChance: 0
-  deadTreeSpawnChance: 0.05
-  stumpSpawnChance: 0.2
+  deadTreeSpawnChance: 0
+  stumpSpawnChance: 0.354
   bioTrashSpawnChance: 0
-  forceTheme: 0
+  forceTheme: 1
   forcedTheme: 0
   issueDensityRange: {x: 0.3, y: 0.5}
   offThemeIssueProbability: 0.2

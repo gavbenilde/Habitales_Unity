@@ -32,7 +32,7 @@ MonoBehaviour:
   - actionName: Ecological Survey
     sprite: {fileID: 21300000, guid: 80af5cc2e34584849a2d88b428db4576, type: 3}
   - actionName: Plant Legume
-    sprite: {fileID: 21300000, guid: 1d67587e864fe264296b38e410251242, type: 3}
+    sprite: {fileID: 21300000, guid: 9117b4a944c91324d906028479913764, type: 3}
   - actionName: Plant Grass
     sprite: {fileID: 21300000, guid: 00c1db4598c94c443977b48647d6c7da, type: 3}
   - actionName: Plant Phyto

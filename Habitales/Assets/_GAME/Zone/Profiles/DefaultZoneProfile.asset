@@ -15,13 +15,13 @@ MonoBehaviour:
   sizeRange: {x: 40, y: 50}
   flowFalloff: 6.7
   enclosureBonus: 0
-  nutrientBalanceRange: {x: 60, y: 80}
-  soilOrganicMatterRange: {x: 60, y: 80}
-  soilStructureRange: {x: 60, y: 80}
-  biologicalActivityRange: {x: 60, y: 80}
-  waterDynamicsRange: {x: 60, y: 80}
-  erosionResistanceRange: {x: 60, y: 80}
-  vegetationCoverRange: {x: 5, y: 25}
+  nutrientBalanceRange: {x: 40, y: 60}
+  soilOrganicMatterRange: {x: 40, y: 60}
+  soilStructureRange: {x: 40, y: 60}
+  biologicalActivityRange: {x: 40, y: 60}
+  waterDynamicsRange: {x: 40, y: 60}
+  erosionResistanceRange: {x: 40, y: 60}
+  vegetationCoverRange: {x: 25, y: 40}
   contaminationRange: {x: 0, y: 0}
   loggedTreesWeight: 3
   nutrientDepletionWeight: 3
@@ -30,9 +30,9 @@ MonoBehaviour:
   drainageCollapseWeight: 2
   soilCompactionWeight: 2
   chemicalBurnoutWeight: 1
-  matureTreeSpawnChance: 0
-  saplingSpawnChance: 0
-  seedlingSpawnChance: 0
+  matureTreeSpawnChance: 0.057
+  saplingSpawnChance: 0.014
+  seedlingSpawnChance: 0.009
   deadTreeSpawnChance: 0
   stumpSpawnChance: 0
   bioTrashSpawnChance: 0
@@ -46,9 +46,5 @@ MonoBehaviour:
   factorySpawnChance: 0.3
   workerReward: 4
   forceSpecificEntities: 1
-  forcedEntities:
-  - offset: {x: 2, y: 1}
-    entityType: DeadTree
-  - offset: {x: 1, y: 0}
-    entityType: DeadTree
+  forcedEntities: []
   aziCalloutKey: 
