@@ -13,6 +13,8 @@ public class VFXManager : MonoBehaviour
     [SerializeField] private GameManager gameManager;
     
     [SerializeField] private List<VFXTypes> vfxList;
+
+    [SerializeField] private float yOffset = 2f;
     
     private void Awake()
     {
@@ -24,39 +26,59 @@ public class VFXManager : MonoBehaviour
         }
 
         Instance = this;
-        
-        // temp
-        List<Tile> tiles = tileManager.GetAllTiles();
-        
-        foreach (Tile tile in tiles)
-        {
-            
-        }
     }
 
     // -----------------------------
     // Basic spawn with lifetime
     // -----------------------------
-    public void SpawnVFX(string key, Vector3 position, Quaternion rotation)
+    public VisualEffect SpawnVFX(string key, Vector3 position, Quaternion rotation)
     {
         VFXTypes vfxData = GetVFX(key);
 
-        if (vfxData == null) return;
+        if (vfxData == null) return null;
 
+        position.y += yOffset;
         VisualEffect vfx = Instantiate(vfxData.prefab, position, rotation);
 
         vfx.Play();
 
         if (vfxData.defaultLifetime > 0)
             Destroy(vfx.gameObject, vfxData.defaultLifetime);
+
+        return vfx;
+    }
+    
+    // -----------------------------
+    // Basic spawn with lifetime (overload function)
+    // -----------------------------
+    public VisualEffect SpawnVFX(string key, Vector3 position)
+    {
+        VFXTypes vfxData = GetVFX(key);
+
+        if (vfxData == null) return null;
+
+        position.y += yOffset;
+        VisualEffect vfx = Instantiate(vfxData.prefab, position, new Quaternion());
+
+        vfx.Play();
+
+        if (vfxData.defaultLifetime > 0)
+            Destroy(vfx.gameObject, vfxData.defaultLifetime);
+
+        return vfx;
     }
 
     // -----------------------------
     // Spawn with parameters (Color, Intensity)
     // -----------------------------
-    public VisualEffect SpawnVFX(VisualEffect vfxPrefab, Vector3 position, Quaternion rotation, Color color, float intensity, float lifetime = 2f)
+    public VisualEffect SpawnVFX(string key, Vector3 position, Quaternion rotation, Color color, float intensity, float lifetime = 2f)
     {
-        VisualEffect vfx = Instantiate(vfxPrefab, position, rotation);
+        VFXTypes vfxData = GetVFX(key);
+
+        if (vfxData == null) return null;
+        
+        position.y += yOffset;
+        VisualEffect vfx = Instantiate(vfxData.prefab, position, rotation);
 
         // Set exposed parameters in VFX Graph
         vfx.SetVector4("Color", color);

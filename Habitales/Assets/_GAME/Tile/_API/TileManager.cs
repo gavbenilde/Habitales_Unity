@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.VFX;
 
 /// <summary>
 /// Core manager for tile data and grid logic.
@@ -17,6 +18,7 @@ public class TileManager : MonoBehaviour
 
     private Dictionary<Vector2Int, Tile> tileCache;
     private Dictionary<Tile, GameObject> tileGameObjects; // Links data to GameObjects
+    private Dictionary<Tile, VisualEffect> activeVFX = new Dictionary<Tile, VisualEffect>();
 
     #region Initialization
 
@@ -350,6 +352,7 @@ public class TileManager : MonoBehaviour
         {
             GameObject tileObj = tileGameObjects[tile];
             InstantiateEntityVisual(tile, tileObj);
+            InitializeEntityVFX(tile, tileObj);
         }
     }
 
@@ -376,6 +379,8 @@ public class TileManager : MonoBehaviour
             {
                 visualizer.SetEntity(tile.entity);
                 Debug.Log($"Transformed entity at {tile.gridPosition}: {oldType} → {tile.entity.entityType}");
+                
+                InitializeEntityVFX(tile, tileObj); // band-aid solution
             }
         }
     }
@@ -399,6 +404,14 @@ public class TileManager : MonoBehaviour
             }
         }
 
+        if (activeVFX.ContainsKey(tile))
+        {
+            if (activeVFX[tile] != null)
+                VFXManager.Instance.DestroyVFX(activeVFX[tile]);
+
+            activeVFX.Remove(tile);
+        }
+        
         tile.entity = null;
     }
 
@@ -416,6 +429,33 @@ public class TileManager : MonoBehaviour
         // Get existing visualizer component
         EntityVisualizer visualizer = entityObj.GetComponent<EntityVisualizer>();
         visualizer.Initialize(tile.entity, tile);
+    }
+
+    private void InitializeEntityVFX(Tile tile, GameObject parent)
+    {
+        if (tile.entity == null) return;
+
+        // Remove existing VFX if any (important for transform cases)
+        if (activeVFX.ContainsKey(tile))
+        {
+            if (activeVFX[tile] != null)
+                VFXManager.Instance.DestroyVFX(activeVFX[tile]);
+
+            activeVFX.Remove(tile);
+        }
+
+        string key = tile.entity.entityType;
+
+        // Spawn new VFX
+        VisualEffect vfx = VFXManager.Instance.SpawnVFX(
+            key,
+            parent.transform.position
+        );
+
+        if (vfx != null)
+        {
+            activeVFX[tile] = vfx;
+        }
     }
     
     public EntityVisualizer GetEntityVisualizer(Tile tile)

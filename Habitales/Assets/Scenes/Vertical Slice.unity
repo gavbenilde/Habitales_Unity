@@ -1532,7 +1532,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1900712381}
   m_HandleRect: {fileID: 1900712380}
   m_Direction: 2
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -10169,6 +10169,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tileManager: {fileID: 769452840}
   gameManager: {fileID: 545579445}
+  vfxList:
+  - key: Default
+    prefab: {fileID: 3354759712896735804, guid: c123e7c9c74e7a948823b67765ef18b6, type: 3}
+    defaultLifetime: 1
+  - key: Mature Tree
+    prefab: {fileID: 6812457878834343278, guid: 27af60ce51d72be4d915ad215a472212, type: 3}
+    defaultLifetime: 0
+  - key: Factory
+    prefab: {fileID: 4435073186106200041, guid: 5d7c093e5a2b64c4bb5efb172b102840, type: 3}
+    defaultLifetime: 0
+  - key: Contamination
+    prefab: {fileID: 3204941189165809840, guid: 5581cfb2ea03cbc45acef40f61de55f1, type: 3}
+    defaultLifetime: 0
+  yOffset: 1
 --- !u!1 &1557203656
 GameObject:
   m_ObjectHideFlags: 0

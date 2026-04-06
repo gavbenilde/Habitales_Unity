@@ -109,6 +109,10 @@ public class ActionManager : MonoBehaviour
             {
                 Tile tile = targetTiles[processedTiles];
                 action.ExecuteOnTile(tile, tileManager);
+
+                Vector3 pos = tileManager.GridToWorldPosition(tile.gridPosition);
+                VFXManager.Instance.SpawnVFX("Default", pos);
+                
                 tileManager.UpdateTileVisual(tile);   // tiles light up progressively
                 processedTiles++;
             }
