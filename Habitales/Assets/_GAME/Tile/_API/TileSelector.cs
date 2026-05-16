@@ -83,6 +83,7 @@ public class TileSelector : MonoBehaviour
         currentAction = action;
         floodFillSeedTile = seedTile;
         originalTile = seedTile;
+        currentTile = seedTile;
 
         ResourceManager rm = ResourceManager.Instance;
         
@@ -209,6 +210,9 @@ public class TileSelector : MonoBehaviour
     /// <summary>Exits multi-select (and FloodFill) mode and clears all selection state.</summary>
     public void ExitMultiSelectMode()
     {
+        // Capture seed before wipe so its single-select highlight can be restored.
+        Tile seedToRestore = originalTile;
+
         // ── FloodFill resets ──────────────────────────────────────────────────
         floodFillMode = false;
         floodFillSeedTile = null;
@@ -225,6 +229,13 @@ public class TileSelector : MonoBehaviour
         adjacentAvailableTiles.Clear();
 
         ClearSelection();
+
+        if (seedToRestore != null)
+        {
+            currentTile = seedToRestore;
+            UpdateTileVisual(currentTile, TileVisualState.Selected);
+        }
+
         OnMultiSelectExited?.Invoke();
     }
 
@@ -292,8 +303,14 @@ public class TileSelector : MonoBehaviour
             return;
         }
 
-        // FloodFill mode: clicks are suppressed; slider controls everything.
-        if (floodFillMode) return;
+        // FloodFill mode: a click on a new tile re-seeds the flood.
+        // SelectSingleTile fires OnTileSelected → ActionBarUI.HandleTileClicked → EnterFloodFillMode(new seed).
+        if (floodFillMode)
+        {
+            if (tile == currentTile) return;
+            SelectSingleTile(tile, worldPos);
+            return;
+        }
 
         // Adjacent / NonAdjacent click logic (original, unchanged).
         bool isShiftHeld = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
@@ -589,8 +606,10 @@ public class TileSelector : MonoBehaviour
 
         if (Input.GetKeyDown(deselectKey))
         {
-            if (multiSelectMode) CancelSelection();
-            else DeselectTile();
+            // Multi-select ESC is owned by ActionBarUI.Update → Disarm → CancelSelection.
+            // Handling it here too would double-fire ExitMultiSelectMode.
+            if (!multiSelectMode)
+                DeselectTile();
         }
     }
 
