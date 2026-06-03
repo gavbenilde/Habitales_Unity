@@ -1,0 +1,127 @@
+using System.Collections;
+using System.Collections.Generic;
+using TMPro;
+using UnityEngine;
+using UnityEngine.Serialization;
+using UnityEngine.VFX;
+
+public class VFXManager : MonoBehaviour
+{
+    public static VFXManager Instance { get; private set; }
+
+    [Header("Manager References")]
+    [SerializeField] private TileManager tileManager;
+    [FormerlySerializedAs("gameManager")] [SerializeField] private RunManager runManager;
+    
+    [SerializeField] private List<VFXTypes> vfxList;
+
+    [SerializeField] private float yOffset = 2f;
+    
+    private void Awake()
+    {
+        // Singleton pattern
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        Instance = this;
+    }
+
+    // -----------------------------
+    // Basic spawn with lifetime
+    // -----------------------------
+    public VisualEffect SpawnVFX(string key, Vector3 position, Quaternion rotation)
+    {
+        VFXTypes vfxData = GetVFX(key);
+
+        if (vfxData == null) return null;
+
+        position.y += yOffset;
+        VisualEffect vfx = Instantiate(vfxData.prefab, position, rotation);
+
+        vfx.Play();
+
+        if (vfxData.defaultLifetime > 0)
+            Destroy(vfx.gameObject, vfxData.defaultLifetime);
+
+        return vfx;
+    }
+    
+    // -----------------------------
+    // Basic spawn with lifetime (overload function)
+    // -----------------------------
+    public VisualEffect SpawnVFX(string key, Vector3 position)
+    {
+        VFXTypes vfxData = GetVFX(key);
+
+        if (vfxData == null) return null;
+
+        position.y += yOffset;
+        VisualEffect vfx = Instantiate(vfxData.prefab, position, new Quaternion());
+
+        vfx.Play();
+
+        if (vfxData.defaultLifetime > 0)
+            Destroy(vfx.gameObject, vfxData.defaultLifetime);
+
+        return vfx;
+    }
+
+    // -----------------------------
+    // Spawn with parameters (Color, Intensity)
+    // -----------------------------
+    public VisualEffect SpawnVFX(string key, Vector3 position, Quaternion rotation, Color color, float intensity, float lifetime = 2f)
+    {
+        VFXTypes vfxData = GetVFX(key);
+
+        if (vfxData == null) return null;
+        
+        position.y += yOffset;
+        VisualEffect vfx = Instantiate(vfxData.prefab, position, rotation);
+
+        // Set exposed parameters in VFX Graph
+        vfx.SetVector4("Color", color);
+        vfx.SetFloat("Intensity", intensity);
+
+        vfx.Play();
+
+        if (lifetime > 0)
+            Destroy(vfx.gameObject, lifetime);
+
+        return vfx;
+    }
+
+    // -----------------------------
+    // Manual destroy (optional)
+    // -----------------------------
+    public void DestroyVFX(VisualEffect vfx, float delay = 0f)
+    {
+        if (vfx != null)
+            Destroy(vfx.gameObject, delay);
+    }
+    
+    private VFXTypes GetVFX(string key)
+    {
+        foreach (var vfx in vfxList)
+        {
+            if (vfx.key == key)
+                return vfx;
+        }
+
+        Debug.LogWarning("VFX not found: " + key);
+        return null;
+    }
+}
+
+// -----------------------------
+// Optional: VFX Types container
+// -----------------------------
+[System.Serializable]
+public class VFXTypes
+{
+    public string key;
+    public VisualEffect prefab;
+    public float defaultLifetime = 2f;
+}
