@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ba6e1b4d668228b4fac2b43e82af637c, type: 3}
   m_Name: Factory
   m_EditorClassIdentifier: 
-  sizeRange: {x: 25, y: 40}
+  sizeRange: {x: 150, y: 200}
   flowFalloff: 1.2
   enclosureBonus: 0.3
   nutrientBalanceRange: {x: 30, y: 50}

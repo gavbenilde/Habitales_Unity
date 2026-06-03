@@ -123,53 +123,60 @@ public class ResourceManager : MonoBehaviour
     // ── Fatigue ───────────────────────────────────────────────────────────────
     // Inside ResourceManager.cs
 
-    public void ApplyFatigue(int workerCount, int duration, float multiplier, float exertion)
+    public void ApplyFatigue(int workerCount, int duration, float multiplier, float exertion) 
+{
+    // Ensure exertion is clamped. If exertion is below 0.2f, the job was so overstaffed it's negligible.
+    exertion = Mathf.Clamp(exertion, 0.0f, 1.0f); 
+
+    int fatiguedCount = 0;
+    int maxReturnDay = 0;
+
+    var candidates = allWorkers.Where(w => !w.isFatigued).ToList();
+    Shuffle(candidates);
+
+    int workersToProcess = Mathf.Min(workerCount, candidates.Count);
+
+    // Hard cap: Never fatigue more than a certain percentage of the assigned team in one go.
+    // Example: Even at 100% exertion, only a max of 40% of the team will actually need recovery.
+    float maxFatigueProportion = 0.40f; 
+    int maxWorkersToFatigue = Mathf.RoundToInt(workersToProcess * maxFatigueProportion * exertion);
+
+    for (int i = 0; i < workersToProcess; i++)
     {
-        // Ensure exertion is clamped between a tiny minimum and 1.0
-        exertion = Mathf.Clamp(exertion, 0.05f, 1.0f);
-    
-        int fatiguedCount = 0;
-        int maxReturnDay = 0;
+        // Stop if we've hit our fatigue cap for this action
+        if (fatiguedCount >= maxWorkersToFatigue) break;
 
-        // Get all available workers to potentially fatigue them
-        var candidates = allWorkers.Where(w => !w.isFatigued).ToList();
-        Shuffle(candidates);
+        Worker w = candidates[i];
 
-        // Only look at the number of people who actually went to work
-        int workersToProcess = Mathf.Min(workerCount, candidates.Count);
-
-        for (int i = 0; i < workersToProcess; i++)
-        {
-            Worker w = candidates[i];
-
-            // NEW: Probability Gate based on exertion
-            // If exertion is 0.1, there's only a 10% chance they get fatigued.
-            if (UnityEngine.Random.value > exertion) 
-                continue;
-
-            float r = UnityEngine.Random.value;
-            float severity = Mathf.Pow(r, weatherK);
+        // The probability of getting fatigued scales with exertion, but it's never a 100% guarantee.
+        float fatigueChance = exertion * 0.5f; // Max 50% chance per person at highest exertion
         
-            // Duration * Multiplier * Severity (the Random^3 curve)
-            int fatigueDays = Mathf.CeilToInt(duration * multiplier * severity);
+        if (UnityEngine.Random.value > fatigueChance) 
+            continue;
 
-            if (fatigueDays > 0)
-            {
-                w.isFatigued = true;
-                w.returnDay = totalDays + fatigueDays;
-                w.actionsParticipated++;
-            
-                fatiguedCount++;
-                maxReturnDay = Mathf.Max(maxReturnDay, w.returnDay);
-            }
-        }
+        float r = UnityEngine.Random.value;
+        float severity = Mathf.Pow(r, weatherK);
+        
+        // Use RoundToInt instead of CeilToInt. This allows low-severity rolls to round down to 0 days (no fatigue).
+        int fatigueDays = Mathf.RoundToInt(duration * multiplier * severity);
 
-        if (fatiguedCount > 0)
+        if (fatigueDays > 0)
         {
-            OnPeopleFatigued?.Invoke(fatiguedCount, maxReturnDay);
-            Debug.Log($"[Fatigue] {fatiguedCount} workers fatigued from job (Exertion: {exertion:P0})");
+            w.isFatigued = true;
+            w.returnDay = totalDays + fatigueDays;
+            w.actionsParticipated++;
+            
+            fatiguedCount++;
+            maxReturnDay = Mathf.Max(maxReturnDay, w.returnDay);
         }
     }
+
+    if (fatiguedCount > 0)
+    {
+        OnPeopleFatigued?.Invoke(fatiguedCount, maxReturnDay);
+        Debug.Log($"[Fatigue] {fatiguedCount} workers benched out of {workersToProcess}. (Exertion: {exertion:P0})");
+    }
+}
 
     private void CheckWorkerRecovery()
     {

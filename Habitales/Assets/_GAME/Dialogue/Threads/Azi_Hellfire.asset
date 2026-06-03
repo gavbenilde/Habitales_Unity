@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Azi_Hellfire
   m_EditorClassIdentifier: 
   threadID: azi_hellfire
-  tabID: azi_dm
+  tabID: azi
   senderResolution: 0
   cast:
   - speakerID: azi

@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Azi_Rain
   m_EditorClassIdentifier: 
   threadID: azi_rain
-  tabID: azi_dm
+  tabID: azi
   senderResolution: 0
   cast:
   - speakerID: azi

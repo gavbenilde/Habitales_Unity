@@ -15,8 +15,11 @@ public class Tile
     public float GetVegetationCover() => stats.vegetationCover;
     public float GetContamination() => stats.contamination;
     
-    public bool isAnalyzed = false;
-    public bool issuesRevealed = false;
+    // Prototype: substats and issues are revealed by default. The two actions
+    // that flipped these (AnalyzeSoilSampleAction, EcologicalSurveyAction) are
+    // dormant per Prototype/CLAUDE.md §7.
+    public bool isAnalyzed     = true;
+    public bool issuesRevealed = true;
 
 
 }

@@ -5,6 +5,19 @@ using System.Collections.Generic;
 
 public class ActionManager : MonoBehaviour
 {
+    // Global flat offset added to every action's computed duration. Prototype
+    // pacing knob — every action takes +N days longer than its CalculateDays result.
+    private const int kActionDurationBonusDays = 2;
+
+    [Header("Planting")]
+    [SerializeField] private PlantingProfileSO[] starterProfiles;
+    [SerializeField] private PlayerProgressionSO playerProgression;
+    // Base material applied to every planted cube (starters + procedural).
+    // Assigned as a real asset reference so Unity's build dependency scanner
+    // bundles its shader — the runtime CreatePrimitive default is not tracked
+    // and renders magenta/invisible in builds. Use a URP/Lit material.
+    [SerializeField] private Material plantCubeMaterial;
+
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
 
@@ -21,26 +34,45 @@ public class ActionManager : MonoBehaviour
         if (tileManager == null)
             Debug.LogError("ActionManager requires TileManager in scene!");
 
+        // Eagerly load progression so the GeneratedPlantRegistry is hydrated before
+        // RegisterActions() walks it. RunManager.Start() also calls Load() — the call
+        // is idempotent (just reads JSON), so the duplicate is harmless and avoids
+        // an Awake/Start ordering dependency between the two MonoBehaviours.
+        ProgressionPersistence.Load(playerProgression);
+
         RegisterActions();
     }
 
     void RegisterActions()
     {
         availableActions.Clear();
-        availableActions.Add(new ApplyFertilizerAction());
-        availableActions.Add(new PlantTreesAction());
-        availableActions.Add(new FireSuppressionAction());
-        availableActions.Add(new CreateFirebreakAction());
-        availableActions.Add(new ClearTrashAction());
-        availableActions.Add(new StumpDeadTreeRemovalAction());
-        availableActions.Add(new AnalyzeSoilSampleAction());
-        availableActions.Add(new InspectTrashAction());
-        availableActions.Add(new EcologicalSurveyAction());
-        availableActions.Add(new CoverCroppingAction { cropVariant = CoverCroppingAction.Variant.Legume });
-        availableActions.Add(new CoverCroppingAction { cropVariant = CoverCroppingAction.Variant.Grass });
-        availableActions.Add(new CoverCroppingAction { cropVariant = CoverCroppingAction.Variant.Phyto });
 
-        
+        // ── ACTIVE (prototype) ────────────────────────────────────────────────
+        availableActions.Add(new FireSuppressionAction());                 // Emergency
+
+        if (starterProfiles != null)
+            foreach (var p in starterProfiles)
+                if (p != null) availableActions.Add(new PlantingAction(p, plantCubeMaterial, playerProgression));  // Intervene (4 starters)
+
+        // Procedurally-unlocked plants from prior runs (re-hydrated on Load).
+        foreach (var generated in GeneratedPlantRegistry.All)
+            availableActions.Add(new PlantingAction(generated, plantCubeMaterial, playerProgression));
+
+        availableActions.Add(new RemoveWitheredAction());                  // Cleanup
+
+        // ── DORMANT (post-prototype — kept in code per CLAUDE.md §7) ─────────
+        // availableActions.Add(new ApplyFertilizerAction());
+        // availableActions.Add(new PlantTreesAction());
+        // availableActions.Add(new CreateFirebreakAction());
+        // availableActions.Add(new ClearTrashAction());
+        // availableActions.Add(new StumpDeadTreeRemovalAction());
+        // availableActions.Add(new AnalyzeSoilSampleAction());
+        // availableActions.Add(new InspectTrashAction());
+        // availableActions.Add(new EcologicalSurveyAction());
+        // availableActions.Add(new CoverCroppingAction { cropVariant = CoverCroppingAction.Variant.Legume });
+        // availableActions.Add(new CoverCroppingAction { cropVariant = CoverCroppingAction.Variant.Grass });
+        // availableActions.Add(new CoverCroppingAction { cropVariant = CoverCroppingAction.Variant.Phyto });
+
         Debug.Log($"✓ ActionManager registered {availableActions.Count} actions");
     }
 
@@ -76,7 +108,7 @@ public class ActionManager : MonoBehaviour
         float weatherMult = WeatherManager.Instance != null
             ? WeatherManager.Instance.GetWorkSpeedMultiplier()
             : 1f;
-        int days = Mathf.Max(1, Mathf.RoundToInt(baseDays * weatherMult));
+        int days = Mathf.Max(1, Mathf.RoundToInt(baseDays * weatherMult)) + kActionDurationBonusDays;
 
         if (showDebugInfo)
             Debug.Log($"ACTION: {action.ActionName} | Tiles: {targetTiles.Count} | People: {availablePeople} | Days: {baseDays} → {days}");

@@ -144,12 +144,12 @@ public class EventManager : MonoBehaviour
             {
                 _pannedThisBatch = false;
                 EventCameraHandler.Instance.ReturnToOrigin(
-                    onComplete: () => GameManager.Instance?.ResumeFromEvent()
+                    onComplete: () => RunManager.Instance?.ResumeFromEvent()
                 );
             }
             else
             {
-                GameManager.Instance?.ResumeFromEvent();
+                RunManager.Instance?.ResumeFromEvent();
             }
             return;
         }
@@ -172,7 +172,7 @@ public class EventManager : MonoBehaviour
         Vector3? focusTarget = EventContext.GetFocusTarget();
         EventContext.ClearOverrides(); // clears token overrides AND focus target
 
-        if (!IsShowingEvent) GameManager.Instance?.PauseForEvent();
+        if (!IsShowingEvent) RunManager.Instance?.PauseForEvent();
         IsShowingEvent = true;
 
         void ShowPopup()

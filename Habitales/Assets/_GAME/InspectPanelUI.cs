@@ -4,16 +4,20 @@ using TMPro;
 using System.Text;
 
 /// <summary>
-/// Side panel shown during Inspect Mode.
-/// Health is always displayed.
-/// Issues are gated on tile.issuesRevealed.
-/// Substats (soil composite only — 6 stats) are gated on tile.isAnalyzed.
+/// Always-on side panel. Listens to TileSelector and populates from the
+/// currently selected tile (or shows the empty state when nothing is selected).
+/// Health is always displayed. Substats and issues are gated on tile flags
+/// (isAnalyzed / issuesRevealed) but those default to true in the prototype.
+/// Hide() is intentionally a no-op so external callers can't deactivate it.
 /// Each substat row has a pre-built Image that lerps green → red via LerpHSV.
 /// </summary>
 public class InspectPanelUI : MonoBehaviour
 {
     [Header("Panel Root")]
     [SerializeField] private GameObject panelRoot;
+
+    [Header("Systems")]
+    [SerializeField] private TileSelector tileSelector;
 
     [Header("Empty State")]
     [SerializeField] private GameObject emptyStateRoot;
@@ -46,6 +50,38 @@ public class InspectPanelUI : MonoBehaviour
     private static readonly Color SubstatGreen  = new Color(0.26f, 0.72f, 0.20f);
     private static readonly Color SubstatRed    = new Color(0.85f, 0.18f, 0.12f);
 
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+
+    void Awake()
+    {
+        if (tileSelector == null)
+            tileSelector = FindObjectOfType<TileSelector>();
+
+        Show();
+        ShowEmpty();
+    }
+
+    void OnEnable()
+    {
+        if (tileSelector != null)
+        {
+            tileSelector.OnTileSelected   += HandleTileSelected;
+            tileSelector.OnTileDeselected += HandleTileDeselected;
+        }
+    }
+
+    void OnDisable()
+    {
+        if (tileSelector != null)
+        {
+            tileSelector.OnTileSelected   -= HandleTileSelected;
+            tileSelector.OnTileDeselected -= HandleTileDeselected;
+        }
+    }
+
+    private void HandleTileSelected(Tile tile, Vector3 _) => Populate(tile);
+    private void HandleTileDeselected() => ShowEmpty();
+
     // ── Panel lifecycle ──────────────────────────────────────────────────────
 
     public void Show()
@@ -56,7 +92,8 @@ public class InspectPanelUI : MonoBehaviour
 
     public void Hide()
     {
-        panelRoot.SetActive(false);
+        // No-op in prototype: panel stays visible. Kept for callers
+        // (InspectModeManager, ActionUI legacy) that still invoke it.
     }
 
     public void ShowEmpty()

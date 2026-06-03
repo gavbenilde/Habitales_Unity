@@ -27,10 +27,14 @@ public class EndGameScreenUI : MonoBehaviour
     [SerializeField] private Transform  zonePillContainer;
     [SerializeField] private ZonePillUI zonePillPrefab;
 
+    [Header("Snapshot")]
+    [SerializeField] private RawImage snapshotImage;
+
     [Header("Tile Counts")]
     [SerializeField] private TextMeshProUGUI thrivingCountText;
     [SerializeField] private TextMeshProUGUI degradedCountText;
     [SerializeField] private TextMeshProUGUI criticalCountText;
+    [SerializeField] private TextMeshProUGUI peakThrivingText;
 
     [Header("Employee of the Year")]
     [SerializeField] private Image           workerPortraitImage; // active when StockPhoto
@@ -48,10 +52,22 @@ public class EndGameScreenUI : MonoBehaviour
 
     [Header("Footer")]
     [SerializeField] private TextMeshProUGUI researchPointsText;
-    [SerializeField] private Button          playAgainButton;
+    [SerializeField] private Button          playAgainButton;        // reloads the run scene for a fresh attempt
+    [SerializeField] private Button          exitToMainMenuButton;   // exits to the main menu (or prototype menu — see toggle)
     [SerializeField] private Button          minimizeButton;
 
+    [Header("Menu Routing")]
+    [Tooltip("When true, the Exit button loads 'PrototypeMenu' instead of 'Main Menu'. Use during development.")]
+    [SerializeField] private bool usePrototypeMenu = false;
+    [SerializeField] private string mainMenuSceneName      = "Main Menu";
+    [SerializeField] private string prototypeMenuSceneName = "PrototypeMenu";
+
+    [Header("Level-Up Handoff (DORMANT — moved to MainMenu)")]
+    [SerializeField] private LevelUpScreenUI     levelUpScreen;
+    [SerializeField] private PlayerProgressionSO playerProgression;
+
     private bool isMinimized;
+    private EndGameData _lastData;
 
     // -------------------------------------------------------------------------
     // Lifecycle
@@ -66,14 +82,16 @@ public class EndGameScreenUI : MonoBehaviour
 
     private void OnEnable()
     {
-        minimizeButton.onClick.AddListener(ToggleMinimize);
-        playAgainButton.onClick.AddListener(OnPlayAgain);
+        if (minimizeButton       != null) minimizeButton.onClick.AddListener(ToggleMinimize);
+        if (playAgainButton      != null) playAgainButton.onClick.AddListener(OnPlayAgain);
+        if (exitToMainMenuButton != null) exitToMainMenuButton.onClick.AddListener(OnExitToMainMenu);
     }
 
     private void OnDisable()
     {
-        minimizeButton.onClick.RemoveListener(ToggleMinimize);
-        playAgainButton.onClick.RemoveListener(OnPlayAgain);
+        if (minimizeButton       != null) minimizeButton.onClick.RemoveListener(ToggleMinimize);
+        if (playAgainButton      != null) playAgainButton.onClick.RemoveListener(OnPlayAgain);
+        if (exitToMainMenuButton != null) exitToMainMenuButton.onClick.RemoveListener(OnExitToMainMenu);
     }
 
     // -------------------------------------------------------------------------
@@ -82,6 +100,24 @@ public class EndGameScreenUI : MonoBehaviour
 
     public void Show(EndGameData data)
     {
+        // Self-heal + diagnostics — mirror the AziSpeechBubble pattern so a busted ref
+        // can't silently swallow the run-end UI.
+        if (!gameObject.activeSelf)
+        {
+            Debug.LogWarning("[EndGameScreenUI] Root GameObject was inactive — auto-enabling.");
+            gameObject.SetActive(true);
+        }
+
+        Debug.Log($"[EndGameScreenUI.Show] activeInHierarchy={gameObject.activeInHierarchy} | overlayPanel={(overlayPanel != null)} | fullContent={(fullContent != null)} | endReasonText={(endReasonText != null)} | playAgainButton={(playAgainButton != null)}");
+
+        if (overlayPanel == null || fullContent == null)
+        {
+            Debug.LogError("[EndGameScreenUI] overlayPanel or fullContent is NULL — panel can't activate. Wire them on the EndGameScreenUI GameObject. Falling back to direct Main Menu load.");
+            SceneManager.LoadScene("Main Menu");
+            return;
+        }
+
+        _lastData = data;
         Populate(data);
         isMinimized = false;
         fullContent.SetActive(true);
@@ -110,7 +146,19 @@ public class EndGameScreenUI : MonoBehaviour
 
     private void OnPlayAgain()
     {
+        Hide();
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+    }
+
+    private void OnExitToMainMenu()
+    {
+        // Routes to the prototype menu during dev, or the real main menu otherwise.
+        // MainMenu.Start fires the level-up overlay whenever current progression
+        // is ahead of PlayerProgressionSO.lastSeen*; Play Again skips this path,
+        // so accumulated XP/unlocks from consecutive reloads land all at once.
+        Hide();
+        string target = usePrototypeMenu ? prototypeMenuSceneName : mainMenuSceneName;
+        SceneManager.LoadScene(target);
     }
 
     // -------------------------------------------------------------------------
@@ -134,10 +182,16 @@ public class EndGameScreenUI : MonoBehaviour
             pill.Setup(kvp.Key, kvp.Value);
         }
 
+        // Snapshot — null texture leaves RawImage in its default (empty) state
+        if (snapshotImage != null)
+            snapshotImage.texture = data.snapshot?.peakScreenshot;
+
         // Tile counts
         thrivingCountText.text = data.thrivingCount.ToString();
         degradedCountText.text = data.degradedCount.ToString();
         criticalCountText.text = data.criticalCount.ToString();
+        if (peakThrivingText != null)
+            peakThrivingText.text = (data.snapshot?.peakThrivingCount ?? 0).ToString();
 
         // Employee of the Year
         PopulateWorker(data.topWorker);

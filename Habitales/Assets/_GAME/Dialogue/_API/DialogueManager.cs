@@ -33,8 +33,20 @@ namespace Habitales.Dialogue
         private string _pendingStickerTabID;
         private StickerSO _pendingStickerResponse;
 
-        private const float MESSAGE_ROLL_CHANCE = 0.13f;
+        private const float MESSAGE_ROLL_CHANCE = 0.40f;
         private const int   COOLDOWN_DAYS       = 25;
+
+        private static readonly string[] s_flavorLines =
+        {
+            "Tough day out there.",
+            "Felt good to swing the spade today.",
+            "The tilapia were jumping in the river.",
+            "Sun's brutal but the soil's responding.",
+            "I think I felt the wind change today.",
+            "Saw a kingfisher near the bend.",
+            "My back hurts but my heart feels good.",
+            "Cap, the air smells different out here."
+        };
 
         // ─── Events ───────────────────────────────────────────────────────────
 
@@ -96,6 +108,20 @@ namespace Habitales.Dialogue
             chatOpenCounts[tabID] = n + 1;
         }
         
+        // Tab ID for Azi's fixed chat tab. The DialogueRegistry asset must include a
+        // DialogueTabSO with tabID = "azi" and displayName = "Azi".
+        private const string AZI_TAB_ID = "azi";
+
+        // Appends a hardcoded inline message to Azi's tab (Tier 1 / Tier 2 Azi).
+        // No DialogueThreadSO required — body is stored directly on the entry.
+        public void AppendAziMessage(string body)
+        {
+            var entry = RuntimeChatEntry.FromInline(body, "Azi");
+            GetOrCreateFixedTabEntries(AZI_TAB_ID).Add(entry);
+            MarkUnread(AZI_TAB_ID);
+            OnMessagesUpdated?.Invoke(AZI_TAB_ID);
+        }
+
         public void AppendThread(DialogueThreadSO thread)
         {
             if (thread == null) return;
@@ -134,6 +160,20 @@ namespace Habitales.Dialogue
             OnMessagesUpdated?.Invoke(worker.workerName);
         }
 
+        private void AppendWorkerInlineMessage(Worker worker, string body)
+        {
+            if (worker == null) return;
+
+            _workerRefMap[worker.workerName] = worker;
+
+            var tab   = GetOrCreateWorkerTab(worker);
+            var entry = RuntimeChatEntry.FromInline(body, worker.workerName);
+
+            tab.entries.Add(entry);
+            MarkUnread(worker.workerName);
+            OnMessagesUpdated?.Invoke(worker.workerName);
+        }
+
         public List<ResolvedLine> GetChatLines(string tabID)
         {
             var result  = new List<ResolvedLine>();
@@ -146,6 +186,16 @@ namespace Habitales.Dialogue
                 {
                     case ChatEntryType.Thread:
                         result.AddRange(ResolveThread(entry));
+                        break;
+
+                    case ChatEntryType.Inline:
+                        result.Add(new ResolvedLine
+                        {
+                            speakerID   = entry.resolvedWorkerName,
+                            displayName = entry.resolvedWorkerName,
+                            portrait    = GetWorkerPortrait(entry.resolvedWorkerName),
+                            body        = entry.inlineBody
+                        });
                         break;
 
                     case ChatEntryType.PlayerSticker:
@@ -308,37 +358,13 @@ namespace Habitales.Dialogue
                 if (cumulative >= roll) { selected = e.worker; break; }
             }
 
-            // Step 3 — Template selection
-            var workerTab    = GetOrCreateWorkerTab(selected);
-            var traitPool    = new List<WorkerMessageTemplateSO>();
-            var universalPool = new List<WorkerMessageTemplateSO>();
+            // Step 3 — Inline flavor selection
+            var workerTab = GetOrCreateWorkerTab(selected);
 
-            foreach (var template in registry.workerTemplates)
-            {
-                if (template == null) continue;
-                if (workerTab.lastSentTemplateIDs.Contains(template.threadID)) continue;
-
-                if (template.isUniversal)
-                    universalPool.Add(template);
-                else if (template.traitAffinity == selected.trait)
-                    traitPool.Add(template);
-            }
-
-            var candidates = new List<WorkerMessageTemplateSO>(traitPool);
-            if (candidates.Count < 2) candidates.AddRange(universalPool);
-            if (candidates.Count == 0) return;
-
-            var chosen = candidates[UnityEngine.Random.Range(0, candidates.Count)];
-
-            // Step 4 — Inject tokens and append
-            EventContext.SetOverride("workerName",  selected.workerName);
-            EventContext.SetOverride("workerTrait", selected.trait.ToString());
-            AppendWorkerThread(chosen, selected);
+            string body = s_flavorLines[UnityEngine.Random.Range(0, s_flavorLines.Length)];
+            AppendWorkerInlineMessage(selected, body);
 
             workerTab.lastMessagedDay = totalDays;
-            workerTab.lastSentTemplateIDs.Add(chosen.threadID);
-            if (workerTab.lastSentTemplateIDs.Count > 3)
-                workerTab.lastSentTemplateIDs.RemoveAt(0);
         }
 
         // ─── Birthday Check ───────────────────────────────────────────────────
@@ -480,6 +506,9 @@ namespace Habitales.Dialogue
             if (entries == null || entries.Count == 0) return "";
 
             var last = entries[entries.Count - 1];
+
+            if (last.entryType == ChatEntryType.Inline)
+                return last.inlineBody;
 
             if (last.entryType != ChatEntryType.Thread) return "[Sticker]";
 
