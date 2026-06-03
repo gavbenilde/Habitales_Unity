@@ -87,16 +87,6 @@ public class ActionManager : MonoBehaviour
             return;
         }
 
-        // Pause entry-guard (arch §3.4): do not START a new action while an active event
-        // popup has the simulation paused. Previously only HandleActionCompleted was guarded,
-        // not action entry — this closes the documented interrupt-before-action gap.
-        // (References IsEventPaused today; becomes IsSimulationPaused when RunManager is ported in Phase 3.)
-        if (RunManager.Instance != null && RunManager.Instance.IsEventPaused)
-        {
-            Debug.LogWarning($"Cannot execute action {action.ActionName} — simulation is paused by an active event.");
-            return;
-        }
-
         ResourceManager rm = ResourceManager.Instance;
         int availablePeople = rm.AvailablePeople; // Capture exact workforce
         int maxTiles = action.GetMaxTiles(availablePeople);

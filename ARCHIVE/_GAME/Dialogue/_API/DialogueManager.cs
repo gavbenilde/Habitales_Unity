@@ -65,37 +65,22 @@ namespace Habitales.Dialogue
         private void OnEnable()
         {
             InitializeFixedTabs(); // safe, no external dependencies
-            SubscribeToManagers();
-        }
 
-        // Idempotent subscription (-= then += guarantees exactly one handler). Fixes the
-        // former OnEnable+Start double-subscription that made HandleTimeAdvanced fire twice
-        // per day-advance. Start() retries this in case a manager wasn't ready at OnEnable.
-        private void SubscribeToManagers()
-        {
             if (ResourceManager.Instance != null)
-            {
-                ResourceManager.Instance.OnTimeAdvanced -= HandleTimeAdvanced;
                 ResourceManager.Instance.OnTimeAdvanced += HandleTimeAdvanced;
-            }
             else
-                Debug.LogWarning("[DialogueManager] ResourceManager not ready — will retry subscription in Start.");
+                Debug.LogWarning("[DialogueManager] ResourceManager not ready on OnEnable — skipping subscription.");
 
             if (ZoneManager.Instance != null)
-            {
-                ZoneManager.Instance.OnZoneGenerated -= HandleZoneGenerated;
                 ZoneManager.Instance.OnZoneGenerated += HandleZoneGenerated;
-            }
             else
-                Debug.LogWarning("[DialogueManager] ZoneManager not ready — will retry subscription in Start.");
+                Debug.LogWarning("[DialogueManager] ZoneManager not ready on OnEnable — skipping subscription.");
         }
 
         private void OnDisable()
         {
-            if (ResourceManager.Instance != null)
-                ResourceManager.Instance.OnTimeAdvanced -= HandleTimeAdvanced;
-            if (ZoneManager.Instance != null)
-                ZoneManager.Instance.OnZoneGenerated -= HandleZoneGenerated;
+            ResourceManager.Instance.OnTimeAdvanced  -= HandleTimeAdvanced;
+            ZoneManager.Instance.OnZoneGenerated     -= HandleZoneGenerated;
         }
 
         private void InitializeFixedTabs()
@@ -108,9 +93,11 @@ namespace Habitales.Dialogue
         
         private void Start()
         {
-            // Retry subscription in case a manager wasn't ready at OnEnable (init order).
-            // SubscribeToManagers is idempotent, so this never double-subscribes.
-            SubscribeToManagers();
+            if (ResourceManager.Instance != null)
+                ResourceManager.Instance.OnTimeAdvanced += HandleTimeAdvanced;
+
+            if (ZoneManager.Instance != null)
+                ZoneManager.Instance.OnZoneGenerated += HandleZoneGenerated;
         }
 
         // ─── Core Public Methods ──────────────────────────────────────────────
