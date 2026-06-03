@@ -7,7 +7,8 @@ namespace Habitales.Dialogue
     {
         Thread,
         PlayerSticker,
-        WorkerSticker
+        WorkerSticker,
+        Inline
     }
 
     public class RuntimeChatEntry
@@ -19,6 +20,9 @@ namespace Habitales.Dialogue
 
         // Used when entryType == PlayerSticker or WorkerSticker
         public Sprite stickerSprite;
+
+        // Used when entryType == Inline
+        public string inlineBody;
 
         // Worker context — stored at append time, used at resolve time
         public string resolvedWorkerName;
@@ -52,6 +56,17 @@ namespace Habitales.Dialogue
                 stickerSprite       = sprite,
                 resolvedWorkerName  = workerName,
                 resolvedWorkerTrait = workerTrait
+            };
+        }
+
+        // Used for hardcoded inline messages (e.g. Tier 1/2 Azi) — no DialogueThreadSO required.
+        public static RuntimeChatEntry FromInline(string body, string speakerDisplayName)
+        {
+            return new RuntimeChatEntry
+            {
+                entryType          = ChatEntryType.Inline,
+                inlineBody         = body,
+                resolvedWorkerName = speakerDisplayName
             };
         }
     }

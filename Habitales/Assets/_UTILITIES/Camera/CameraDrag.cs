@@ -11,11 +11,13 @@ namespace _UTILITIES.Camera
         [SerializeField] private float baseDragSpeed = 0.01f;
         [SerializeField] private bool invert = false;
 
+        private const int DragMouseButton = 1; // Right mouse button.
+
         private UnityEngine.Camera cam;
         private Vector3 lastMousePosition;
 
-        bool isDraggingOnEmpty = false;
-        
+        private bool isDragging = false;
+
         private void Awake()
         {
             cam = GetComponent<UnityEngine.Camera>();
@@ -24,13 +26,13 @@ namespace _UTILITIES.Camera
         void Update()
         {
             if (EventCameraHandler.Instance != null && EventCameraHandler.Instance.IsPanning) return;
-            if (Input.GetMouseButtonDown(0))
+            if (Input.GetMouseButtonDown(DragMouseButton))
             {
-                isDraggingOnEmpty = CheckClickedOnNothing();
+                isDragging = !IsPointerOverUI();
                 lastMousePosition = Input.mousePosition;
             }
 
-            if (Input.GetMouseButton(0) && isDraggingOnEmpty)
+            if (Input.GetMouseButton(DragMouseButton) && isDragging)
             {
                 Vector3 delta = Input.mousePosition - lastMousePosition;
 
@@ -58,24 +60,9 @@ namespace _UTILITIES.Camera
             }
         }
 
-        bool CheckClickedOnNothing()
+        bool IsPointerOverUI()
         {
-            if (EventSystem.current.IsPointerOverGameObject())
-                return false; // treat UI as "something"
-            
-            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            RaycastHit hit;
-            
-            if (Physics.Raycast(ray, out hit))
-            {
-                // If object has the ignore tag → treat as "nothing"
-                if (hit.collider.CompareTag("Tile"))
-                    return true;
-
-                return false; // clicked something else
-            }
-
-            return true; // clicked nothing
+            return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
         }
     }
 }

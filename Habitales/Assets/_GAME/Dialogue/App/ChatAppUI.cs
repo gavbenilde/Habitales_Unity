@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -108,7 +109,11 @@ namespace Habitales.UI
                 Destroy(row.gameObject);
             _tabRows.Clear();
 
-            foreach (var preview in DialogueManager.Instance.GetTabPreviews())
+            var previews = DialogueManager.Instance.GetTabPreviews()
+                .Where(p => !string.IsNullOrEmpty(p.lastMessageBody))
+                .ToList();
+
+            foreach (var preview in previews)
             {
                 var row = Instantiate(tabRowPrefab, tabListContent);
                 row.Setup(preview, OpenThread);

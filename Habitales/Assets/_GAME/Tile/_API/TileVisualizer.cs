@@ -15,8 +15,21 @@ public class TileVisualizer : MonoBehaviour
     [SerializeField] private GameObject firebreakPrefab;
     private GameObject firebreakInstance;
 
+    // ── Selection Pulse ───────────────────────────────────────────────────────
+    [Header("Selection Pulse")]
+    [SerializeField] private Color pulseColorA = new Color(0.55f, 0.80f, 1f);    // light blue
+    [SerializeField] private Color pulseColorB = new Color(0.10f, 0.45f, 0.85f); // blue
+    [SerializeField] private float pulseSpeed  = 1.5f;
+
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
+    void Update()
+    {
+        if (currentState != TileVisualState.Selected || materialInstance == null) return;
+        float t = Mathf.PingPong(Time.time * pulseSpeed, 1f);
+        materialInstance.SetColor("_BaseColor", Color.Lerp(pulseColorA, pulseColorB, t));
+    }
+
     void Awake()
     {
         meshRenderer = GetComponent<MeshRenderer>();

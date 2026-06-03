@@ -5,7 +5,9 @@ using UnityEngine.EventSystems;
 
 /// <summary>
 /// Handles tile selection in single-select, Adjacent, NonAdjacent, and FloodFill modes.
-/// FloodFill mode is driven entirely by SetFloodFillSize(); mouse clicks are suppressed.
+/// FloodFill mode is drag-driven: a click seeds a minimum blob (multi-source BFS), then
+/// holding LMB and dragging adds seeds that steer the blob and grow it toward the cap.
+/// At the cap, each new seed pops the oldest so the fixed-size blob migrates with the cursor.
 /// </summary>
 public class TileSelector : MonoBehaviour
 {
@@ -16,9 +18,16 @@ public class TileSelector : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private TileManager tileManager;
+    [SerializeField] private ActionManager actionManager;
 
     [Header("Input")]
     [SerializeField] private KeyCode deselectKey = KeyCode.Escape;
+
+    [Header("Flood Fill Brush")]
+    [Tooltip("Seed divisor 'C': the blob steers from at most (maxSelectableTiles / C) paint seeds. " +
+             "Higher C = fewer seeds = rounder, more compact blob; lower C = more seeds = the blob " +
+             "strings out along the drag path. Bounds the seed count regardless of how far you drag.")]
+    [SerializeField] private int seedDivisor = 4;
 
     // ─── Single-select state ─────────────────────────────────────────────────
     private Tile currentTile;
@@ -34,9 +43,14 @@ public class TileSelector : MonoBehaviour
     private Tile lastHoveredTile = null;
     private HashSet<Tile> adjacentAvailableTiles = new HashSet<Tile>();
 
-    // ─── FloodFill state (Phase 2) ────────────────────────────────────────────
+    // ─── FloodFill state ──────────────────────────────────────────────────────
+    // The selection is the first N tiles of a multi-source BFS across _floodFillSeeds,
+    // so it stays a connected blob. Dragging adds seeds (steering the blob toward the
+    // cursor) and grows N toward the cap; at the cap, each new seed pops the oldest so
+    // the fixed-size blob migrates instead of stretching thin.
     private bool floodFillMode = false;
-    private Tile floodFillSeedTile = null;
+    private readonly Queue<Tile> _floodFillSeeds = new Queue<Tile>();
+    private int _seedCap = 1; // = ceil(maxSelectableTiles / seedDivisor), computed on enter
     private List<Tile> _floodFillOrder = new List<Tile>();
     private int _currentFloodFillSize = 0;
 
@@ -58,12 +72,20 @@ public class TileSelector : MonoBehaviour
             if (tileManager == null)
                 Debug.LogError("TileSelector requires TileManager in scene!");
         }
+
+        if (actionManager == null)
+            actionManager = FindObjectOfType<ActionManager>();
     }
 
     void Update()
     {
         UpdateHoverVisuals();
+
+        // While days are passing (an action is mid-execution), block all selection inputs.
+        if (actionManager != null && actionManager.IsActionRunning) return;
+
         HandleMouseInput();
+        HandlePaintStroke();
         HandleDeselectInput();
     }
 
@@ -72,83 +94,140 @@ public class TileSelector : MonoBehaviour
     // =========================================================================
 
     /// <summary>
-    /// Enters FloodFill mode. Precomputes the full BFS traversal order from the
-    /// seed tile so that SetFloodFillSize() is O(n) thereafter.
-    /// Called by ActionUI instead of EnterMultiSelectMode for FloodFill actions.
+    /// Enters FloodFill mode. Precomputes the BFS traversal order from the seed and shows
+    /// an initial blob of the minimum tile count. Dragging (HandlePaintStroke → TryAddPaintSeed)
+    /// adds seeds and grows the blob toward the cap.
+    /// Called by ActionUI/ActionBarUI instead of EnterMultiSelectMode for FloodFill actions.
     /// </summary>
     public void EnterFloodFillMode(PlayerAction action, Tile seedTile)
     {
         multiSelectMode = true;
         floodFillMode = true;
         currentAction = action;
-        floodFillSeedTile = seedTile;
         originalTile = seedTile;
         currentTile = seedTile;
 
         ResourceManager rm = ResourceManager.Instance;
-        
+
         // Calculate max selectable (minimum people per tile)
         maxSelectableTiles = Mathf.Max(1, rm.AvailablePeople / action.MinPeoplePerTile);
-        
+
         // Calculate min selectable (maximum people per tile = 2x min)
         int maxPeoplePerTile = action.MinPeoplePerTile * 2;
         MinSelectableTiles = Mathf.Max(1, rm.AvailablePeople / maxPeoplePerTile);
+
+        // Seed cap = maxSelectableTiles / seedDivisor (higher divisor → fewer seeds → rounder blob).
+        _seedCap = Mathf.Max(1, Mathf.CeilToInt(maxSelectableTiles / (float)Mathf.Max(1, seedDivisor)));
 
         ClearSelectionVisuals();
         selectedTiles.Clear();
         adjacentAvailableTiles.Clear();
 
-        _floodFillOrder = ComputeFloodFillOrder(seedTile);
+        _floodFillSeeds.Clear();
+        _floodFillSeeds.Enqueue(seedTile);
+
+        _floodFillOrder = ComputeFloodFillOrder(_floodFillSeeds);
         _currentFloodFillSize = 0;
 
-        // Initialize using the calculated minimum instead of 1
-        SetFloodFillSize(MinSelectableTiles);
+        // Initial blob = the minimum tile count (not the max — dragging grows it from here).
+        RebuildFloodFillSelection(EffectiveMinTiles);
 
         Debug.Log($"FloodFill mode entered | Min: {MinSelectableTiles} | Max: {maxSelectableTiles}");
     }
-    
+
+    // ─── Paint Stroke (LMB held, flood-fill mode) ─────────────────────────────
+
     /// <summary>
-    /// Rebuilds the selected tile set to the first <paramref name="count"/> tiles
-    /// in the precomputed BFS order. Called every time the slider value changes.
+    /// Drag-paint: add <paramref name="tile"/> as an additional flood-fill seed so the blob
+    /// steers toward the cursor. Seeds must be 8-adjacent to the existing cluster (this keeps
+    /// the "clay" connected and makes the stroke pause over occupied tiles, off-grid, or fast
+    /// drags that outrun adjacency — the selection is never cleared).
+    ///
+    /// Each added seed grows the blob by one tile until it reaches maxSelectableTiles, then the
+    /// count holds steady. Independently, the seed set is capped at _seedCap (= maxSelectableTiles
+    /// / seedDivisor): past that, adding a seed retires the oldest so the small cluster slides
+    /// along the cursor and the blob stays round instead of stretching thin.
+    /// Returns true if the seed was added.
     /// </summary>
-    public void SetFloodFillSize(int count)
+    public bool TryAddPaintSeed(Tile tile)
     {
-        if (!floodFillMode) return;
+        if (!floodFillMode || tile == null) return false;
+        if (tile.entity != null) return false;
+        if (_floodFillSeeds.Contains(tile)) return false;
+        if (!IsEightAdjacentToAnySeed(tile)) return false;
 
-        // Clamp using the new minimum boundary
-        count = Mathf.Clamp(count, MinSelectableTiles, Mathf.Min(maxSelectableTiles, _floodFillOrder.Count));
-        if (count == _currentFloodFillSize) return;
+        bool atMax = _currentFloodFillSize >= maxSelectableTiles;
 
-        if (count < _currentFloodFillSize)
+        // Cap the seed set at _seedCap so the blob stays round; retiring the oldest seed lets
+        // the small cluster slide along the cursor (1-in / 1-out) instead of stringing out.
+        if (_floodFillSeeds.Count >= _seedCap)
+            _floodFillSeeds.Dequeue();
+
+        _floodFillSeeds.Enqueue(tile);
+        _floodFillOrder = ComputeFloodFillOrder(_floodFillSeeds);
+
+        // Below max: grow by one tile per dragged seed. At max: hold the count steady.
+        int target = atMax ? maxSelectableTiles : _currentFloodFillSize + 1;
+        RebuildFloodFillSelection(target);
+        return true;
+    }
+
+    bool IsEightAdjacentToAnySeed(Tile tile)
+    {
+        foreach (Tile seed in _floodFillSeeds)
         {
-            for (int i = count; i < _currentFloodFillSize; i++)
-                UpdateTileVisual(_floodFillOrder[i], TileVisualState.Default);
+            int dx = Mathf.Abs(tile.gridPosition.x - seed.gridPosition.x);
+            int dy = Mathf.Abs(tile.gridPosition.y - seed.gridPosition.y);
+            if (dx <= 1 && dy <= 1 && (dx + dy) > 0) return true;
         }
-        else
-        {
-            for (int i = _currentFloodFillSize; i < count; i++)
-                UpdateTileVisual(_floodFillOrder[i], TileVisualState.Selected);
-        }
-
-        selectedTiles.Clear();
-        for (int i = 0; i < count; i++)
-            selectedTiles.Add(_floodFillOrder[i]);
-
-        _currentFloodFillSize = count;
+        return false;
     }
 
     /// <summary>
-    /// BFS from <paramref name="seed"/> across all reachable tiles.
-    /// Neighbours are shuffled before each enqueue to produce an organic blob.
+    /// Full visual rebuild of the blob to the first <paramref name="count"/> entries of
+    /// <see cref="_floodFillOrder"/>. Used by the initial flood and by paint-seed additions
+    /// (since adding a seed reshuffles the order list).
     /// </summary>
-    private List<Tile> ComputeFloodFillOrder(Tile seed)
+    void RebuildFloodFillSelection(int count)
+    {
+        // A pocket enclosed by occupied tiles may hold fewer tiles than the
+        // people-budget minimum — clamp both bounds to whatever's reachable.
+        int reachable = _floodFillOrder.Count;
+        int min = Mathf.Min(EffectiveMinTiles, reachable);
+        int max = Mathf.Min(maxSelectableTiles, reachable);
+        count = Mathf.Clamp(count, min, Mathf.Max(min, max));
+
+        foreach (Tile tile in selectedTiles)
+            UpdateTileVisual(tile, TileVisualState.Default);
+        selectedTiles.Clear();
+
+        for (int i = 0; i < count && i < _floodFillOrder.Count; i++)
+        {
+            Tile tile = _floodFillOrder[i];
+            selectedTiles.Add(tile);
+            UpdateTileVisual(tile, TileVisualState.Selected);
+        }
+
+        _currentFloodFillSize = selectedTiles.Count;
+    }
+
+    /// <summary>
+    /// Multi-source BFS across the union of <paramref name="seeds"/>.
+    /// All seeds are enqueued first, so they're guaranteed to appear at the
+    /// front of the returned order (every seed is always part of the selection).
+    /// Neighbours are shuffled to keep the frontier organic.
+    /// </summary>
+    private List<Tile> ComputeFloodFillOrder(IEnumerable<Tile> seeds)
     {
         var order   = new List<Tile>();
         var visited = new HashSet<Tile>();
         var queue   = new Queue<Tile>();
 
-        queue.Enqueue(seed);
-        visited.Add(seed);
+        foreach (Tile seed in seeds)
+        {
+            if (seed != null && visited.Add(seed))
+                queue.Enqueue(seed);
+        }
 
         while (queue.Count > 0)
         {
@@ -160,11 +239,11 @@ public class TileSelector : MonoBehaviour
 
             foreach (Tile neighbor in neighbors)
             {
-                if (!visited.Contains(neighbor))
-                {
-                    visited.Add(neighbor);
+                // Occupied tiles act as walls — the flood cannot spread through them,
+                // so an enclosed empty pocket stays bounded.
+                if (neighbor.entity != null) continue;
+                if (visited.Add(neighbor))
                     queue.Enqueue(neighbor);
-                }
             }
         }
 
@@ -215,7 +294,7 @@ public class TileSelector : MonoBehaviour
 
         // ── FloodFill resets ──────────────────────────────────────────────────
         floodFillMode = false;
-        floodFillSeedTile = null;
+        _floodFillSeeds.Clear();
         _floodFillOrder.Clear();
         _currentFloodFillSize = 0;
 
@@ -249,6 +328,20 @@ public class TileSelector : MonoBehaviour
 
     /// <summary>Cancels without executing. Called by ActionUI's Cancel button or ESC.</summary>
     public void CancelSelection() => ExitMultiSelectMode();
+
+    // ─── Paint Stroke (LMB held, flood-fill mode) ─────────────────────────────
+
+    void HandlePaintStroke()
+    {
+        if (!floodFillMode) return;
+        if (Input.GetMouseButtonDown(0)) return; // down-frame is owned by HandleMouseInput (re-seed)
+        if (!Input.GetMouseButton(0)) return;
+        if (EventManager.Instance != null && EventManager.Instance.IsShowingEvent) return;
+        if (IsPointerOverUI()) return;
+        if (hoveredTile == null) return; // off-grid → pause, keep selection intact
+
+        TryAddPaintSeed(hoveredTile);
+    }
 
     // ─── Click Handling ───────────────────────────────────────────────────────
 
@@ -303,11 +396,13 @@ public class TileSelector : MonoBehaviour
             return;
         }
 
-        // FloodFill mode: a click on a new tile re-seeds the flood.
+        // FloodFill mode: every LMB-down re-seeds the flood (resets to a fresh min blob).
         // SelectSingleTile fires OnTileSelected → ActionBarUI.HandleTileClicked → EnterFloodFillMode(new seed).
+        // The subsequent drag (with LMB held) grows/steers the blob via HandlePaintStroke → TryAddPaintSeed.
         if (floodFillMode)
         {
-            if (tile == currentTile) return;
+            // Can't re-seed the flood onto an occupied tile.
+            if (tile.entity != null) return;
             SelectSingleTile(tile, worldPos);
             return;
         }
@@ -626,9 +721,8 @@ public class TileSelector : MonoBehaviour
     public PlayerAction GetCurrentAction() => currentAction;
 
     /// <summary>
-    /// Upper bound for the slider: the smaller of maxSelectableTiles and how
-    /// many tiles the BFS could actually reach from the seed.
-    /// Only meaningful in FloodFill mode.
+    /// Lower bound for the blob: the larger of MinSelectableTiles and the current seed
+    /// count (every seed is always part of the selection). Internal — drives clamping.
     /// </summary>
-    public int FloodFillReachableCount => _floodFillOrder.Count;
+    private int EffectiveMinTiles => Mathf.Max(MinSelectableTiles, _floodFillSeeds.Count);
 }

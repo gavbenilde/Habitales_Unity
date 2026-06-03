@@ -50,6 +50,10 @@ public class ActionUI : MonoBehaviour
     [SerializeField] private TMP_Text daysEstimateText;
     [SerializeField] private TMP_Text fatigueEstimateText;
     
+    [Header("Lock Card")]
+    [SerializeField] private GameObject lockModal;
+    [SerializeField] private Button     lockModalContinueButton;
+
     [Header("FloodFill Slider")]
     [SerializeField] private GameObject floodFillSliderContainer;
     [SerializeField] private Slider floodFillSlider;
@@ -115,10 +119,10 @@ public class ActionUI : MonoBehaviour
             cancelButton.onClick.AddListener(OnCancelClicked);
         }
         
-        // FloodFill slider
-        if (floodFillSlider != null)
-            floodFillSlider.onValueChanged.AddListener(OnFloodFillSliderChanged);
-        
+        // FloodFill is now drag-driven (trail); the brush-size slider is retired.
+        if (floodFillSliderContainer != null)
+            floodFillSliderContainer.SetActive(false);
+
         if (warningIcon != null)
         {
             HoverTooltip tooltip = warningIcon.GetComponent<HoverTooltip>();
@@ -159,6 +163,8 @@ public class ActionUI : MonoBehaviour
             cleanupButton.button.onClick.AddListener(() => OnCategoryButtonClicked(ActionCategory.Cleanup));
         }
         
+        if (lockModal != null) lockModal.SetActive(false);
+
         // Initial state
         SetState(ActionPanelState.Hidden);
     }
@@ -175,8 +181,11 @@ public class ActionUI : MonoBehaviour
             };
             tileSelector.OnTileSelected += selectedTileHandler;
         }
+
+        if (lockModalContinueButton != null)
+            lockModalContinueButton.onClick.AddListener(HideLockModal);
     }
-    
+
     void OnDisable()
     {
         if (tileSelector != null)
@@ -184,13 +193,13 @@ public class ActionUI : MonoBehaviour
             tileSelector.OnMultiSelectionConfirmed -= HandleMultiSelectionConfirmed;
             tileSelector.OnTileSelected -= selectedTileHandler;
         }
+
+        if (lockModalContinueButton != null)
+            lockModalContinueButton.onClick.RemoveListener(HideLockModal);
     }
     
     void OnDestroy()
-    
     {
-        if (floodFillSlider != null)
-            floodFillSlider.onValueChanged.RemoveListener(OnFloodFillSliderChanged);
     }
 
     
@@ -288,7 +297,8 @@ public class ActionUI : MonoBehaviour
         if (selectedCardImage != null) selectedCardImage.gameObject.SetActive(false);
         if (multiSelectPanel != null) multiSelectPanel.SetActive(false);
         if (backButton != null) backButton.gameObject.SetActive(false);
-        if (inspectPanel != null) inspectPanel.gameObject.SetActive(false);
+        // Prototype: InspectPanelUI is always on — it listens to TileSelector
+        // directly and owns its own visibility. Do not toggle it from here.
         // if (categoryTitleText != null) categoryTitleText.gameObject.SetActive(false);
         
         // Show relevant UI based on state
@@ -411,6 +421,7 @@ public class ActionUI : MonoBehaviour
             // Subsequent variants in the same group — skip; already covered by group button
         }
         
+        CreateLockCard(actionListContent);
         SetState(ActionPanelState.ActionList);
     }
 
@@ -515,7 +526,23 @@ public class ActionUI : MonoBehaviour
         {
             Debug.LogWarning("ActionCardPrefab is missing Button component!");
         }
-        
+
+        // Wire Boogle "?" button if this is a planting action and the prefab has the slot.
+        // The action card prefab needs a child named "BoogleButton" with a Button component.
+        if (action is PlantingAction plantingAction)
+        {
+            var boogleButtonGO = card.transform.Find("BoogleButton");
+            if (boogleButtonGO != null)
+            {
+                var boogleBtn = boogleButtonGO.GetComponent<Button>();
+                if (boogleBtn != null)
+                {
+                    var capturedProfile = plantingAction.Profile;
+                    boogleBtn.onClick.AddListener(() => BooglePanelUI.Instance?.Show(capturedProfile));
+                }
+            }
+        }
+
         // Optional: Set card name for debugging
         card.name = $"Card_{action.ActionName}";
     }
@@ -554,6 +581,35 @@ public class ActionUI : MonoBehaviour
 
         card.name = $"Card_Group_{groupName}";
     }
+
+    void CreateLockCard(Transform parent)
+    {
+        if (actionCardPrefab == null || parent == null) return;
+
+        GameObject card = Instantiate(actionCardPrefab, parent);
+        spawnedActionCards.Add(card);
+
+        // Disable icon — no sprite assigned yet
+        Image iconImage = card.transform.Find("ActionIcon")?.GetComponent<Image>();
+        if (iconImage != null)
+        {
+            // TODO: assign lock sprite
+            iconImage.enabled = false;
+        }
+
+        // Hide BoogleButton — not applicable for locked slot
+        var boogleButtonGO = card.transform.Find("BoogleButton");
+        if (boogleButtonGO != null) boogleButtonGO.gameObject.SetActive(false);
+
+        Button cardButton = card.GetComponent<Button>();
+        if (cardButton != null)
+            cardButton.onClick.AddListener(ShowLockModal);
+
+        card.name = "Card_Locked";
+    }
+
+    private void ShowLockModal() { if (lockModal != null) lockModal.SetActive(true); }
+    private void HideLockModal() { if (lockModal != null) lockModal.SetActive(false); }
 
     void DisplaySelectedCard(PlayerAction action)
     {
@@ -635,42 +691,12 @@ public class ActionUI : MonoBehaviour
         if (actionNameText != null && currentAction != null)
             actionNameText.text = currentAction.ActionName;
 
-        bool isFloodFill = tileSelector != null && tileSelector.IsFloodFillMode;
-
+        // FloodFill size is driven by drag now; the slider stays hidden.
         if (floodFillSliderContainer != null)
-            floodFillSliderContainer.SetActive(isFloodFill);
-
-        if (isFloodFill && floodFillSlider != null)
-        {
-            int max = Mathf.Min(tileSelector.MaxSelectableTiles, tileSelector.FloodFillReachableCount);
-            int min = tileSelector.MinSelectableTiles; // Grab the new floor limit
-
-            floodFillSlider.minValue = min;
-            floodFillSlider.maxValue = Mathf.Max(min, max);
-            floodFillSlider.wholeNumbers = true;
-            floodFillSlider.value = min;
-            UpdateFloodFillSliderLabel(min, max); 
-        }
+            floodFillSliderContainer.SetActive(false);
 
         UpdateTileCounter();
     }
-    
-    void OnFloodFillSliderChanged(float value)
-    {
-        if (tileSelector == null || !tileSelector.IsFloodFillMode) return;
-
-        int count = Mathf.RoundToInt(value);
-        tileSelector.SetFloodFillSize(count);
-        UpdateFloodFillSliderLabel(count, tileSelector.FloodFillReachableCount);
-        UpdateTileCounter();
-    }
-
-    void UpdateFloodFillSliderLabel(int current, int max)
-    {
-        if (floodFillSliderLabel != null)
-            floodFillSliderLabel.text = "";
-    }
-
     
     void UpdateTileCounter()
     {

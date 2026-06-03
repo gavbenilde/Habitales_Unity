@@ -19,6 +19,8 @@ public class ActionBarUI : MonoBehaviour
     [SerializeField] private Button cleanupTab;
 
     [Header("Action Strip")]
+    [Tooltip("Optional. The whole panel toggled by category buttons (background + content). If null, falls back to actionStripContent.gameObject.")]
+    [SerializeField] private GameObject actionStripRoot;
     [SerializeField] private Transform actionStripContent;
     [SerializeField] private GameObject actionCardPrefab;
     [SerializeField] private Color defaultCardColor = new Color(0.75f, 0.75f, 0.75f);
@@ -55,6 +57,9 @@ public class ActionBarUI : MonoBehaviour
 
         if (lockModal != null) lockModal.SetActive(false);
         if (brushControls != null) brushControls.SetActive(false);
+        // Drag-driven trail replaces the brush-size slider; hide it permanently.
+        if (brushSizeSlider != null) brushSizeSlider.gameObject.SetActive(false);
+        SetStripVisible(false); // strip starts collapsed until a category is pressed
     }
 
     void OnEnable()
@@ -64,9 +69,6 @@ public class ActionBarUI : MonoBehaviour
             tileSelector.OnTileSelected            += HandleTileClicked;
             tileSelector.OnMultiSelectionConfirmed += HandleConfirmed;
         }
-
-        if (brushSizeSlider != null)
-            brushSizeSlider.onValueChanged.AddListener(OnSliderChanged);
 
         if (confirmButton != null)
             confirmButton.onClick.AddListener(() => tileSelector.ConfirmSelection());
@@ -87,9 +89,6 @@ public class ActionBarUI : MonoBehaviour
             tileSelector.OnTileSelected            -= HandleTileClicked;
             tileSelector.OnMultiSelectionConfirmed -= HandleConfirmed;
         }
-
-        if (brushSizeSlider != null)
-            brushSizeSlider.onValueChanged.RemoveListener(OnSliderChanged);
 
         if (confirmButton != null)
             confirmButton.onClick.RemoveAllListeners();
@@ -122,8 +121,37 @@ public class ActionBarUI : MonoBehaviour
         if (currentAction != null)
             Disarm();
 
+        // Toggle: pressing the same category that's currently open collapses the strip.
+        // Pressing a different category swaps content and keeps the strip open.
+        bool sameCategoryAlreadyOpen = currentCategory == category && IsStripVisible();
+        if (sameCategoryAlreadyOpen)
+        {
+            currentCategory = null;
+            SetStripVisible(false);
+            return;
+        }
+
         currentCategory = category;
         RebuildActionStrip(category);
+        SetStripVisible(true);
+    }
+
+    // ─── Strip visibility helpers ─────────────────────────────────────────────
+
+    private GameObject StripToggleTarget =>
+        actionStripRoot != null ? actionStripRoot :
+        (actionStripContent != null ? actionStripContent.gameObject : null);
+
+    void SetStripVisible(bool visible)
+    {
+        var target = StripToggleTarget;
+        if (target != null) target.SetActive(visible);
+    }
+
+    bool IsStripVisible()
+    {
+        var target = StripToggleTarget;
+        return target != null && target.activeSelf;
     }
 
     public void ArmAction(PlayerAction action)
@@ -146,10 +174,7 @@ public class ActionBarUI : MonoBehaviour
 
         Tile seed = tileSelector?.GetSelectedTile();
         if (seed != null)
-        {
             tileSelector.EnterFloodFillMode(currentAction, seed);
-            RefreshBrushBounds();
-        }
     }
 
     public void Disarm()
@@ -284,7 +309,6 @@ public class ActionBarUI : MonoBehaviour
     {
         if (currentAction == null) return;
         tileSelector.EnterFloodFillMode(currentAction, tile);
-        RefreshBrushBounds();
     }
 
     void HandleConfirmed(List<Tile> tiles)
@@ -292,34 +316,6 @@ public class ActionBarUI : MonoBehaviour
         if (currentAction == null || actionManager == null) return;
         actionManager.ExecuteAction(currentAction, tiles);
         Disarm();
-    }
-
-    // ─── Slider ───────────────────────────────────────────────────────────────
-
-    void OnSliderChanged(float value)
-    {
-        if (tileSelector == null || !tileSelector.IsFloodFillMode) return;
-        int count = Mathf.RoundToInt(value);
-        tileSelector.SetFloodFillSize(count);
-    }
-
-    // Recomputes slider min/max from the (potentially new) seed's reachable count.
-    // Preserves the player's current brush size where possible (clamped to new max).
-    void RefreshBrushBounds()
-    {
-        if (brushSizeSlider == null || tileSelector == null) return;
-
-        int min = tileSelector.MinSelectableTiles;
-        int max = Mathf.Max(min, Mathf.Min(tileSelector.MaxSelectableTiles, tileSelector.FloodFillReachableCount));
-
-        brushSizeSlider.wholeNumbers = true;
-        brushSizeSlider.minValue     = min;
-        brushSizeSlider.maxValue     = max;
-
-        // Preserve the previous brush size across reseeds, clamped into the new range.
-        int desired = Mathf.Clamp(Mathf.RoundToInt(brushSizeSlider.value), min, max);
-        brushSizeSlider.value = desired;
-        tileSelector.SetFloodFillSize(desired);
     }
 
     // ─── Estimates ───────────────────────────────────────────────────────────

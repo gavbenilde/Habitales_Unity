@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.VFX;
 
 public class VFXManager : MonoBehaviour
@@ -10,7 +11,7 @@ public class VFXManager : MonoBehaviour
 
     [Header("Manager References")]
     [SerializeField] private TileManager tileManager;
-    [SerializeField] private GameManager gameManager;
+    [FormerlySerializedAs("gameManager")] [SerializeField] private RunManager runManager;
     
     [SerializeField] private List<VFXTypes> vfxList;
 
