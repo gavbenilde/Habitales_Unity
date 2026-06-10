@@ -1,0 +1,90 @@
+
+Habitales_ActionUI.png
+size: 338,1022
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+bud_base
+  rotate: true
+  xy: 152, 232
+  size: 158, 164
+  orig: 160, 165
+  offset: 2, 0
+  index: -1
+bud_main
+  rotate: true
+  xy: 2, 82
+  size: 154, 143
+  orig: 159, 148
+  offset: 2, 3
+  index: -1
+flower_base
+  rotate: false
+  xy: 2, 238
+  size: 148, 153
+  orig: 154, 158
+  offset: 3, 3
+  index: -1
+flower_center
+  rotate: false
+  xy: 149, 12
+  size: 71, 85
+  orig: 84, 92
+  offset: 9, 3
+  index: -1
+flower_petal01
+  rotate: false
+  xy: 176, 617
+  size: 160, 227
+  orig: 165, 232
+  offset: 2, 2
+  index: -1
+flower_petal02
+  rotate: true
+  xy: 2, 393
+  size: 235, 151
+  orig: 241, 152
+  offset: 3, 0
+  index: -1
+flower_petal03
+  rotate: true
+  xy: 2, 847
+  size: 173, 214
+  orig: 175, 216
+  offset: 1, 0
+  index: -1
+flower_petal04
+  rotate: false
+  xy: 2, 630
+  size: 172, 215
+  orig: 178, 220
+  offset: 3, 2
+  index: -1
+flower_petal05
+  rotate: true
+  xy: 155, 392
+  size: 223, 152
+  orig: 227, 157
+  offset: 2, 3
+  index: -1
+leaf_lowerLeft
+  rotate: false
+  xy: 147, 99
+  size: 162, 131
+  orig: 166, 136
+  offset: 2, 3
+  index: -1
+leaf_lowerRight
+  rotate: true
+  xy: 2, 2
+  size: 78, 145
+  orig: 84, 150
+  offset: 3, 2
+  index: -1
+leaf_upperRight
+  rotate: false
+  xy: 218, 846
+  size: 118, 174
+  orig: 122, 178
+  offset: 1, 2
+  index: -1
