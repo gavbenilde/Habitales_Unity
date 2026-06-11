@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 /// <summary>
 /// Upper-right "Unlock Next Zone" button. Hidden until world health crosses
-/// the Zone Unlock Threshold, at which point RunManager fires OnZoneUnlockReady.
+/// the Zone Unlock Threshold, at which point RunManager fires OnRegionUnlockReady.
 /// Pressing it asks RunManager to generate the next zone, then hides again.
 /// </summary>
 [RequireComponent(typeof(Button))]
@@ -28,8 +28,8 @@ public class UnlockNextZoneButtonUI : MonoBehaviour
 
         if (runManager != null)
         {
-            runManager.OnZoneUnlockReady += HandleUnlockReady;
-            runManager.OnZoneUnlocked    += HandleUnlocked;
+            runManager.OnRegionUnlockReady += HandleUnlockReady;
+            runManager.OnRegionUnlocked    += HandleUnlocked;
         }
         else
         {
@@ -46,8 +46,8 @@ public class UnlockNextZoneButtonUI : MonoBehaviour
     {
         if (runManager != null)
         {
-            runManager.OnZoneUnlockReady -= HandleUnlockReady;
-            runManager.OnZoneUnlocked    -= HandleUnlocked;
+            runManager.OnRegionUnlockReady -= HandleUnlockReady;
+            runManager.OnRegionUnlocked    -= HandleUnlocked;
         }
 
         if (button != null)
@@ -60,7 +60,7 @@ public class UnlockNextZoneButtonUI : MonoBehaviour
     private void HandleClicked()
     {
         if (runManager != null)
-            runManager.UnlockNextZone();
+            runManager.UnlockNextRegion();
     }
 
     private void SetVisible(bool visible)

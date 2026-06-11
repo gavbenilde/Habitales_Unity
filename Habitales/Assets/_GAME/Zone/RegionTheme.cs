@@ -1,4 +1,4 @@
-public enum ZoneTheme
+public enum RegionTheme
 {
     LoggedTrees,
     NutrientDepletion,

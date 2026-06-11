@@ -2,17 +2,12 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Serialization;
 using UnityEngine.VFX;
 
 public class VFXManager : MonoBehaviour
 {
     public static VFXManager Instance { get; private set; }
 
-    [Header("Manager References")]
-    [SerializeField] private TileManager tileManager;
-    [FormerlySerializedAs("gameManager")] [SerializeField] private RunManager runManager;
-    
     [SerializeField] private List<VFXTypes> vfxList;
 
     [SerializeField] private float yOffset = 2f;
@@ -59,7 +54,7 @@ public class VFXManager : MonoBehaviour
         if (vfxData == null) return null;
 
         position.y += yOffset;
-        VisualEffect vfx = Instantiate(vfxData.prefab, position, new Quaternion());
+        VisualEffect vfx = Instantiate(vfxData.prefab, position, Quaternion.identity);
 
         vfx.Play();
 

@@ -13,15 +13,16 @@ public class StumpDeadTreeRemovalAction : PlayerAction
 
     public override bool CanExecute(List<Tile> tiles)
     {
-        return AnyTileHasEntity<StumpEntity>(tiles)
-               || AnyTileHasEntity<DeadTreeEntity>(tiles);
+        return AnyTileHasEntityId(tiles, "stump")
+               || AnyTileHasEntityId(tiles, "deadtree");
     }
 
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
     {
         // Both stumps and dead trees are cleared the same way.
         // Stump passive (+0.05 organicMatter/day) simply stops ticking once the entity is removed.
-        if (tile.entity is StumpEntity || tile.entity is DeadTreeEntity)
+        if (tile.entity != null &&
+            (tile.entity.entityId == "stump" || tile.entity.entityId == "deadtree"))
             tileManager.RemoveEntity(tile);
     }
 }

@@ -1,39 +1,88 @@
 using UnityEngine;
+using Habitales.Dialogue;   // DialogueManager (namespaced)
+using Habitales.Entities;   // EntityRegistry
 
-// GameBootstrap — single MonoBehaviour that validates/initializes every core
-// singleton in a known sequence, ending initialization-order races (arch §4).
+// GameBootstrap — single MonoBehaviour that confirms the core world is wired BEFORE any
+// gameplay Start runs (arch §4). [DefaultExecutionOrder(-1000)] puts THIS component's
+// Awake/Start ahead of every normal-order component.
 //
-// PHASE 0c (now): skeleton + the documented init order. It does NOT yet validate
-// live singletons, because the managers are renamed/renovated in later phases and
-// EntityRegistry / the re-housed ProgressionPersistence do not exist yet.
+// WHY VALIDATION RUNS IN Start, NOT Awake:
+//   The core singletons assign their own `Instance` inside THEIR Awake. Because this
+//   component's Awake runs FIRST (-1000), every sibling `Instance` is still null during our
+//   Awake — validating there would false-fail on everything. Unity runs ALL Awakes before
+//   ANY Start, so by our Start (still the first Start to run, thanks to -1000) every Instance
+//   is populated and we are the first to confirm the world. Hence: presence-validate in Start.
 //
-// PHASE 3 (later): wire the real validation. Each step loud-fails (Law 3) with a
-// `Debug.LogError(msg, this)` if its `Instance` is null, then sets enabled = false
-// so no later frame proceeds on a broken boot.
+// PHASE 0c (now): presence validation + loud-fail (Law 3). Catches the #1 boot bug — a manager
+//   missing from the scene or an unwired reference — and surfaces it as red console text that
+//   highlights this object, instead of a silent NullReference three systems away.
+//
+// PHASE 3 (later): turn this from a presence-validator into the ordered INITIALIZER (drive each
+//   manager's init in the documented sequence) once TileManager/ActionManager are promoted to
+//   singletons and the managers expose explicit init entry points.
 namespace Habitales.Core
 {
     [DefaultExecutionOrder(-1000)]
     public class GameBootstrap : MonoBehaviour
     {
-        void Awake()
+        [Header("Project assets (wire when available — Law 3)")]
+        [Tooltip("The sole entityId → TileEntitySO registry. Leave empty until the SO-entity " +
+                 "system is wired into the scene (Phase 4); an empty field warns, it does not fail.")]
+        [SerializeField] private EntityRegistry entityRegistry;
+
+        /// <summary>True once boot validation passed with zero failures. Future systems may gate on this.</summary>
+        public static bool BootSucceeded { get; private set; }
+
+        void Start()
         {
             if (GameLog.Core)
-                Debug.Log("[GameBootstrap] Boot starting — live validation is wired in Phase 3.", this);
+                Debug.Log("[GameBootstrap] Validating core systems…", this);
 
-            // ── Phase 3 init/validation order (each loud-fails on a null Instance) ──
-            //   1. ResourceManager
-            //   2. WeatherManager
-            //   3. TileManager
-            //   4. RegionManager   (renamed from ZoneManager in Phase 2.5)
-            //   5. ActionManager
-            //   6. EventManager
-            //   7. DialogueManager
-            //   8. RunManager
-            //
-            // After step 8:
-            //   • EntityRegistry.ValidateAll()        — loud-fail on duplicate / blank entityId
-            //   • ProgressionPersistence.Load(...)    — the SINGLE load point
-            //       (removes today's dual-load in ActionManager.Awake + RunManager.Start)
+            int failures = 0;
+
+            // ── Core singletons — uniform .Instance checks (Law 1 / S4: one reference model). ──
+            failures += Require(ResourceManager.Instance != null, "ResourceManager");
+            failures += Require(WeatherManager.Instance  != null, "WeatherManager");
+            failures += Require(RegionManager.Instance   != null, "RegionManager");
+            failures += Require(TileManager.Instance     != null, "TileManager");
+            failures += Require(ActionManager.Instance   != null, "ActionManager");
+            failures += Require(EventManager.Instance    != null, "EventManager");
+            failures += Require(DialogueManager.Instance != null, "DialogueManager");
+            failures += Require(RunManager.Instance      != null, "RunManager");
+
+            // ── Project-asset references. Only validated when assigned: the SO-entity system is
+            //    not wired into the live scene until Phase 4, so an empty field warns (expected),
+            //    it does not fail the boot. ──────────────────────────────────────────────────────
+            if (entityRegistry != null)
+            {
+                if (!entityRegistry.ValidateAll())
+                {
+                    Debug.LogError("[GameBootstrap] EntityRegistry failed validation — see the errors above.", entityRegistry);
+                    failures++;
+                }
+            }
+            else if (GameLog.Core)
+            {
+                Debug.LogWarning("[GameBootstrap] No EntityRegistry wired — skipping entity validation (expected until Phase 4).", this);
+            }
+
+            BootSucceeded = failures == 0;
+
+            if (!BootSucceeded)
+                Debug.LogError($"[GameBootstrap] BOOT FAILED — {failures} core system(s) missing or invalid. " +
+                               "Fix the errors above before playing; gameplay will behave unpredictably otherwise.", this);
+            else if (GameLog.Core)
+                Debug.Log("[GameBootstrap] Boot OK — all core systems present.", this);
+        }
+
+        // Loud-fail one requirement (Law 3). The `this` context makes the console error highlight
+        // this GameObject on click. Returns 1 on failure so the caller can tally.
+        private int Require(bool present, string systemName)
+        {
+            if (present) return 0;
+            Debug.LogError($"[GameBootstrap] Missing core system: {systemName}. " +
+                           "No live instance found in the scene — add/wire it before play.", this);
+            return 1;
         }
     }
 }

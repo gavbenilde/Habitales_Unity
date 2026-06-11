@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Habitales.Core;
 
 public class ApplyFertilizerAction : PlayerAction
 {
@@ -14,6 +15,16 @@ public class ApplyFertilizerAction : PlayerAction
 
     private const float SOIL_BOOST = 20f;
 
+    // The fixed trade-offs the fertilizer always applies alongside the nutrient boost: it feeds the
+    // soil but acidifies/compacts it slightly. Routed through TileManager.ApplyStatChanges (Law 1).
+    private static readonly StatChange[] FertilizerTradeoffs =
+    {
+        new StatChange { stat = TargetStat.SoilOrganicMatter,  delta =  3.0f },
+        new StatChange { stat = TargetStat.SoilStructure,      delta = -3.0f },
+        new StatChange { stat = TargetStat.BiologicalActivity, delta = -3.0f },
+        new StatChange { stat = TargetStat.WaterDynamics,      delta = -3.0f },
+    };
+
     public override bool CanExecute(List<Tile> tiles)
     {
         foreach (Tile tile in tiles)
@@ -24,13 +35,16 @@ public class ApplyFertilizerAction : PlayerAction
 
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
     {
-        tile.stats.nutrientBalance = Mathf.Clamp(tile.stats.nutrientBalance + SOIL_BOOST, 0f, 100f);
-        if (tile.stats.nutrientBalance > 100f)
-            tile.stats.nutrientBalance = Mathf.Clamp(tile.stats.nutrientBalance - (2 * (tile.stats.nutrientBalance - 100f)), 0f, 100f);
+        // Over-fertilization penalty: the +20 nutrient boost is applied UNCLAMPED first, and any
+        // amount past the 100 ceiling back-fires — every point over is subtracted twice
+        // (raw → raw - 2·(raw-100) == 200 - raw). So dumping fertilizer on already-rich soil
+        // (nutrients > 80) wastes the boost and can actively degrade the tile. Reading the current
+        // value here is a Law-1 read; the write still goes through TileManager.
+        float raw            = tile.stats.nutrientBalance + SOIL_BOOST;
+        float penalized      = raw > 100f ? 200f - raw : raw;
+        float nutrientDelta  = penalized - tile.stats.nutrientBalance;
 
-        tile.stats.soilOrganicMatter  = Mathf.Clamp(tile.stats.soilOrganicMatter  + 3.0f, 0f, 100f);
-        tile.stats.soilStructure      = Mathf.Clamp(tile.stats.soilStructure      - 3.0f, 0f, 100f);
-        tile.stats.biologicalActivity = Mathf.Clamp(tile.stats.biologicalActivity - 3.0f, 0f, 100f);
-        tile.stats.waterDynamics      = Mathf.Clamp(tile.stats.waterDynamics      - 3.0f, 0f, 100f);
+        tileManager.ApplyStatChange(tile, new StatChange { stat = TargetStat.NutrientBalance, delta = nutrientDelta });
+        tileManager.ApplyStatChanges(tile, FertilizerTradeoffs);
     }
 }

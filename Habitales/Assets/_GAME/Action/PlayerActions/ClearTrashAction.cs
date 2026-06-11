@@ -14,13 +14,14 @@ public class ClearTrashAction : PlayerAction
 
     public override bool CanExecute(List<Tile> tiles)
     {
-        return AnyTileHasEntity<TrashBioEntity>(tiles)
-               || AnyTileHasEntity<TrashNonBioEntity>(tiles);
+        return AnyTileHasEntityId(tiles, "trash_bio")
+               || AnyTileHasEntityId(tiles, "trash_nonbio");
     }
 
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
     {
-        if (tile.entity is TrashBioEntity || tile.entity is TrashNonBioEntity)
+        if (tile.entity != null &&
+            (tile.entity.entityId == "trash_bio" || tile.entity.entityId == "trash_nonbio"))
             tileManager.RemoveEntity(tile);
     }
 }

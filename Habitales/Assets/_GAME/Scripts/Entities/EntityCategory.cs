@@ -7,7 +7,6 @@ namespace Habitales.Entities
         Plant,
         Building,
         Hazard,
-        Debris,
-        CoverCrop
+        Debris
     }
 }

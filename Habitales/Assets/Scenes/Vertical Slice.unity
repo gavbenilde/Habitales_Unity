@@ -534,7 +534,7 @@ MonoBehaviour:
   m_Content: {fileID: 1870432760}
   m_Horizontal: 1
   m_Vertical: 0
-  m_MovementType: 1
+  m_MovementType: 2
   m_Elasticity: 0.1
   m_Inertia: 1
   m_DecelerationRate: 0.135
@@ -706,7 +706,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 639688560}
   m_HandleRect: {fileID: 639688559}
   m_Direction: 0
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -2101,7 +2101,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1900712381}
   m_HandleRect: {fileID: 1900712380}
   m_Direction: 2
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -5326,7 +5326,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1982046936}
   m_HandleRect: {fileID: 1982046935}
   m_Direction: 2
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -5503,6 +5503,7 @@ GameObject:
   - component: {fileID: 545579445}
   - component: {fileID: 545579444}
   - component: {fileID: 545579447}
+  - component: {fileID: 545579448}
   m_Layer: 0
   m_Name: RunManager
   m_TagString: Untagged
@@ -5547,16 +5548,16 @@ MonoBehaviour:
   actionUI: {fileID: 879642652}
   actionBarUI: {fileID: 1601831423}
   actionManager: {fileID: 651731309}
-  zoneManager: {fileID: 510870574}
+  regionManager: {fileID: 510870574}
   dialogueManager: {fileID: 394578822}
   resourceManager: {fileID: 1232716294}
   regionOutlineRenderer: {fileID: 545579447}
   endGameScreenUI: {fileID: 743947486}
   aziSpeechBubbleUI: {fileID: 1370356004989784072, guid: d64db0c0e3eb69544b8b9f0438dd86e3, type: 3}
-  playerProgressionAsset: {fileID: 11400000, guid: 97d825c3318f6b34eba18b06712b8bbe, type: 2}
+  runEndCoordinator: {fileID: 545579448}
   diffusionRate: 0.167
   cascadeIterations: 1
-  zoneUnlockThreshold: 65
+  regionUnlockThreshold: 65
   collapseThreshold: 90
   criticalHealthThreshold: 33
   thrivingHealthThreshold: 67
@@ -5567,9 +5568,6 @@ MonoBehaviour:
   showDebugInfo: 1
   isPrototypeRun: 1
   prototypeRunDays: 45
-  xpPerCriticalTile: 0.1
-  xpPerDegradedTile: 0.6
-  xpPerThrivingTile: 2.4
 --- !u!4 &545579446
 Transform:
   m_ObjectHideFlags: 0
@@ -5598,11 +5596,27 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   tileManager: {fileID: 769452840}
-  zoneManager: {fileID: 510870574}
+  regionManager: {fileID: 510870574}
   regionHealthUI: {fileID: 989360326}
   outlineMaterialTemplate: {fileID: 2100000, guid: 0b26c830e032bf94fbe0d783b814b272, type: 2}
   outlineWidth: 0.09
   yOffset: 0.1
+--- !u!114 &545579448
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 545579443}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ef8e9bf75802314a8ff14a3381b1847, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  progression: {fileID: 11400000, guid: 97d825c3318f6b34eba18b06712b8bbe, type: 2}
+  xpPerCriticalTile: 0.1
+  xpPerDegradedTile: 0.6
+  xpPerThrivingTile: 2.4
 --- !u!1 &545591981
 GameObject:
   m_ObjectHideFlags: 0
@@ -6722,13 +6736,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 309b9b5673b2dd54a8f91652985c25c4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  starterProfiles:
-  - {fileID: 11400000, guid: b6dfb873c5db0ad4081e3f0fe17c6ac6, type: 2}
-  - {fileID: 11400000, guid: e40f84ef67aef5349bcfdc5889d45c03, type: 2}
-  - {fileID: 11400000, guid: c9c3efeba29b03f4d9f298ca1745b114, type: 2}
-  - {fileID: 11400000, guid: 84f1a816e0cf469419ae9f2658876a1f, type: 2}
-  playerProgression: {fileID: 11400000, guid: 97d825c3318f6b34eba18b06712b8bbe, type: 2}
-  plantCubeMaterial: {fileID: 2100000, guid: 01b3a9d5635500547b2e53ac6feef446, type: 2}
   showDebugInfo: 1
 --- !u!4 &651731310
 Transform:
@@ -8130,6 +8137,7 @@ MonoBehaviour:
   tilePrefab: {fileID: 6709977283922037464, guid: f57348c7d1dd0eb44bc7c8500bf17175, type: 3}
   tileParent: {fileID: 1488361861}
   entityVisualizerPrefab: {fileID: 273496731299126067, guid: d90f3f5eec7b5154297d14a8f2689470, type: 3}
+  entityRegistry: {fileID: 11400000, guid: 2e30b846553348e49ad95ac22c0cf23f, type: 2}
 --- !u!1 &789240426
 GameObject:
   m_ObjectHideFlags: 0
@@ -11492,6 +11500,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: BooglePanel
       objectReference: {fileID: 0}
+    - target: {fileID: 8456889503058194043, guid: cb8241aa3189c804a956ddf9924ed9c0, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -12830,7 +12842,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: -0.000011206611}
+  m_AnchoredPosition: {x: 0, y: 0.03516982}
   m_SizeDelta: {x: 0, y: 187.29}
   m_Pivot: {x: 0, y: 1}
 --- !u!1 &1200762038
@@ -17684,7 +17696,6 @@ MonoBehaviour:
   actionStripContent: {fileID: 1870432760}
   actionCardPrefab: {fileID: 1560006941438916198, guid: 0fae5d580b3701945b8aab74e41832f1, type: 3}
   defaultCardColor: {r: 0.75, g: 0.75, b: 0.75, a: 1}
-  plantCardWhitening: 0.4
   brushControls: {fileID: 914695722}
   brushSizeSlider: {fileID: 1096318739}
   confirmButton: {fileID: 1354296045}
@@ -20270,8 +20281,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1660700316}
   m_HandleRect: {fileID: 1660700315}
   m_Direction: 2
-  m_Value: 1
-  m_Size: 1
+  m_Value: 0
+  m_Size: 0.9998095
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:

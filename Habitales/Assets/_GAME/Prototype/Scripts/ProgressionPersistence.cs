@@ -61,22 +61,11 @@ public static class ProgressionPersistence
             so.lastSeenTotalXp     = data.lastSeenTotalXp;
             so.lastSeenUnlockCount = data.lastSeenUnlockCount;
 
-            // Strip any unlockPool entries the player has already unlocked in a prior
-            // session — the asset's list reverts to full on load, but unlockedPlantIds
-            // is authoritative for what's been granted. Without this filter, popped
-            // entries would re-appear and be granted twice across sessions.
-            if (so.unlockPool != null && so.unlockedPlantIds != null)
-            {
-                so.unlockPool.RemoveAll(p => p != null && so.unlockedPlantIds.Contains(p.profileID));
-            }
+            // NOTE: cube-era procedural-plant re-hydration (GeneratedPlantRegistry) and the
+            // unlockPool filter were removed with the cube system. The seed/name lists are
+            // still loaded for forward compat but drive nothing in Alpha.
 
-            // Re-hydrate the procedural-plant cache from saved (seed, name) pairs.
-            GeneratedPlantRegistry.Clear();
-            int pairs = Mathf.Min(so.unlockedPlantSeeds.Count, so.unlockedPlantNames.Count);
-            for (int i = 0; i < pairs; i++)
-                GeneratedPlantRegistry.RegisterFromSeed(so.unlockedPlantSeeds[i], so.unlockedPlantNames[i]);
-
-            Debug.Log($"[Progression] Loaded — Level {so.level}, {so.totalXp} XP, {so.unlockedPlantIds.Count} unlocks ({pairs} generated re-hydrated)");
+            Debug.Log($"[Progression] Loaded — Level {so.level}, {so.totalXp} XP, {so.unlockedPlantIds.Count} unlocks");
         }
         catch (Exception e)
         {
@@ -100,7 +89,6 @@ public static class ProgressionPersistence
             so.lastSeenTotalXp     = 0;
             so.lastSeenUnlockCount = 0;
         }
-        GeneratedPlantRegistry.Clear();
         Debug.Log("[Progression] Reset.");
     }
 }

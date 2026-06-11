@@ -29,8 +29,8 @@ public class ObjectiveBannerUI : MonoBehaviour
         runManager = RunManager.Instance;
         if (runManager != null)
         {
-            runManager.OnZoneUnlockReady += HandleUnlockReady;
-            runManager.OnZoneUnlocked    += HandleUnlocked;
+            runManager.OnRegionUnlockReady += HandleUnlockReady;
+            runManager.OnRegionUnlocked    += HandleUnlocked;
         }
     }
 
@@ -38,8 +38,8 @@ public class ObjectiveBannerUI : MonoBehaviour
     {
         if (runManager != null)
         {
-            runManager.OnZoneUnlockReady -= HandleUnlockReady;
-            runManager.OnZoneUnlocked    -= HandleUnlocked;
+            runManager.OnRegionUnlockReady -= HandleUnlockReady;
+            runManager.OnRegionUnlocked    -= HandleUnlocked;
         }
     }
 

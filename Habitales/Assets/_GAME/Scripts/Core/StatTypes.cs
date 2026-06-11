@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Habitales.Entities;
 
 // Shared stat-addressing + effect/condition data types (arch §3.5).
@@ -31,17 +32,20 @@ namespace Habitales.Core
     public struct StatChange
     {
         public TargetStat stat;
-        public float      delta;   // applied via TileManager.ModifyTileStats semantics
+        public float      delta;   // applied DIRECTLY to the one named stat, clamped 0–100
+                                   // (NOT routed through ModifyTileStats' ÷6 soilDelta distribution) — arch §3.5
     }
 
     // Death conditions, promotion gates.
     [Serializable]
     public struct StatCondition
     {
-        public TargetStat   stat;
-        public Comparator   comparator;
-        public float        threshold;
-        public OutcomeKind  outcome;          // None for a pure promotion gate
-        public TileEntitySO transformTarget;  // used only when outcome == TransformTo
+        public TargetStat       stat;
+        public Comparator       comparator;
+        public float            threshold;
+        public OutcomeKind      outcome;          // None for a pure promotion gate
+        public TileEntitySO     transformTarget;  // used only when outcome == TransformTo
+        public List<StatChange> onSatisfied;      // optional effects applied when the condition fires
+                                                  // (e.g. Sapling returns +10 SOM on death). Applied before the outcome.
     }
 }

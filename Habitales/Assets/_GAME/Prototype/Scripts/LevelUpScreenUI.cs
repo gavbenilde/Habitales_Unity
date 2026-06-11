@@ -192,9 +192,9 @@ public class LevelUpScreenUI : MonoBehaviour
         GameObject box = Instantiate(unlockBoxPrefab, unlockScrollContent);
         box.name = $"Unlock_{plantName}";
 
+        // Cube-era per-plant color (GeneratedPlantRegistry + HWBColor) is gone; unlock boxes
+        // render with a neutral fill. In Alpha, XP unlocks nothing functional anyway.
         Color color = Color.gray;
-        if (GeneratedPlantRegistry.TryGet(profileId, out var profile))
-            color = HWBColor.HWBToRGB(profile.hue, profile.blackness + unlockWhitening, profile.blackness);
 
         Image bg = box.GetComponent<Image>();
         if (bg != null) bg.color = color;

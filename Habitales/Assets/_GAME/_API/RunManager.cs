@@ -8,6 +8,7 @@ using Habitales.Dialogue;
 /// Central game loop coordinator.  
 /// Handles: Action execution → Tile cascading → Zone health checks → Zone generation triggers
 /// </summary>
+[DefaultExecutionOrder(-100)] // orchestrator — initializes after core services (arch §4 init order)
 public class RunManager : MonoBehaviour {
     [Header("System References")]
     [SerializeField] private TileManager tileManager;
@@ -15,14 +16,15 @@ public class RunManager : MonoBehaviour {
     [SerializeField] private ActionUI actionUI; // DORMANT — replaced by actionBarUI; leave field but unwire in inspector.
     [SerializeField] private ActionBarUI actionBarUI;
     [SerializeField] private ActionManager actionManager;
-    [SerializeField] private ZoneManager zoneManager;
+    [UnityEngine.Serialization.FormerlySerializedAs("zoneManager")]
+    [SerializeField] private RegionManager regionManager;
     [SerializeField] private DialogueManager dialogueManager;
     [SerializeField] private ResourceManager resourceManager;
     [SerializeField] private RegionOutlineRenderer regionOutlineRenderer;
     
     [SerializeField] private EndGameScreenUI     endGameScreenUI;
     [SerializeField] private AziSpeechBubbleUI   aziSpeechBubbleUI;
-    [SerializeField] private PlayerProgressionSO playerProgressionAsset;
+    [SerializeField] private Habitales.Meta.RunEndCoordinator runEndCoordinator; // owns XP/level-up/persistence
 
     
     [Header("Cascade Settings")]
@@ -31,18 +33,29 @@ public class RunManager : MonoBehaviour {
     private int cascadeIterations = 3;
     
     [Header("Zone Progression")]
-    [SerializeField] [Range(0f, 100f)] private float zoneUnlockThreshold = 80f;
+    [UnityEngine.Serialization.FormerlySerializedAs("zoneUnlockThreshold")]
+    [SerializeField] [Range(0f, 100f)] private float regionUnlockThreshold = 80f;
 
-    /// <summary>World-health % at which the next zone becomes unlockable. Single source of truth for the health-bar marker and the unlock button.</summary>
-    public float ZoneUnlockThreshold => zoneUnlockThreshold;
+    /// <summary>World-health % at which the next region becomes unlockable. Single source of truth for the health-bar marker and the unlock button.</summary>
+    public float ZoneUnlockThreshold => regionUnlockThreshold;
 
-    /// <summary>Fired once when world health first crosses the threshold and a zone is awaiting manual unlock. Subscribers: unlock button, objective banner.</summary>
-    public event System.Action OnZoneUnlockReady;
-    /// <summary>Fired after the player presses the button and the next zone is generated.</summary>
-    public event System.Action OnZoneUnlocked;
+    /// <summary>Fired once when world health first crosses the threshold and a region is awaiting manual unlock. Subscribers: unlock button, objective banner.</summary>
+    public event System.Action OnRegionUnlockReady;
+    /// <summary>Fired after the player presses the button and the next region is generated.</summary>
+    public event System.Action OnRegionUnlocked;
+
+    // ── Heartbeat seams (arch §6 HOOK) ──────────────────────────────────────────
+    /// <summary>The universal per-day push — fires after each day fully resolves (data settled, visuals refreshed). arg: the day that just resolved.</summary>
+    public event System.Action<int> OnDayResolved;
+    /// <summary>Fires when a tile CROSSES a health tier (Critical/Degraded/Thriving). Meaning-event (Law 2) — on crossing only, not every day. args: tile, old tier, new tier.</summary>
+    public event System.Action<Tile, Tier, Tier> OnTileTierChanged;
 
     // True once the threshold is crossed and we are waiting on the player's button press.
-    private bool zoneUnlockPending = false;
+    private bool regionUnlockPending = false;
+
+    // The real meaning-event sink threaded into every per-day TickContext (arch §5.2 / §6.1).
+    // Built once; entities raise through ctx.Events instead of grabbing EventManager (S1).
+    private readonly Habitales.Core.IEntityEventSink entityEventSink = new Habitales.Core.EventManagerEntitySink();
 
     [Header("Victory/Loss Conditions")]
     [SerializeField] private float collapseThreshold = 90f; // Percentage of critical tiles
@@ -56,7 +69,8 @@ public class RunManager : MonoBehaviour {
     [SerializeField] private bool spawnInitialZone = true;
     [SerializeField] private Vector2Int initialZoneOrigin = Vector2Int.zero;
     [SerializeField] private int initialZoneSize = 6; // 6x6 grid
-    [SerializeField] private ZoneProfile zone1Profile;
+    [UnityEngine.Serialization.FormerlySerializedAs("zone1Profile")]
+    [SerializeField] private RegionProfile zone1Profile;
     
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
@@ -66,13 +80,7 @@ public class RunManager : MonoBehaviour {
 
     // Peak thriving — high-water mark across the run; drives run-end score + snapshot.
     private readonly RunSnapshot snapshot = new();
-    private int runXpBefore = 0;
-    private int runXpEarned = 0;
-
-    [Header("XP Formula (per-tile weights, applied at run-end)")]
-    [SerializeField] private float xpPerCriticalTile  = 0.1f;
-    [SerializeField] private float xpPerDegradedTile  = 0.6f;
-    [SerializeField] private float xpPerThrivingTile  = 2.4f;
+    // XP / level-up / persistence moved to RunEndCoordinator (Habitales.Meta) — decoupled from the run sim.
 
     public int PeakThrivingCount => snapshot.peakThrivingCount;
     public Texture2D PeakScreenshot => snapshot.peakScreenshot;
@@ -94,7 +102,7 @@ public class RunManager : MonoBehaviour {
     void Start() {
         InitializeSystems();
 
-        ProgressionPersistence.Load(playerProgressionAsset);
+        // Progression load now lives in RunEndCoordinator (single load point).
 
         if (spawnInitialZone && tileManager != null)
         {
@@ -114,7 +122,7 @@ public class RunManager : MonoBehaviour {
             if (Input.GetKeyDown(KeyCode.F10))
             {
                 Debug.Log("[DEBUG] F10 pressed — resetting progression.");
-                ProgressionPersistence.Reset(playerProgressionAsset);
+                if (runEndCoordinator != null) runEndCoordinator.ResetProgression();
             }
     #endif
     }
@@ -122,7 +130,7 @@ public class RunManager : MonoBehaviour {
     void InitializeSystems() {
         // Auto-find systems if not assigned
         if (tileManager == null) {
-            tileManager = FindObjectOfType<TileManager>();
+            tileManager = TileManager.Instance;
             if (tileManager == null) Debug.LogError("TileManager not found!");
         }
         
@@ -137,18 +145,18 @@ public class RunManager : MonoBehaviour {
             actionBarUI = FindObjectOfType<ActionBarUI>();
         
         if (actionManager == null) {
-            actionManager = FindObjectOfType<ActionManager>();
+            actionManager = ActionManager.Instance;
             if (actionManager == null) Debug.LogError("ActionManager not found!");
         }
         
-        if (zoneManager == null) {
-            zoneManager = FindObjectOfType<ZoneManager>();
-            if (zoneManager == null) Debug.LogError("ZoneManager not found!");
+        if (regionManager == null) {
+            regionManager = RegionManager.Instance;
+            if (regionManager == null) Debug.LogError("RegionManager not found!");
         }
         
         if (resourceManager == null)
         {
-            resourceManager = FindObjectOfType<ResourceManager>();
+            resourceManager = ResourceManager.Instance;
             if (resourceManager == null) Debug.LogError("ResourceManager not found!");
         }
     
@@ -178,7 +186,7 @@ public class RunManager : MonoBehaviour {
 
         
         if (showDebugInfo) {
-            Debug.Log($"GameManager initialized | Systems: TileManager={tileManager != null}, TileSelector={tileSelector != null}, ActionBarUI={actionBarUI != null}, ActionManager={actionManager != null}, ZoneManager={zoneManager != null}");
+            Debug.Log($"GameManager initialized | Systems: TileManager={tileManager != null}, TileSelector={tileSelector != null}, ActionBarUI={actionBarUI != null}, ActionManager={actionManager != null}, RegionManager={regionManager != null}");
         }
     }
     
@@ -186,7 +194,7 @@ public class RunManager : MonoBehaviour {
     {
         Debug.Log("Generating initial Zone 1...");
 
-        ZoneGenerationResult result = zoneManager.GenerateInitialZone(initialZoneOrigin, zone1Profile);
+        RegionGenerationResult result = regionManager.GenerateInitialRegion(initialZoneOrigin, zone1Profile);
 
         if (result == null)
         {
@@ -218,71 +226,49 @@ public class RunManager : MonoBehaviour {
     }
     
     /// <summary>
-    /// CORE GAME LOOP: Called after any action completes.
-    /// 1. Cascade tile updates in the region
-    /// 2. Check zone health
-    /// 3. Trigger zone generation if threshold met
+    /// Fired after an action's coroutine completes. The per-day heartbeat
+    /// (HandleTimeAdvanced) now owns cascade, threshold/collapse/unlock checks, the
+    /// thriving-peak snapshot, and the visual refresh — all run once per day (arch §2.1).
+    /// This handler is intentionally a no-op now; kept for the OnActionCompleted wiring
+    /// and any future end-of-action bookkeeping.
     /// </summary>
     void HandleActionCompleted(Tile targetTile, int daysElapsed)
     {
-        if (targetTile == null || isGameOver || IsEventPaused) return;
-
-        if (showDebugInfo)
-            Debug.Log($"─── Action Complete — Finalizing World ───");
-
-        // Cascade runs once per action (stat diffusion between neighbours)
-        CascadeTileUpdates();
-
-        // Final visual pass after cascade has adjusted stats
-        foreach (Tile tile in tileManager.GetAllTiles())
-            tileManager.UpdateTileVisual(tile);
-
-        CheckCollapseCondition();
-
-        float totalAverageHealth = zoneManager.GetTotalAverageHealth();
-        if (showDebugInfo)
-            Debug.Log($"Total World Health: {totalAverageHealth:F1} / Unlock Threshold: {zoneUnlockThreshold}");
-
-        TryFlagZoneUnlock(totalAverageHealth);
-
-        EvaluateThrivingPeak();
-
-        if (showDebugInfo)
-            Debug.Log($"═══ UPDATE COMPLETE ═══\n");
+        // Intentionally empty — work moved to the per-day heartbeat (arch §2.1).
     }
 
     /// <summary>
-    /// Flags the next zone as unlockable when world health crosses the threshold.
-    /// Does NOT generate the zone — that waits on the player pressing the unlock
-    /// button (see UnlockNextZone). Guarded so the event fires at most once per
+    /// Flags the next region as unlockable when world health crosses the threshold.
+    /// Does NOT generate the region — that waits on the player pressing the unlock
+    /// button (see UnlockNextRegion). Guarded so the event fires at most once per
     /// pending unlock. Called from both the per-action path and the debug F1 path.
     /// </summary>
-    void TryFlagZoneUnlock(float totalAverageHealth)
+    void TryFlagRegionUnlock(float totalAverageHealth)
     {
-        if (zoneUnlockPending) return;
-        if (totalAverageHealth < zoneUnlockThreshold) return;
-        if (unlockedRegions.Contains(zoneManager.NextRegionID - 1)) return;
+        if (regionUnlockPending) return;
+        if (totalAverageHealth < regionUnlockThreshold) return;
+        if (unlockedRegions.Contains(regionManager.NextRegionID - 1)) return;
 
-        zoneUnlockPending = true;
-        Debug.Log($"ZONE UNLOCK READY! World avg health {totalAverageHealth:F1} passed threshold {zoneUnlockThreshold}. Awaiting player.");
-        OnZoneUnlockReady?.Invoke();
+        regionUnlockPending = true;
+        Debug.Log($"ZONE UNLOCK READY! World avg health {totalAverageHealth:F1} passed threshold {regionUnlockThreshold}. Awaiting player.");
+        OnRegionUnlockReady?.Invoke();
     }
 
     /// <summary>
-    /// Player-triggered zone generation (wired to the "Unlock Next Zone" button).
-    /// No-op unless a zone is currently pending. Generates exactly one zone,
-    /// clears the pending flag, and fires OnZoneUnlocked.
+    /// Player-triggered region generation (wired to the "Unlock Next Zone" button).
+    /// No-op unless a region is currently pending. Generates exactly one region,
+    /// clears the pending flag, and fires OnRegionUnlocked.
     /// </summary>
-    public void UnlockNextZone()
+    public void UnlockNextRegion()
     {
-        if (!zoneUnlockPending || isGameOver) return;
+        if (!regionUnlockPending || isGameOver) return;
 
-        int newRegionFrom = zoneManager.NextRegionID - 1;
+        int newRegionFrom = regionManager.NextRegionID - 1;
         unlockedRegions.Add(newRegionFrom);
-        zoneManager.GenerateNewZone(newRegionFrom);
+        regionManager.GenerateNewRegion(newRegionFrom);
 
-        zoneUnlockPending = false;
-        OnZoneUnlocked?.Invoke();
+        regionUnlockPending = false;
+        OnRegionUnlocked?.Invoke();
     }
 
     /// <summary>
@@ -296,6 +282,39 @@ public class RunManager : MonoBehaviour {
         int day   = resourceManager != null ? resourceManager.TotalDays : 0;
         if (snapshot.TryRecordPeak(count, day))
             StartCoroutine(snapshot.CaptureRoutine());
+    }
+
+    /// <summary>
+    /// Fires OnTileTierChanged when a tile CROSSES a health tier (arch §2.1b step 4).
+    /// Meaning-event (Law 2): fires on change only. First evaluation seeds lastTier silently.
+    /// </summary>
+    void EvaluateThresholds()
+    {
+        foreach (Tile tile in tileManager.GetAllTiles())
+        {
+            Tier current = TierOf(tile);
+            if (!tile.tierSeeded)
+            {
+                tile.lastTier   = current;
+                tile.tierSeeded = true;
+                continue;
+            }
+            if (current != tile.lastTier)
+            {
+                Tier previous = tile.lastTier;
+                tile.lastTier = current;
+                OnTileTierChanged?.Invoke(tile, previous, current);
+            }
+        }
+    }
+
+    /// <summary>Tile health → tier, using the same serialized cutoffs as the thriving-count / collapse logic.</summary>
+    Tier TierOf(Tile tile)
+    {
+        float h = tile.CalculateHealth();
+        if (h <= criticalHealthThreshold) return Tier.Critical;
+        if (h >= thrivingHealthThreshold) return Tier.Thriving;
+        return Tier.Degraded;
     }
 
 
@@ -356,51 +375,9 @@ public class RunManager : MonoBehaviour {
         return thrivingCount;
     }
 
-    // Grants exactly one plant unlock per level-up. Always generates a procedural
-    // plant via PlantingProfileGenerator and persists it as a seed/name pair.
-    // ActionManager re-hydrates these into PlantingActions via GeneratedPlantRegistry.All.
-    //
-    // NOTE: PlayerProgressionSO.unlockPool is DORMANT (see PlayerProgressionSO.cs §field
-    // comment + CLAUDE.md §7) — its 4 entries are the same starter SOs already wired
-    // into ActionManager.starterProfiles, so popping it would only re-add starter IDs to
-    // unlockedPlantIds (cosmetic level-up card, no new action-bar entry). Skip it.
-    private void GrantOnePlantUnlock(PlayerProgressionSO progression)
-    {
-        if (progression == null) return;
-
-        // Mix UTC ticks with a Random int so consecutive level-ups in the same frame
-        // still diverge.
-        int seed = unchecked((int)(System.DateTime.UtcNow.Ticks ^ UnityEngine.Random.Range(int.MinValue, int.MaxValue)));
-
-        string name = GeneratedPlantRegistry.PickUnusedName(progression.unlockedPlantNames) ?? $"Plant {seed}";
-        var profile = GeneratedPlantRegistry.RegisterFromSeed(seed, name);
-
-        progression.unlockedPlantSeeds.Add(seed);
-        progression.unlockedPlantNames.Add(name);
-        progression.unlockedPlantIds.Add(profile.profileID);
-    }
-
-    /// <summary>
-    /// XP from a finished run = sum of per-tile-state weights. Critical tiles still grant a
-    /// little (you tried), degraded tiles are the meat (the typical end-state), thriving tiles
-    /// are the big reward.
-    /// </summary>
-    private int CalculateRunXp()
-    {
-        ComputeTileCounts(out int thriving, out int degraded, out int critical);
-        float raw = critical * xpPerCriticalTile + degraded * xpPerDegradedTile + thriving * xpPerThrivingTile;
-        int xp = Mathf.RoundToInt(raw);
-        Debug.Log($"[XP] thriving={thriving}×{xpPerThrivingTile} + degraded={degraded}×{xpPerDegradedTile} + critical={critical}×{xpPerCriticalTile} → {xp} XP");
-        return xp;
-    }
-
-    private string GenerateAziLine(int peak)
-    {
-        if (peak == 0)  return "Tough run. We didn't quite get there. Next time?";
-        if (peak < 5)   return "We made a small dent. Felt like the start of something.";
-        if (peak < 12)  return "Solid run, Cap. The land remembers what we did.";
-        return "Look at what we built. I'm proud of us.";
-    }
+    // XP calc, level-up application, persistence, Azi-line, and the (now-removed) cube
+    // plant-unlock all moved to RunEndCoordinator (Habitales.Meta). XP unlocks nothing
+    // functional in Alpha — level-up is a cosmetic/feel reward.
 
 
 
@@ -413,21 +390,15 @@ public class RunManager : MonoBehaviour {
         isGameOver = true;
         Debug.Log($"GAME OVER: {reason} | Peak Thriving: {snapshot.peakThrivingCount}");
 
-        runXpEarned = CalculateRunXp();
+        // Meta layer (XP / level-up / persistence / Azi line) is owned by RunEndCoordinator.
+        ComputeTileCounts(out int thriving, out int degraded, out int critical);
+        Habitales.Meta.RunEndCoordinator.RunEndSummary summary = default;
+        if (runEndCoordinator != null)
+            summary = runEndCoordinator.ProcessRunEnd(thriving, degraded, critical, snapshot.peakThrivingCount);
+        else
+            Debug.LogError("[RunManager] runEndCoordinator is NOT wired — XP/level-up/persistence will not run and the Azi line will be blank. Wire it in the Inspector.");
 
-        if (playerProgressionAsset != null)
-        {
-            runXpBefore = playerProgressionAsset.totalXp;
-            int levelUps = playerProgressionAsset.AddXp(runXpEarned);
-            // One procedural plant unlock per level-up; persists via seed/name pair.
-            for (int i = 0; i < levelUps; i++)
-                GrantOnePlantUnlock(playerProgressionAsset);
-            // The level-up overlay reads lastSeen* vs current on the next fresh
-            // main-menu visit, so this Save is the only handoff needed.
-            ProgressionPersistence.Save(playerProgressionAsset);
-        }
-
-        EndGameData data = BuildEndGameData(reason);
+        EndGameData data = BuildEndGameData(reason, summary);
 
         // Loud guards — silent null-conditional Shows were swallowing the whole run-end flow.
         if (endGameScreenUI == null)
@@ -451,27 +422,56 @@ public class RunManager : MonoBehaviour {
 
     
     
+    // The ordered day-advance sequence (arch §2.1), run ONCE PER DAY. ResourceManager has
+    // already advanced the clock + rolled weather before firing this. Cascade now lives here
+    // (was per-action) so a multi-day action diffuses each day — see FinishAction, which
+    // applies that day's effects BEFORE advancing so the cascade sees them.
+    // NOTE: EventManager.DrainQueue (arch step 5) runs via EventManager's own OnTimeAdvanced
+    // subscription, a separate subscriber — strict step-5 ordering awaits the control-inversion.
     void HandleTimeAdvanced(int days)
     {
         if (isGameOver) return;
         if (showDebugInfo)
             Debug.Log($"⏰ Time advanced by {days} days | Now: {resourceManager.GetFullTimeDisplay()}");
 
-        // Entity ticks happen every day — fire spread, kaingin, tree growth, etc.
         for (int d = 0; d < days; d++)
-            tileManager.UpdateAllEntities();
-
-        if (isPrototypeRun && resourceManager.TotalDays >= prototypeRunDays)
         {
-            TriggerGameOver("Field Season Complete", GetThrivingTileCount());
-            return;
+            if (isGameOver) break;
+
+            // 2. Entities tick (fire spread, kaingin, tree growth, …). Assemble the per-day
+            // TickContext ONCE here (reading weather via Law 1) and thread it down — entities
+            // READ the resolved day instead of grabbing singletons mid-tick (arch §5.2 / S1).
+            // The real EventManager-backed sink decouples entities from the EventManager singleton.
+            var tickCtx = new Habitales.Entities.TickContext(
+                tileManager,
+                WeatherManager.Instance != null ? WeatherManager.Instance.GetFireBonusDamage()     : 0f,
+                WeatherManager.Instance != null ? WeatherManager.Instance.GetFireSpreadMultiplier() : 1f,
+                entityEventSink);
+            tileManager.UpdateAllEntities(in tickCtx);
+
+            // 3. Cascade — neighbour diffusion, ONCE per day.
+            CascadeTileUpdates();
+
+            // 4. Threshold crossings (meaning-events) + world-state checks.
+            EvaluateThresholds();
+            CheckCollapseCondition();
+            TryFlagRegionUnlock(regionManager.GetTotalAverageHealth());
+            EvaluateThrivingPeak();
+            healthHistory.Add(regionManager.GetTotalAverageHealth());
+
+            // Prototype field-season cutoff.
+            if (isPrototypeRun && resourceManager.TotalDays >= prototypeRunDays)
+            {
+                TriggerGameOver("Field Season Complete", GetThrivingTileCount());
+                return;
+            }
+
+            // 6. Visuals refresh LAST, after all data has settled.
+            tileManager.RefreshAllVisuals();
+
+            // 7. The universal push everyone subscribes to.
+            OnDayResolved?.Invoke(resourceManager.TotalDays);
         }
-
-        healthHistory.Add(zoneManager.GetTotalAverageHealth());
-
-        // update visuals
-        foreach (Tile tile in tileManager.GetAllTiles())
-            tileManager.UpdateTileVisual(tile);
     }
     
     public void PauseForEvent()
@@ -510,14 +510,14 @@ public class RunManager : MonoBehaviour {
         TriggerGameOver("Field Season Complete", GetThrivingTileCount());
     }
 
-    private EndGameData BuildEndGameData(string reason)
+    private EndGameData BuildEndGameData(string reason, Habitales.Meta.RunEndCoordinator.RunEndSummary summary)
     {
         var data = new EndGameData
         {
             endReason      = reason,
             currentYear    = resourceManager.CurrentYear,
             totalDays      = resourceManager.TotalDays,
-            worldHealth    = zoneManager.GetTotalAverageHealth(),
+            worldHealth    = regionManager.GetTotalAverageHealth(),
             healthHistory  = new List<float>(healthHistory),
             researchPoints = resourceManager.ResearchPoints,
         };
@@ -525,9 +525,9 @@ public class RunManager : MonoBehaviour {
         // Tile counts — reuses existing threshold fields on this class
         ComputeTileCounts(out data.thrivingCount, out data.degradedCount, out data.criticalCount);
         data.snapshot       = snapshot;
-        data.aziSummaryLine = GenerateAziLine(snapshot.peakThrivingCount);
-        data.xpEarned       = runXpEarned;
-        data.xpBefore       = runXpBefore;
+        data.aziSummaryLine = summary.aziLine;
+        data.xpEarned       = summary.xpEarned;
+        data.xpBefore       = summary.xpBefore;
 
         // Top worker by actions participated
         var allWorkers = resourceManager.AllWorkers;
@@ -553,20 +553,25 @@ public class RunManager : MonoBehaviour {
         // Zone healths — iterate the existing unlockedRegions HashSet on this class
         data.zoneHealths = new Dictionary<int, float>();
         foreach (int regionID in unlockedRegions)
-            data.zoneHealths[regionID] = zoneManager.GetRegionHealth(regionID);
+            data.zoneHealths[regionID] = regionManager.GetRegionHealth(regionID);
 
         return data;
     }
 
     private void ComputeTileCounts(out int thriving, out int degraded, out int critical)
     {
+        // Delegate to TierOf so the run-end counts can never diverge from the tier classifier
+        // that drives OnTileTierChanged (S2 — one concept, one place). Previously this used its
+        // own boundary comparators and disagreed with TierOf at exactly 33 / 67.
         thriving = degraded = critical = 0;
         foreach (var tile in tileManager.GetAllTiles())
         {
-            float h = tile.CalculateHealth();
-            if      (h > thrivingHealthThreshold)  thriving++;
-            else if (h > criticalHealthThreshold)  degraded++;
-            else                                   critical++;
+            switch (TierOf(tile))
+            {
+                case Tier.Thriving: thriving++; break;
+                case Tier.Critical: critical++; break;
+                default:            degraded++; break;
+            }
         }
     }
 
@@ -576,8 +581,8 @@ public class RunManager : MonoBehaviour {
     
     
     /// <summary>
-    /// Cascades tile stat changes across a region using diffusion.
-    /// Each tile lerps toward the average of its 4 neighbors.
+    /// Cascades tile stat changes across ALL tiles (global, not region-scoped) using diffusion.
+    /// Each tile lerps toward the average of its 4 neighbors, snapshot-then-apply per iteration.
     /// </summary>
     void CascadeTileUpdates()
     {
@@ -725,22 +730,14 @@ public class RunManager : MonoBehaviour {
 
         Debug.Log("[DEBUG] Advancing 1 day via shortcut.");
 
-        // Fires OnTimeAdvanced → HandleTimeAdvanced handles entity ticks + visuals
+        // AdvanceTime(1) → OnTimeAdvanced → HandleTimeAdvanced now runs the FULL per-day
+        // heartbeat (entities, cascade, thresholds, collapse, unlock, peak, visuals). The
+        // manual cascade/endgame block that used to live here is gone — it would double-run
+        // now that cascade is per-day.
         resourceManager.AdvanceTime(1);
 
-        // Cascade + endgame are per-action, not per-day — simulate them manually here
-        CascadeTileUpdates();
-        foreach (Tile tile in tileManager.GetAllTiles())
-            tileManager.UpdateTileVisual(tile);
-        CheckCollapseCondition();
-
-        float totalAverageHealth = zoneManager.GetTotalAverageHealth();
         if (showDebugInfo)
-            Debug.Log($"[DEBUG] Day passed. World Health: {totalAverageHealth:F1} | {resourceManager.GetFullTimeDisplay()}");
-
-        TryFlagZoneUnlock(totalAverageHealth);
-
-        EvaluateThrivingPeak();
+            Debug.Log($"[DEBUG] Day passed. World Health: {regionManager.GetTotalAverageHealth():F1} | {resourceManager.GetFullTimeDisplay()}");
     }
 
     void OnDestroy() {

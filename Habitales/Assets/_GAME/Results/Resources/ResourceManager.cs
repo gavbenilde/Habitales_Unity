@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+[DefaultExecutionOrder(-200)] // core service — initializes before consumers (arch §4 init order)
 public class ResourceManager : MonoBehaviour
 {
     public static ResourceManager Instance { get; private set; }
@@ -27,15 +28,21 @@ public class ResourceManager : MonoBehaviour
     private int researchPoints = 0;
     public int ResearchPoints => researchPoints;
 
-    // ── Weather hook ──────────────────────────────────────────────────────────
-    private float weatherK = 3f;
-
     // ── Events ────────────────────────────────────────────────────────────────
     public event Action<int>      OnTimeAdvanced;
     public event Action<int, int> OnPeopleFatigued;  // (count, latestReturnDay)
     public event Action<int>      OnPeopleRecovered;
     public event Action           OnGameOver;
     public event Action<int>      OnRPChanged;
+
+    // ── Worker meaning-event seams (arch §6.1 HOOK) ─────────────────────────────
+    // Law 2: a SPECIFIC named worker recovering / having a birthday is meaning — the
+    // narrative layer (chat app, story weaver) wants the worker, not just a count.
+    // OnPeopleRecovered (count) stays for the UI; these carry the individual.
+    /// <summary>Fires per worker the day they return from fatigue. arg: the recovered worker.</summary>
+    public event Action<Worker>   OnWorkerRecovered;
+    /// <summary>Fires on a worker's birthday. SEAM ONLY — not yet raised (birthday system dormant, CLAUDE.md §7).</summary>
+    public event Action<Worker>   OnWorkerBirthday;
 
     // ── Public Accessors ──────────────────────────────────────────────────────
     public int TotalDays => totalDays;
@@ -57,6 +64,8 @@ public class ResourceManager : MonoBehaviour
     void Start()
     {
         InitializeWorkers(startingWorkerCount);
+        // Fatigue severity now READS WeatherManager.FatigueK on demand (Law 1) — no event
+        // subscription and no mirrored weatherK field. See ApplyFatigue.
     }
 
     public void InitializeWorkers(int count)
@@ -87,27 +96,38 @@ public class ResourceManager : MonoBehaviour
         Debug.Log($"Day {totalDays} ({GetFullTimeDisplay()}) | Available: {AvailablePeople}/{TotalPeople}");
     }
 
+    // Single-day primitive — advances simulation state by exactly one day.
+    // Fires OnGameOver and OnTimeAdvanced(1) but does NOT wait for DayNightCycleHandler.
+    // The heartbeat system (and AdvanceTimeStepped below) call this directly.
+    public void AdvanceOneDay()
+    {
+        totalDays++;
+        CheckWorkerRecovery();
+
+        if (WeatherManager.Instance != null)
+            WeatherManager.Instance.RollWeather(totalDays);
+
+        if (totalDays >= 100)
+        {
+            OnGameOver?.Invoke();
+            return;
+        }
+
+        OnTimeAdvanced?.Invoke(1); // triggers DayNightCycleHandler.StartCycle(1)
+        Debug.Log($"Day {totalDays} ({GetFullTimeDisplay()}) | Available: {AvailablePeople}/{TotalPeople}");
+    }
+
     // Stepped advance — used by ActionManager after real player actions.
-    // Advances one day at a time, firing OnTimeAdvanced(1) each iteration,
-    // then waits for DayNightCycleHandler to finish before moving to the next day.
+    // Advances one day at a time and waits for DayNightCycleHandler to finish each cycle.
     public IEnumerator AdvanceTimeStepped(int days)
     {
         for (int i = 0; i < days; i++)
         {
-            totalDays++;
-            CheckWorkerRecovery();
+            bool gameOver = totalDays + 1 >= 100;  // peek before advancing
+            AdvanceOneDay();
 
-            if (WeatherManager.Instance != null)
-                WeatherManager.Instance.RollWeather(totalDays);
-
-            if (totalDays >= 100)
-            {
-                OnGameOver?.Invoke();
+            if (gameOver)
                 yield break;
-            }
-
-            OnTimeAdvanced?.Invoke(1); // triggers DayNightCycleHandler.StartCycle(1)
-            Debug.Log($"Day {totalDays} ({GetFullTimeDisplay()}) | Available: {AvailablePeople}/{TotalPeople}");
 
             yield return new WaitUntil(() => DayNightCycleHandler.IsIdle);
         }
@@ -155,7 +175,8 @@ public class ResourceManager : MonoBehaviour
             continue;
 
         float r = UnityEngine.Random.value;
-        float severity = Mathf.Pow(r, weatherK);
+        float fatigueK = WeatherManager.Instance != null ? WeatherManager.Instance.FatigueK : 3f;
+        float severity = Mathf.Pow(r, fatigueK);
         
         // Use RoundToInt instead of CeilToInt. This allows low-severity rolls to round down to 0 days (no fatigue).
         int fatigueDays = Mathf.RoundToInt(duration * multiplier * severity);
@@ -188,6 +209,7 @@ public class ResourceManager : MonoBehaviour
                 w.isFatigued = false;
                 w.returnDay = 0;
                 recovered++;
+                OnWorkerRecovered?.Invoke(w);   // per-worker meaning-event (Law 2)
             }
         }
         if (recovered > 0)
@@ -196,9 +218,6 @@ public class ResourceManager : MonoBehaviour
             Debug.Log($"{recovered} worker(s) recovered. Available: {AvailablePeople}/{TotalPeople}");
         }
     }
-
-    // ── Weather hook ──────────────────────────────────────────────────────────
-    public void SetWeatherFatigueK(float k) => weatherK = k;
 
     // ── Research Points ───────────────────────────────────────────────────────
     public void EarnRP(int amount)

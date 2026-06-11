@@ -23,7 +23,7 @@ public static class TileIssueLibrary
         biologicalMult   = 0.30f,
         contaminationAdd = 65f
     };
-    public static TileIssue ActiveErosion = new TileIssue
+    public static TileIssue ActiveErosion => new TileIssue
     {
         type = IssueType.ActiveErosion,
         erosionMult = 0.20f,
@@ -31,7 +31,7 @@ public static class TileIssueLibrary
         waterDynMult = 0.70f
     };
 
-    public static TileIssue DrainageCollapse = new TileIssue
+    public static TileIssue DrainageCollapse => new TileIssue
     {
         type = IssueType.DrainageCollapse,
         waterDynMult = 0.20f,
@@ -39,7 +39,7 @@ public static class TileIssueLibrary
         biologicalMult = 0.70f
     };
 
-    public static TileIssue SoilCompaction = new TileIssue
+    public static TileIssue SoilCompaction => new TileIssue
     {
         type = IssueType.SoilCompaction,
         structureMult = 0.15f,
@@ -47,7 +47,7 @@ public static class TileIssueLibrary
         biologicalMult = 0.65f
     };
 
-    public static TileIssue ChemicalBurnout = new TileIssue
+    public static TileIssue ChemicalBurnout => new TileIssue
     {
         type = IssueType.ChemicalBurnout,
         biologicalMult = 0.20f,
@@ -56,7 +56,7 @@ public static class TileIssueLibrary
         contaminationAdd = 30f
     };
 
-    // Lookup by IssueType — used by ZoneManager during issue assignment
+    // Lookup by IssueType — used by RegionManager during issue assignment
     public static TileIssue Get(IssueType type)
     {
         switch (type)

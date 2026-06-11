@@ -24,7 +24,6 @@ public class ActionBarUI : MonoBehaviour
     [SerializeField] private Transform actionStripContent;
     [SerializeField] private GameObject actionCardPrefab;
     [SerializeField] private Color defaultCardColor = new Color(0.75f, 0.75f, 0.75f);
-    [SerializeField] private float plantCardWhitening = 0.4f;
 
     [Header("Brush Controls")]
     [SerializeField] private GameObject brushControls;
@@ -52,7 +51,7 @@ public class ActionBarUI : MonoBehaviour
 
     void Awake()
     {
-        if (actionManager == null) actionManager = FindObjectOfType<ActionManager>();
+        if (actionManager == null) actionManager = ActionManager.Instance;
         if (tileSelector == null)  tileSelector  = FindObjectOfType<TileSelector>();
 
         if (lockModal != null) lockModal.SetActive(false);
@@ -222,50 +221,17 @@ public class ActionBarUI : MonoBehaviour
         cardObjects[action] = card;
 
         Image bg = card.GetComponent<Image>();
+        if (bg != null) bg.color = defaultCardColor;
 
-        if (action is PlantingAction plantingAction)
+        TMP_Text label = card.GetComponentInChildren<TMP_Text>();
+        if (label != null)
         {
-            PlantingProfileSO profile = plantingAction.Profile;
-            if (bg != null)
-                bg.color = HWBColor.HWBToRGB(profile.hue, profile.blackness + plantCardWhitening, profile.blackness);
-
-            TMP_Text label = card.GetComponentInChildren<TMP_Text>();
-            if (label != null)
-            {
-                label.text  = profile.plantName;
-                label.color = Color.black;
-            }
-
-            // Disable icon Image child if present
-            Transform icon = card.transform.Find("ActionIcon");
-            if (icon != null) icon.gameObject.SetActive(false);
-
-            // Wire Boogle "?" button
-            Transform boogleGO = card.transform.Find("BoogleButton");
-            if (boogleGO != null)
-            {
-                Button boogleBtn = boogleGO.GetComponent<Button>();
-                if (boogleBtn != null)
-                {
-                    var capturedProfile = profile;
-                    boogleBtn.onClick.AddListener(() => BooglePanelUI.Instance?.Show(capturedProfile));
-                }
-            }
+            label.text  = action.ActionName;
+            label.color = Color.black;
         }
-        else
-        {
-            if (bg != null) bg.color = defaultCardColor;
 
-            TMP_Text label = card.GetComponentInChildren<TMP_Text>();
-            if (label != null)
-            {
-                label.text  = action.ActionName;
-                label.color = Color.black;
-            }
-
-            Transform icon = card.transform.Find("ActionIcon");
-            if (icon != null) icon.gameObject.SetActive(false);
-        }
+        Transform icon = card.transform.Find("ActionIcon");
+        if (icon != null) icon.gameObject.SetActive(false);
 
         Button cardBtn = card.GetComponent<Button>();
         if (cardBtn != null)
@@ -294,9 +260,6 @@ public class ActionBarUI : MonoBehaviour
 
         Transform icon = card.transform.Find("ActionIcon");
         if (icon != null) icon.gameObject.SetActive(false);
-
-        Transform boogleGO = card.transform.Find("BoogleButton");
-        if (boogleGO != null) boogleGO.gameObject.SetActive(false);
 
         Button cardBtn = card.GetComponent<Button>();
         if (cardBtn != null)

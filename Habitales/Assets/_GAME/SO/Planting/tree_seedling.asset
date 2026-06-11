@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
+  m_Name: tree_seedling
+  m_EditorClassIdentifier: 
+  entityId: tree_seedling
+  displayName: Seedling
+  category: 0
+  tileSprite: {fileID: 21300000, guid: e9687b7bc33f3f444b3d51ca4a6e80ba, type: 3}
+  vfxKey: 2
+  billboardScale: 1
+  promoteAfterDays: 5
+  nextStage: {fileID: 0}
+  transitionEffects:
+  - stat: 6
+    delta: 10
+  requirePromoteCondition: 0
+  promoteWhen:
+    stat: 0
+    comparator: 0
+    threshold: 0
+    outcome: 0
+    transformTarget: {fileID: 0}
+    onSatisfied: []
+  dailyEffects:
+  - stat: 0
+    delta: -2
+  deathConditions:
+  - stat: 8
+    comparator: 0
+    threshold: 20
+    outcome: 1
+    transformTarget: {fileID: 0}
+    onSatisfied: []
+  behaviour: {fileID: 0}

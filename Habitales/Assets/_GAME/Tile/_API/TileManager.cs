@@ -2,12 +2,15 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.VFX;
+using Habitales.Entities;
+using Habitales.Core;
 
 /// <summary>
 /// Core manager for tile data and grid logic.
 /// Handles tile storage, adjacency, entity spawning, and grid queries.
 /// For Gavin's procedural shenanigans
 /// </summary>
+[DefaultExecutionOrder(-200)] // core service — initializes before consumers (arch §4 init order)
 public class TileManager : MonoBehaviour
 {
     [Header("Visualization (Optional)")] [SerializeField]
@@ -16,15 +19,44 @@ public class TileManager : MonoBehaviour
     [SerializeField] private Transform tileParent; // Parent object for organization
     [SerializeField] private GameObject entityVisualizerPrefab;
 
+    [Header("Entity System (arch §5.4)")]
+    [Tooltip("The single entityId → TileEntitySO registry. Drives all data-driven spawning. " +
+             "Assign the EntityRegistry asset in the Inspector.")]
+    [SerializeField] private EntityRegistry entityRegistry;
+
     private Dictionary<Vector2Int, Tile> tileCache;
     private Dictionary<Tile, GameObject> tileGameObjects; // Links data to GameObjects
     private Dictionary<Tile, VisualEffect> activeVFX = new Dictionary<Tile, VisualEffect>();
 
+    // ── Entity meaning-event seams (arch §6.1 HOOK) ─────────────────────────────
+    // Law 2: a NEW entity appearing or an entity DYING is meaning, not mutation. In-place
+    // promotion/transform (ReplaceWithSO) is NOT a spawn/death — it does not fire these.
+    // No real sink is wired yet (entities ride NullEntityEventSink); these are the
+    // ready-to-connect hooks for the story-weaver / chat layer.
+    /// <summary>Fires when a fresh entity is placed on a tile. args: tile, entityId.</summary>
+    public event System.Action<Tile, string> OnEntitySpawned;
+    /// <summary>Fires when an entity is removed from a tile (death/cleanup, not replacement). args: tile, entityId, cause.</summary>
+    public event System.Action<Tile, string, string> OnEntityDied;
+
     #region Initialization
+
+    /// <summary>
+    /// Singleton — exactly one TileManager per scene. Read anywhere via TileManager.Instance
+    /// (Law 1 / S4); mutate tiles only through this manager's own methods.
+    /// </summary>
+    public static TileManager Instance { get; private set; }
 
     void Awake()
     {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
+
         InitializeGrid();
+
+        // Loud-fail registry validation at boot (Law 3) — surfaces blank/duplicate entityIds
+        // before any spawn tries to look them up.
+        if (entityRegistry != null) entityRegistry.ValidateAll();
+        else Debug.LogError("TileManager: entityRegistry is not assigned — data-driven entity spawning will fail. Wire the EntityRegistry asset.", this);
     }
 
     /// <summary>
@@ -326,71 +358,127 @@ public class TileManager : MonoBehaviour
         UpdateTileVisual(tile);
     }
 
+    /// <summary>
+    /// Owner-side write path for §3.5 StatChange-shaped effects: applies a delta DIRECTLY to one
+    /// named stat (clamped 0–100), then refreshes the visual. Actions and other systems mutate tile
+    /// stats through here instead of writing <c>tile.stats</c> themselves (Law 1). Distinct from
+    /// <see cref="ModifyTileStats"/>, whose <c>soilDelta</c> spreads ÷6 across all soil substats.
+    /// <c>SoilComposite</c> is derived/read-only and is rejected loudly (Law 3).
+    /// </summary>
+    public void ApplyStatChange(Tile tile, StatChange change)
+    {
+        if (tile == null) return;
+        ApplyStatChangeInternal(tile, change);
+        UpdateTileVisual(tile);
+    }
+
+    /// <summary>Batch overload — applies several StatChanges with a single visual refresh.</summary>
+    public void ApplyStatChanges(Tile tile, IReadOnlyList<StatChange> changes)
+    {
+        if (tile == null || changes == null) return;
+        for (int i = 0; i < changes.Count; i++) ApplyStatChangeInternal(tile, changes[i]);
+        UpdateTileVisual(tile);
+    }
+
+    private static void ApplyStatChangeInternal(Tile tile, StatChange c)
+    {
+        var s = tile.stats;
+        switch (c.stat)
+        {
+            case TargetStat.NutrientBalance:    s.nutrientBalance    = Mathf.Clamp(s.nutrientBalance    + c.delta, 0f, 100f); break;
+            case TargetStat.SoilOrganicMatter:  s.soilOrganicMatter  = Mathf.Clamp(s.soilOrganicMatter  + c.delta, 0f, 100f); break;
+            case TargetStat.SoilStructure:      s.soilStructure      = Mathf.Clamp(s.soilStructure      + c.delta, 0f, 100f); break;
+            case TargetStat.BiologicalActivity: s.biologicalActivity = Mathf.Clamp(s.biologicalActivity + c.delta, 0f, 100f); break;
+            case TargetStat.WaterDynamics:      s.waterDynamics      = Mathf.Clamp(s.waterDynamics      + c.delta, 0f, 100f); break;
+            case TargetStat.ErosionResistance:  s.erosionResistance  = Mathf.Clamp(s.erosionResistance  + c.delta, 0f, 100f); break;
+            case TargetStat.VegetationCover:    s.vegetationCover    = Mathf.Clamp(s.vegetationCover    + c.delta, 0f, 100f); break;
+            case TargetStat.Contamination:      s.contamination      = Mathf.Clamp(s.contamination      + c.delta, 0f, 100f); break;
+            case TargetStat.SoilComposite:
+                Debug.LogError("TileManager.ApplyStatChange: SoilComposite is derived/read-only — change ignored.");
+                break;
+        }
+    }
+
 
     #endregion
 
     #region Entity Management
 
     /// <summary>
-    /// Spawns an entity on a tile and creates its visual representation.
-    /// Called during zone generation or dynamic spawning (fires, trash).
+    /// Data-driven spawn (new entity system): resolves an entityId through the registry and
+    /// spawns a GenericTileEntity from its TileEntitySO. The canonical spawn path post-Phase-4 —
+    /// callers pass the entityId string (e.g. "tree_seedling", "fire") instead of a C# type.
     /// </summary>
-    public void SpawnEntity<T>(Tile tile) where T : TileEntity, new()
+    public void SpawnById(Tile tile, string entityId)
     {
         if (tile == null) return;
-
-        if (tile.entity != null)
+        if (entityRegistry == null)
         {
-            RemoveEntity(tile);
+            Debug.LogError($"TileManager.SpawnById('{entityId}'): entityRegistry not assigned.", this);
+            return;
         }
-        
-        // Create entity data
-        tile.entity = new T();
+        TileEntitySO def = entityRegistry.Get(entityId); // Get() loud-fails on a miss (Law 3)
+        if (def != null) SpawnFromDef(tile, def);
+    }
 
-        // Instantiate visual if tile has a GameObject
+    /// <summary>
+    /// Spawns a GenericTileEntity from a TileEntitySO definition directly. Mirrors SpawnEntity&lt;T&gt;'s
+    /// fresh-spawn visual/VFX setup (distinct from ReplaceWithSO, which refreshes an existing visual
+    /// for in-place promotion/transform).
+    /// </summary>
+    public void SpawnFromDef(Tile tile, TileEntitySO def)
+    {
+        if (tile == null || def == null) return;
+
+        // Pre-clear is a replacement, not a death — suppress the death meaning-event (Law 2).
+        if (tile.entity != null) RemoveEntity(tile, raiseDeathEvent: false);
+
+        tile.entity = new GenericTileEntity(def);
+
         if (tileGameObjects.ContainsKey(tile))
         {
             GameObject tileObj = tileGameObjects[tile];
             InstantiateEntityVisual(tile, tileObj);
             InitializeEntityVFX(tile, tileObj);
         }
+
+        OnEntitySpawned?.Invoke(tile, tile.entity.entityId);
     }
 
     /// <summary>
-    /// Transforms an existing entity to a new type.
-    /// Example: Tree → DeadTree when soil degrades.
+    /// Data-driven transform/spawn: replaces a tile's entity with a GenericTileEntity built
+    /// from a TileEntitySO (new entity system — used for promotion and death-transform).
+    /// Mirrors TransformEntity&lt;T&gt;'s visual refresh.
     /// </summary>
-    public void TransformEntity<T>(Tile tile) where T : TileEntity, new()
+    public void ReplaceWithSO(Tile tile, Habitales.Entities.TileEntitySO def)
     {
-        if (tile == null || tile.entity == null) return;
+        if (tile == null || def == null) return;
 
-        string oldType = tile.entity.entityType;
+        tile.entity = new Habitales.Entities.GenericTileEntity(def);
 
-        // Replace entity data
-        tile.entity = new T();
-
-        // Update visual
         if (tileGameObjects.ContainsKey(tile))
         {
             GameObject tileObj = tileGameObjects[tile];
             EntityVisualizer visualizer = tileObj.GetComponentInChildren<EntityVisualizer>();
-
             if (visualizer != null)
-            {
                 visualizer.SetEntity(tile.entity);
-                Debug.Log($"Transformed entity at {tile.gridPosition}: {oldType} → {tile.entity.entityType}");
-                
-                InitializeEntityVFX(tile, tileObj); // band-aid solution
-            }
+            // Refresh VFX regardless of visualizer presence — InitializeEntityVFX tears down the
+            // outgoing entity's VFX before spawning the new one, so the missing-visualizer path
+            // no longer leaks the old effect.
+            InitializeEntityVFX(tile, tileObj);
         }
     }
 
     /// <summary>
-    /// Removes entity from a tile and destroys its visual.
+    /// Removes entity from a tile and destroys its visual. Fires OnEntityDied (Law 2 meaning-event)
+    /// unless raiseDeathEvent is false — internal replacement paths suppress it. cause is a free-form
+    /// tag for subscribers (e.g. "removed", "suppressed", "burned_out").
     /// </summary>
-    public void RemoveEntity(Tile tile)
+    public void RemoveEntity(Tile tile, bool raiseDeathEvent = true, string cause = "removed")
     {
         if (tile == null || tile.entity == null) return;
+
+        string diedEntityId = tile.entity.entityId;
 
         // Destroy visual
         if (tileGameObjects.ContainsKey(tile))
@@ -411,8 +499,10 @@ public class TileManager : MonoBehaviour
 
             activeVFX.Remove(tile);
         }
-        
+
         tile.entity = null;
+
+        if (raiseDeathEvent) OnEntityDied?.Invoke(tile, diedEntityId, cause);
     }
 
     /// <summary>
@@ -423,7 +513,7 @@ public class TileManager : MonoBehaviour
     
         // Instantiate from prefab instead of creating new GameObject
         GameObject entityObj = Instantiate(entityVisualizerPrefab, parentTileObj.transform);
-        entityObj.name = $"Entity_{tile.entity.entityType}";
+        entityObj.name = $"Entity_{tile.entity.entityId}";
         entityObj.transform.localPosition = Vector3.zero;
     
         // Get existing visualizer component
@@ -444,7 +534,9 @@ public class TileManager : MonoBehaviour
             activeVFX.Remove(tile);
         }
 
-        string key = tile.entity.entityType;
+        // VFX key comes from the SO's explicit vfxKey (arch §5.1). Empty key = no VFX for this entity.
+        string key = tile.entity.def != null ? tile.entity.def.vfxKey : null;
+        if (string.IsNullOrEmpty(key)) return;
 
         // Spawn new VFX
         VisualEffect vfx = VFXManager.Instance.SpawnVFX(
@@ -465,34 +557,18 @@ public class TileManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Calls OnDailyUpdate for all entities in a region.
-    /// Should be called once per day during cascade.
-    /// </summary>
-    public void UpdateEntitiesInRegion(int regionID)
-    {
-        List<Tile> regionTiles = GetTilesInRegion(regionID);
-
-        foreach (Tile tile in regionTiles)
-        {
-            if (tile.entity != null)
-            {
-                tile.entity.OnDailyUpdate(tile, this);
-            }
-        }
-    }
-    
-    /// <summary>
     /// Calls OnDailyUpdate for ALL entities in the entire game world.
     /// Use this for global daily updates (fires, villages, factories, etc.)
+    /// RunManager assembles the per-day TickContext once and threads it here (arch §5.2).
     /// </summary>
-    public void UpdateAllEntities()
+    public void UpdateAllEntities(in Habitales.Entities.TickContext ctx)
     {
         List<Tile> allTiles = GetAllTiles();
         foreach (Tile tile in allTiles)
         {
             if (tile.entity != null)
             {
-                tile.entity.OnDailyUpdate(tile, this);
+                tile.entity.OnDailyUpdate(tile, in ctx);
             }
         }
     }
@@ -533,6 +609,18 @@ public class TileManager : MonoBehaviour
         if (visualizer == null) return;
         visualizer.UpdateVisuals();
         visualizer.UpdateOverlays(tile.tv);
+    }
+
+    /// <summary>
+    /// Bulk visual sync — refreshes every tile's visuals + overlays in one pass.
+    /// Called once per day by the heartbeat (arch §2.1 step 6) AFTER all data has settled
+    /// (entities ticked, cascade applied). Cheaper and more correct than per-mutation
+    /// UpdateTileVisual during cascade.
+    /// </summary>
+    public void RefreshAllVisuals()
+    {
+        foreach (Tile tile in tileCache.Values)
+            UpdateTileVisual(tile);
     }
 
     /// <summary>
