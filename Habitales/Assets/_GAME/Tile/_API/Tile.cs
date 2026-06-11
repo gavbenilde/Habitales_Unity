@@ -1,6 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// Health tier for meaning-event crossings (arch §2.1b). The cutoffs live on RunManager's
+// serialized thresholds (criticalHealthThreshold / thrivingHealthThreshold), NOT hardcoded
+// here, so tier crossings stay consistent with the thriving-count / collapse logic.
+public enum Tier { Critical, Degraded, Thriving }
+
 public class Tile
 {
     public Vector2Int gridPosition;
@@ -9,6 +14,12 @@ public class Tile
     public List<TileIssue> issues = new List<TileIssue>();
     public List<TileOverlayType> tv = new List<TileOverlayType>();
     public int regionID;
+
+    // Runtime tier-crossing tracking (arch §2.1b). RunManager.EvaluateThresholds seeds
+    // lastTier on first evaluation (no event), then fires OnTileTierChanged on a change.
+    // Per-instance runtime state — never persisted as definition data.
+    public Tier lastTier;
+    public bool tierSeeded = false;
 
     public float CalculateHealth() => stats.CalculateHealth();
     public float GetSoilComposite() => stats.soilComposite;

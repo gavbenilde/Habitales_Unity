@@ -1,6 +1,5 @@
 using UnityEngine;
 using TMPro;
-using Unity.VisualScripting;
 
 /// <summary>
 /// Simple HUD display for Time and People resources.
@@ -24,10 +23,10 @@ public class ResourceDisplay : MonoBehaviour
             return;
         }
         
-        // Subscribe to updates
+        // Subscribe to updates (named handlers so OnDestroy can unsubscribe — no lambda leak).
         resourceManager.OnTimeAdvanced += UpdateDisplay;
-        resourceManager.OnPeopleFatigued += (count, day) => UpdateDisplay(0);
-        resourceManager.OnPeopleRecovered += (count) => UpdateDisplay(0);
+        resourceManager.OnPeopleFatigued += HandlePeopleFatigued;
+        resourceManager.OnPeopleRecovered += HandlePeopleRecovered;
         
         // Initial display
         UpdateDisplay(0);
@@ -60,11 +59,16 @@ public class ResourceDisplay : MonoBehaviour
         }
     }
     
+    void HandlePeopleFatigued(int count, int returnDay) => UpdateDisplay(0);
+    void HandlePeopleRecovered(int count) => UpdateDisplay(0);
+
     void OnDestroy()
     {
         if (resourceManager != null)
         {
             resourceManager.OnTimeAdvanced -= UpdateDisplay;
+            resourceManager.OnPeopleFatigued -= HandlePeopleFatigued;
+            resourceManager.OnPeopleRecovered -= HandlePeopleRecovered;
         }
     }
 }

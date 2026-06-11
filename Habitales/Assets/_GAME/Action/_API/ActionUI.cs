@@ -95,7 +95,7 @@ public class ActionUI : MonoBehaviour
         
         if (actionManager == null)
         {
-            actionManager = FindObjectOfType<ActionManager>();
+            actionManager = ActionManager.Instance;
         }
         
         if (tileSelector == null)
@@ -527,22 +527,6 @@ public class ActionUI : MonoBehaviour
             Debug.LogWarning("ActionCardPrefab is missing Button component!");
         }
 
-        // Wire Boogle "?" button if this is a planting action and the prefab has the slot.
-        // The action card prefab needs a child named "BoogleButton" with a Button component.
-        if (action is PlantingAction plantingAction)
-        {
-            var boogleButtonGO = card.transform.Find("BoogleButton");
-            if (boogleButtonGO != null)
-            {
-                var boogleBtn = boogleButtonGO.GetComponent<Button>();
-                if (boogleBtn != null)
-                {
-                    var capturedProfile = plantingAction.Profile;
-                    boogleBtn.onClick.AddListener(() => BooglePanelUI.Instance?.Show(capturedProfile));
-                }
-            }
-        }
-
         // Optional: Set card name for debugging
         card.name = $"Card_{action.ActionName}";
     }
@@ -596,10 +580,6 @@ public class ActionUI : MonoBehaviour
             // TODO: assign lock sprite
             iconImage.enabled = false;
         }
-
-        // Hide BoogleButton — not applicable for locked slot
-        var boogleButtonGO = card.transform.Find("BoogleButton");
-        if (boogleButtonGO != null) boogleButtonGO.gameObject.SetActive(false);
 
         Button cardButton = card.GetComponent<Button>();
         if (cardButton != null)

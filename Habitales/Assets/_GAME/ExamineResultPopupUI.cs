@@ -149,8 +149,8 @@ public class ExamineResultPopupUI : MonoBehaviour
 
         foreach (var tile in tiles)
         {
-            if (tile.entity is TrashBioEntity)    bio++;
-            if (tile.entity is TrashNonBioEntity) nonBio++;
+            if (tile.entity != null && tile.entity.entityId == "trash_bio")    bio++;
+            if (tile.entity != null && tile.entity.entityId == "trash_nonbio") nonBio++;
         }
 
         if (bio == 0 && nonBio == 0)

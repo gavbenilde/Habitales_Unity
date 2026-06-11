@@ -12,21 +12,20 @@ public class PlayerProgressionSO : ScriptableObject
     public int currentLevelXp = 0;
     public List<string> unlockedPlantIds = new List<string>();
 
-    // Seeds and names for procedurally-unlocked plants — same index across both lists
-    // describes one plant. Persisted to JSON; GeneratedPlantRegistry re-hydrates SOs
-    // on load by calling PlantingProfileGenerator.Generate(seed, name).
+    // Cube-era seed/name lists for procedurally-unlocked plants. Still serialized for
+    // save-file forward compat, but inert in Alpha — the generator/registry that consumed
+    // them was removed with the cube system. Drive nothing today.
     public List<int> unlockedPlantSeeds = new List<int>();
     public List<string> unlockedPlantNames = new List<string>();
 
     // Persists across sessions — which plants the player has ever planted.
     public List<string> plantedEverIds = new List<string>();
 
-    // DORMANT — replaced by GeneratedPlantRegistry. Kept per CLAUDE.md §7
-    // ("dormant in code, do not delete"). No live code path reads this anymore.
-    public List<PlantingProfileSO> unlockPool = new List<PlantingProfileSO>();
-
     // Resets each session — which plants were planted this run.
     [System.NonSerialized] public List<string> plantedThisSessionIds = new List<string>();
+
+    // NOTE: the cube-era `unlockPool` (List<PlantingProfileSO>) was removed with the cube
+    // system. In Alpha, XP unlocks nothing functional — see RunEndCoordinator.
 
     // Snapshot of what the player last saw on the main menu. Persisted so the
     // level-up overlay only fires on the first main-menu visit of a new session;

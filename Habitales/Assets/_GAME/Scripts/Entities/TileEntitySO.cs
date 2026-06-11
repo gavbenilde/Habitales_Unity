@@ -33,11 +33,17 @@ namespace Habitales.Entities
         public float billboardScale = 1f;
 
         [Header("Lifecycle / Stage Chain")]
-        [Tooltip("Next stage in the chain. Null = terminal stage.")]
-        public TileEntitySO nextStage;
-        [Tooltip("Days before time-based promotion. 0 = no time-based promotion.")]
+        [Tooltip("Days before the timed transition fires (0 = no timed transition).")]
         public int promoteAfterDays;
-        [Tooltip("Optional gated promotion — promotion only fires when this condition is also satisfied.")]
+        [Tooltip("Where the timed transition goes. Non-null = transform into it (promote). " +
+                 "Null = the entity is REMOVED after promoteAfterDays (e.g. DeadTree decomposes, TrashBio clears).")]
+        public TileEntitySO nextStage;
+        [Tooltip("Effects applied at the transition moment — on promote OR on timed removal. " +
+                 "E.g. seedling +10 VegetationCover on promote; TrashBio -10 BiologicalActivity on clear.")]
+        public List<StatChange> transitionEffects = new List<StatChange>();
+        [Tooltip("If true, the timed transition ALSO requires promoteWhen to be satisfied.")]
+        public bool requirePromoteCondition;
+        [Tooltip("Optional gate — when requirePromoteCondition is true, promotion only fires while this holds.")]
         public StatCondition promoteWhen;
 
         [Header("Daily Effects")]
@@ -49,7 +55,7 @@ namespace Habitales.Entities
         public List<StatCondition> deathConditions = new List<StatCondition>();
 
         [Header("Custom Behaviour (optional)")]
-        [Tooltip("Null for pure-data entities; set for bespoke ones (Fire, Village, CoverCrop).")]
+        [Tooltip("Null for pure-data entities; set for bespoke ones (Fire, Village).")]
         public EntityBehaviourHook behaviour;
     }
 }

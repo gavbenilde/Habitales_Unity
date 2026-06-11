@@ -1,11 +1,11 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class ZoneGenerationResult
+public class RegionGenerationResult
 {
     public int regionID;
     public int tileCount;
-    public ZoneTheme dominantTheme;
+    public RegionTheme dominantTheme;
     public float averageStartingHealth;
 
     // Building counts — for Azi callouts and UI

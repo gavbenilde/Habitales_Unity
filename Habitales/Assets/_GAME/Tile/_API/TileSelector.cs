@@ -68,13 +68,13 @@ public class TileSelector : MonoBehaviour
 
         if (tileManager == null)
         {
-            tileManager = FindObjectOfType<TileManager>();
+            tileManager = TileManager.Instance;
             if (tileManager == null)
                 Debug.LogError("TileSelector requires TileManager in scene!");
         }
 
         if (actionManager == null)
-            actionManager = FindObjectOfType<ActionManager>();
+            actionManager = ActionManager.Instance;
     }
 
     void Update()

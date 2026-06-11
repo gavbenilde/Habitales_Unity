@@ -9,7 +9,7 @@ using UnityEngine;
 /// </summary>
 public static class EventContext
 {
-    // Always-fresh values — written to by ResourceManager, ZoneManager, etc.
+    // Always-fresh values — written to by ResourceManager, RegionManager, etc.
     private static readonly Dictionary<string, string> _global 
         = new Dictionary<string, string>();
 
@@ -30,7 +30,7 @@ public static class EventContext
 
     /// <summary>
     /// Set a persistent global value. Call this from game systems
-    /// (ResourceManager, ZoneManager, etc.) whenever a value changes.
+    /// (ResourceManager, RegionManager, etc.) whenever a value changes.
     /// </summary>
     public static void Set(string key, string value)
         => _global[key] = value;
@@ -111,7 +111,7 @@ public static class EventContext
     }
     /// <summary>
     /// Full reset for a new run. Clears both layers.
-    /// Global values will repopulate naturally on the first AdvanceTime/ZoneGenerated.
+    /// Global values will repopulate naturally on the first AdvanceTime/RegionGenerated.
     /// </summary>
     
     public static void ResetForNewRun()

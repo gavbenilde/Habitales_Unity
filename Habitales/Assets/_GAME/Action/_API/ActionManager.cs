@@ -3,20 +3,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
+[DefaultExecutionOrder(-100)] // manager — initializes after core services (arch §4 init order)
 public class ActionManager : MonoBehaviour
 {
     // Global flat offset added to every action's computed duration. Prototype
     // pacing knob — every action takes +N days longer than its CalculateDays result.
     private const int kActionDurationBonusDays = 2;
-
-    [Header("Planting")]
-    [SerializeField] private PlantingProfileSO[] starterProfiles;
-    [SerializeField] private PlayerProgressionSO playerProgression;
-    // Base material applied to every planted cube (starters + procedural).
-    // Assigned as a real asset reference so Unity's build dependency scanner
-    // bundles its shader — the runtime CreatePrimitive default is not tracked
-    // and renders magenta/invisible in builds. Use a URP/Lit material.
-    [SerializeField] private Material plantCubeMaterial;
 
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
@@ -28,19 +20,29 @@ public class ActionManager : MonoBehaviour
 
     public Dictionary<string, int> actionUsageCounts = new Dictionary<string, int>();
 
+    /// <summary>
+    /// Singleton — exactly one ActionManager per scene. Read anywhere via ActionManager.Instance
+    /// (Law 1 / S4). RunManager already reads it this way in ExecuteAction's pause-guard.
+    /// </summary>
+    public static ActionManager Instance { get; private set; }
+
     void Awake()
     {
-        tileManager = FindObjectOfType<TileManager>();
-        if (tileManager == null)
-            Debug.LogError("ActionManager requires TileManager in scene!");
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
 
-        // Eagerly load progression so the GeneratedPlantRegistry is hydrated before
-        // RegisterActions() walks it. RunManager.Start() also calls Load() — the call
-        // is idempotent (just reads JSON), so the duplicate is harmless and avoids
-        // an Awake/Start ordering dependency between the two MonoBehaviours.
-        ProgressionPersistence.Load(playerProgression);
-
+        // Progression load now has a single owner: RunEndCoordinator.Start(). The cube-era
+        // eager Load here (to hydrate GeneratedPlantRegistry before RegisterActions) is gone.
         RegisterActions();
+    }
+
+    void Start()
+    {
+        // TileManager is a singleton now — resolve it after all Awakes have run (order-safe),
+        // replacing the old FindObjectOfType. Only used at action time, so Start is early enough.
+        tileManager = TileManager.Instance;
+        if (tileManager == null)
+            Debug.LogError("ActionManager requires a TileManager in the scene!", this);
     }
 
     void RegisterActions()
@@ -49,29 +51,16 @@ public class ActionManager : MonoBehaviour
 
         // ── ACTIVE (prototype) ────────────────────────────────────────────────
         availableActions.Add(new FireSuppressionAction());                 // Emergency
-
-        if (starterProfiles != null)
-            foreach (var p in starterProfiles)
-                if (p != null) availableActions.Add(new PlantingAction(p, plantCubeMaterial, playerProgression));  // Intervene (4 starters)
-
-        // Procedurally-unlocked plants from prior runs (re-hydrated on Load).
-        foreach (var generated in GeneratedPlantRegistry.All)
-            availableActions.Add(new PlantingAction(generated, plantCubeMaterial, playerProgression));
-
-        availableActions.Add(new RemoveWitheredAction());                  // Cleanup
+        availableActions.Add(new PlantTreesAction());                      // Intervene (replaces the 4 cube planting actions)
+        availableActions.Add(new ApplyFertilizerAction());                 // Intervene  (Phase 5)
+        availableActions.Add(new ClearTrashAction());                      // Cleanup    (Phase 5)
+        availableActions.Add(new StumpDeadTreeRemovalAction());            // Cleanup    (Phase 5)
+        availableActions.Add(new InspectTrashAction());                    // Examine    (Phase 5)
 
         // ── DORMANT (post-prototype — kept in code per CLAUDE.md §7) ─────────
-        // availableActions.Add(new ApplyFertilizerAction());
-        // availableActions.Add(new PlantTreesAction());
         // availableActions.Add(new CreateFirebreakAction());
-        // availableActions.Add(new ClearTrashAction());
-        // availableActions.Add(new StumpDeadTreeRemovalAction());
         // availableActions.Add(new AnalyzeSoilSampleAction());
-        // availableActions.Add(new InspectTrashAction());
         // availableActions.Add(new EcologicalSurveyAction());
-        // availableActions.Add(new CoverCroppingAction { cropVariant = CoverCroppingAction.Variant.Legume });
-        // availableActions.Add(new CoverCroppingAction { cropVariant = CoverCroppingAction.Variant.Grass });
-        // availableActions.Add(new CoverCroppingAction { cropVariant = CoverCroppingAction.Variant.Phyto });
 
         Debug.Log($"✓ ActionManager registered {availableActions.Count} actions");
     }
@@ -141,9 +130,8 @@ public class ActionManager : MonoBehaviour
 
         for (int day = 0; day < days; day++)
         {
-            yield return StartCoroutine(rm.AdvanceTimeStepped(1));
-            actualDaysPassed++;
-
+            // Apply THIS day's batch of tile effects FIRST, so the day-advance that follows
+            // cascades stats that already include the action's work (arch §2.1 ordering).
             int tilesThisDay = baseTilesPerDay + (day < remainder ? 1 : 0);
 
             for (int i = 0; i < tilesThisDay && processedTiles < totalTiles; i++)
@@ -153,10 +141,15 @@ public class ActionManager : MonoBehaviour
 
                 Vector3 pos = tileManager.GridToWorldPosition(tile.gridPosition);
                 VFXManager.Instance.SpawnVFX("Default", pos);
-                
-                tileManager.UpdateTileVisual(tile);   
+
+                tileManager.UpdateTileVisual(tile);
                 processedTiles++;
             }
+
+            // Then advance one day → heartbeat runs: entities tick, cascade (which now sees
+            // the effects applied above), thresholds, visuals refresh, OnDayResolved (arch §2.1).
+            yield return StartCoroutine(rm.AdvanceTimeStepped(1));
+            actualDaysPassed++;
         }
         
         int minRequiredTotal = targetTiles.Count * action.MinPeoplePerTile;

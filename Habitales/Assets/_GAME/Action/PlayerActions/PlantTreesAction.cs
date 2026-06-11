@@ -15,7 +15,7 @@ public class PlantTreesAction : PlayerAction
     public override bool CanExecute(List<Tile> tiles)
     {
         foreach (Tile tile in tiles)
-            if (tile.entity != null && tile.entity.entityType == "Factory")
+            if (tile.entity != null && tile.entity.entityId == "factory")
                 return false;
         return base.CanExecute(tiles);
     }
@@ -24,7 +24,7 @@ public class PlantTreesAction : PlayerAction
     {
         if (tile == null) return;
         if (tile.entity == null)
-            tileManager.SpawnEntity<SeedlingEntity>(tile);
+            tileManager.SpawnById(tile, "tree_seedling");
         Debug.Log($"Planted at {tile.gridPosition}.");
     }
 }

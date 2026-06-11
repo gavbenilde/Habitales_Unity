@@ -28,6 +28,12 @@ namespace Habitales.Core
     // the event-vocabulary thread settles the registry shape.
     public struct EntityEvent
     {
+        // Convention for the catch-all path: a hook that wants to trigger a scripted
+        // GameEventSO sets kind = ScriptedEvent and puts the event ID in `cause`. The real
+        // sink translates it to EventManager.FireEventByID. This keeps the interface frozen
+        // (no per-event methods) while still letting hooks fire scripted events decoupled (S1).
+        public const string ScriptedEvent = "scripted_event";
+
         public string      kind;          // e.g. "entity_died", "entity_spawned" (STUB — string for now)
         public string      entityId;
         public Vector2Int  gridPosition;
@@ -40,6 +46,32 @@ namespace Habitales.Core
     {
         public static readonly NullEntityEventSink Instance = new NullEntityEventSink();
         public void Raise(EntityEvent e) { }
+        public void EntitySpawned(string entityId, Vector2Int gridPosition) { }
+        public void EntityDied(string entityId, Vector2Int gridPosition, string cause) { }
+    }
+
+    // The REAL sink — bridges entity meaning-moments to the live game systems so entities never
+    // grab a singleton mid-tick (S1). RunManager builds one and threads it into every TickContext.
+    //
+    // Today it only translates the catch-all scripted-event path (kind == ScriptedEvent → fire the
+    // GameEventSO whose ID is in `cause`); EntitySpawned/EntityDied are no-ops because TileManager
+    // already fires its own OnEntitySpawned/OnEntityDied at the mutation site (§6.1) and the rich
+    // vocabulary is deferred (§6.2). It is the single place to grow that routing when the
+    // event-vocabulary thread lands — keep the routing here, never back in the entities.
+    public sealed class EventManagerEntitySink : IEntityEventSink
+    {
+        public void Raise(EntityEvent e)
+        {
+            switch (e.kind)
+            {
+                case EntityEvent.ScriptedEvent:
+                    if (!string.IsNullOrEmpty(e.cause))
+                        EventManager.Instance?.FireEventByID(e.cause);
+                    break;
+                // Other kinds: no live consumer yet — vocabulary deferred (§6.2).
+            }
+        }
+
         public void EntitySpawned(string entityId, Vector2Int gridPosition) { }
         public void EntityDied(string entityId, Vector2Int gridPosition, string cause) { }
     }

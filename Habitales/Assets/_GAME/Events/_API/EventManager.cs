@@ -3,6 +3,7 @@ using UnityEngine;
 using UTILITIES.Camera;
 using Habitales.Dialogue; 
 
+[DefaultExecutionOrder(-100)] // manager — initializes after core services (arch §4 init order)
 public class EventManager : MonoBehaviour
 {
     public static EventManager Instance { get; private set; }
@@ -50,10 +51,10 @@ public class EventManager : MonoBehaviour
         }
         else Debug.LogError("EventManager: ResourceManager not found!");
 
-        ZoneManager zm = FindObjectOfType<ZoneManager>();
+        RegionManager zm = RegionManager.Instance;
         if (zm != null)
-            zm.OnZoneGenerated += HandleZoneGenerated;
-        else Debug.LogWarning("EventManager: ZoneManager not found â€” OnZoneUnlock events won't fire.");
+            zm.OnRegionGenerated += HandleRegionGenerated;
+        else Debug.LogWarning("EventManager: RegionManager not found — OnRegionUnlock events won't fire.");
         
         RefreshGlobalContext(0);
         ResourceManager.Instance.OnTimeAdvanced += RefreshGlobalContext;
@@ -77,7 +78,7 @@ public class EventManager : MonoBehaviour
     {
         if (IsShowingEvent) return; // queue already mid-playback, don't collect new events
         int today = ResourceManager.Instance.TotalDays;
-        float worldHealth = FindObjectOfType<ZoneManager>()?.GetTotalAverageHealth() ?? 100f;
+        float worldHealth = RegionManager.Instance?.GetTotalAverageHealth() ?? 100f;
         foreach (GameEventSO ev in allEvents)
         {
             if (ShouldSkip(ev)) continue;
@@ -93,7 +94,7 @@ public class EventManager : MonoBehaviour
         ShowNextInQueue();
     }
 
-    void HandleZoneGenerated(ZoneGenerationResult result)
+    void HandleRegionGenerated(RegionGenerationResult result)
     {
         if (IsShowingEvent) return;
         foreach (GameEventSO ev in allEvents)
@@ -219,7 +220,7 @@ public class EventManager : MonoBehaviour
         EventContext.Set("total_workers",       rm.TotalPeople.ToString());
         EventContext.Set("recovering_workers",  rm.RecoveringPeopleCount.ToString());
 
-        ZoneManager zm = FindObjectOfType<ZoneManager>();
+        RegionManager zm = RegionManager.Instance;
         if (zm != null)
         {
             EventContext.Set("zone_count",      (zm.NextRegionID - 1).ToString());

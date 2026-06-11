@@ -21,7 +21,7 @@ public class HealthBarUI : MonoBehaviour
     [SerializeField] private Color pink   = new Color(1f, 0.4f, 0.7f);
     [SerializeField] private Color green  = Color.green;
 
-    private ZoneManager zoneManager;
+    private RegionManager regionManager;
     private float threshold = 80f;
     private bool wasUnlocked = false;
 
@@ -42,12 +42,12 @@ public class HealthBarUI : MonoBehaviour
     {
         if (RunManager.Instance == null) return;
 
-        // Cache the ZoneManager — no need to FindObjectOfType every frame
-        if (zoneManager == null)
-            zoneManager = FindObjectOfType<ZoneManager>();
-        if (zoneManager == null) return;
+        // Cache the RegionManager singleton once.
+        if (regionManager == null)
+            regionManager = RegionManager.Instance;
+        if (regionManager == null) return;
 
-        float currentHealth = zoneManager.GetTotalAverageHealth();
+        float currentHealth = regionManager.GetTotalAverageHealth();
 
         // Update Slider
         healthSlider.value = currentHealth;

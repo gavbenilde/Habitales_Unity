@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace Habitales.Dialogue
 {
+    [DefaultExecutionOrder(-100)] // manager — initializes after core services (arch §4 init order)
     public class DialogueManager : MonoBehaviour
     {
         public static DialogueManager Instance { get; private set; }
@@ -81,21 +82,21 @@ namespace Habitales.Dialogue
             else
                 Debug.LogWarning("[DialogueManager] ResourceManager not ready — will retry subscription in Start.");
 
-            if (ZoneManager.Instance != null)
+            if (RegionManager.Instance != null)
             {
-                ZoneManager.Instance.OnZoneGenerated -= HandleZoneGenerated;
-                ZoneManager.Instance.OnZoneGenerated += HandleZoneGenerated;
+                RegionManager.Instance.OnRegionGenerated -= HandleRegionGenerated;
+                RegionManager.Instance.OnRegionGenerated += HandleRegionGenerated;
             }
             else
-                Debug.LogWarning("[DialogueManager] ZoneManager not ready — will retry subscription in Start.");
+                Debug.LogWarning("[DialogueManager] RegionManager not ready — will retry subscription in Start.");
         }
 
         private void OnDisable()
         {
             if (ResourceManager.Instance != null)
                 ResourceManager.Instance.OnTimeAdvanced -= HandleTimeAdvanced;
-            if (ZoneManager.Instance != null)
-                ZoneManager.Instance.OnZoneGenerated -= HandleZoneGenerated;
+            if (RegionManager.Instance != null)
+                RegionManager.Instance.OnRegionGenerated -= HandleRegionGenerated;
         }
 
         private void InitializeFixedTabs()
@@ -326,9 +327,9 @@ namespace Habitales.Dialogue
             RunBirthdayCheck(totalDays);
         }
 
-        private void HandleZoneGenerated(ZoneGenerationResult result)
+        private void HandleRegionGenerated(RegionGenerationResult result)
         {
-            // Narrative threads tied to zone events come through EventManager
+            // Narrative threads tied to region events come through EventManager
             // via AppendThread(linkedThread). Reserved for future direct triggers.
         }
 

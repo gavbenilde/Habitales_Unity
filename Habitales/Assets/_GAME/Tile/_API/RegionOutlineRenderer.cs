@@ -10,7 +10,8 @@ public class RegionOutlineRenderer : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private TileManager tileManager;
-    [SerializeField] private ZoneManager zoneManager;
+    [UnityEngine.Serialization.FormerlySerializedAs("zoneManager")]
+    [SerializeField] private RegionManager regionManager;
     [SerializeField] private RegionHealthUI regionHealthUI;
 
     [Header("Outline Settings")]
@@ -38,8 +39,8 @@ public class RegionOutlineRenderer : MonoBehaviour
 
     void Awake()
     {
-        if (tileManager == null) tileManager = FindObjectOfType<TileManager>();
-        if (zoneManager == null) zoneManager = FindObjectOfType<ZoneManager>();
+        if (tileManager == null) tileManager = TileManager.Instance;
+        if (regionManager == null) regionManager = RegionManager.Instance;
 
         BuildRenderObjects();
     }
@@ -97,9 +98,9 @@ public class RegionOutlineRenderer : MonoBehaviour
 
         // Determine health and dynamically shift outline color from Black (0) to White (100)
         float avgHealth = 0f;
-        if (zoneManager != null)
+        if (regionManager != null)
         {
-            avgHealth = zoneManager.GetRegionHealth(regionID);
+            avgHealth = regionManager.GetRegionHealth(regionID);
             
             float t = avgHealth / 100f;
             if (outlineMaterial != null)
@@ -114,7 +115,7 @@ public class RegionOutlineRenderer : MonoBehaviour
 
         outlineGO.SetActive(true);
 
-        if (regionHealthUI != null && zoneManager != null)
+        if (regionHealthUI != null && regionManager != null)
         {
             regionHealthUI.Show(regionID, avgHealth);
         }

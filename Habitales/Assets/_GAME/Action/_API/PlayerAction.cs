@@ -61,4 +61,15 @@ public abstract class PlayerAction
                 return true;
         return false;
     }
+
+    // entityId-based replacement for the type-check helper (arch §5.1). Post-Phase-4 entities are
+    // all GenericTileEntity, so `is FireEntity` no longer works — match on the data-driven id.
+    protected static bool AnyTileHasEntityId(List<Tile> tiles, string entityId)
+    {
+        if (tiles == null) return false;
+        foreach (Tile tile in tiles)
+            if (tile.entity != null && tile.entity.entityId == entityId)
+                return true;
+        return false;
+    }
 }

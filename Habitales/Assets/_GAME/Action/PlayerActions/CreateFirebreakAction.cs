@@ -19,7 +19,7 @@ public class CreateFirebreakAction : PlayerAction
         if (tiles == null || tiles.Count == 0) return false;
         foreach (Tile tile in tiles)
         {
-            if (tile.entity is FireEntity)
+            if (tile.entity != null && tile.entity.entityId == "fire")
             {
                 Debug.LogWarning($"Cannot create firebreak on burning tile at {tile.gridPosition}. Extinguish fire first.");
                 return false;

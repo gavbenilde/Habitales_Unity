@@ -16,18 +16,18 @@ public class FireSuppressionAction : PlayerAction
     // Spending time on a burned-out tile is intentional design pressure.
     public override bool Execute(List<Tile> tiles, TileManager tileManager) => true;
 
-    public override bool CanExecute(List<Tile> tiles) => AnyTileHasEntity<FireEntity>(tiles);
+    public override bool CanExecute(List<Tile> tiles) => AnyTileHasEntityId(tiles, "fire");
 
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
     {
         if (tile == null) return;
-        if (tile.entity is FireEntity)
+        if (tile.entity != null && tile.entity.entityId == "fire")
         {
             tileManager.RemoveEntity(tile);
             Debug.Log($"Fire suppressed at {tile.gridPosition}.");
         }
         else if (tile.entity != null)
-            Debug.LogWarning($"Tile {tile.gridPosition} has {tile.entity.entityType}, not Fire.");
+            Debug.LogWarning($"Tile {tile.gridPosition} has {tile.entity.entityId}, not Fire.");
         else
             Debug.LogWarning($"Tile {tile.gridPosition} has no entity — fire may have already burned out.");
     }
