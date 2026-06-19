@@ -18,7 +18,7 @@ MonoBehaviour:
   tileSprite: {fileID: 21300000, guid: 4fc0baf6b824d564eab0a75a7f5d9728, type: 3}
   vfxKey: 
   billboardScale: 1
-  promoteAfterDays: 0
+  promoteAfterDays: 12
   nextStage: {fileID: 11400000, guid: ae2f233169b97d043943e2546856ff52, type: 2}
   transitionEffects: []
   requirePromoteCondition: 0
@@ -31,7 +31,7 @@ MonoBehaviour:
     onSatisfied: []
   dailyEffects:
   - stat: 0
-    delta: -1
+    delta: -0.4
   - stat: 1
     delta: 0.4
   - stat: 2
