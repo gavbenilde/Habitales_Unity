@@ -19,7 +19,7 @@ MonoBehaviour:
   vfxKey: 2
   billboardScale: 1
   promoteAfterDays: 5
-  nextStage: {fileID: 0}
+  nextStage: {fileID: 11400000, guid: 2636aa4747d73fc409be76a3813642ad, type: 2}
   transitionEffects:
   - stat: 6
     delta: 10
@@ -33,7 +33,7 @@ MonoBehaviour:
     onSatisfied: []
   dailyEffects:
   - stat: 0
-    delta: -2
+    delta: -0.5
   deathConditions:
   - stat: 8
     comparator: 0
