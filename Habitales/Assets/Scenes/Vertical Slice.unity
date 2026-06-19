@@ -7212,8 +7212,8 @@ MonoBehaviour:
   aziPortrait: {fileID: 21300000, guid: f30d1144f0c8b4d498df622655d19c1d, type: 3}
   stallSeconds: 3
   actionBarUI: {fileID: 1601831423}
-  skipBeat0: 1
-  debugStartBeat: 1
+  skipBeat0: 0
+  debugStartBeat: 0
 --- !u!1 &623727763
 GameObject:
   m_ObjectHideFlags: 0
