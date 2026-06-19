@@ -287,7 +287,12 @@ public class TileSelector : MonoBehaviour
     }
 
     /// <summary>Exits multi-select (and FloodFill) mode and clears all selection state.</summary>
-    public void ExitMultiSelectMode()
+    /// <param name="restoreSeed">
+    /// When true (cancel/ESC), the seed tile keeps its single-select highlight so the player
+    /// resumes where they were. When false (confirm), everything is deselected — no tile is
+    /// left highlighted once the action is committed.
+    /// </param>
+    public void ExitMultiSelectMode(bool restoreSeed = true)
     {
         // Capture seed before wipe so its single-select highlight can be restored.
         Tile seedToRestore = originalTile;
@@ -309,10 +314,17 @@ public class TileSelector : MonoBehaviour
 
         ClearSelection();
 
-        if (seedToRestore != null)
+        if (restoreSeed && seedToRestore != null)
         {
             currentTile = seedToRestore;
             UpdateTileVisual(currentTile, TileVisualState.Selected);
+        }
+        else
+        {
+            // Confirm path: clear the single-select highlight too, so no tile lingers.
+            if (currentTile != null)
+                UpdateTileVisual(currentTile, TileVisualState.Default);
+            currentTile = null;
         }
 
         OnMultiSelectExited?.Invoke();
@@ -323,7 +335,7 @@ public class TileSelector : MonoBehaviour
     {
         if (selectedTiles.Count == 0) return;
         OnMultiSelectionConfirmed?.Invoke(new List<Tile>(selectedTiles));
-        ExitMultiSelectMode();
+        ExitMultiSelectMode(restoreSeed: false);   // confirm = full deselect, no lingering tile
     }
 
     /// <summary>Cancels without executing. Called by ActionUI's Cancel button or ESC.</summary>

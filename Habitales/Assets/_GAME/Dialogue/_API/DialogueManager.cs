@@ -49,6 +49,11 @@ namespace Habitales.Dialogue
             "Cap, the air smells different out here."
         };
 
+        // ─── Public Read-Only State (Law 1: getters, not setters) ────────────
+
+        /// <summary>Total count of tabs with at least one unread message.</summary>
+        public int UnreadCount => _unreadTabs.Count;
+
         // ─── Events ───────────────────────────────────────────────────────────
 
         public event Action<string> OnMessagesUpdated;
@@ -428,14 +433,26 @@ namespace Habitales.Dialogue
 
         private List<ResolvedLine> ResolveThread(RuntimeChatEntry entry)
         {
-            var result = new List<ResolvedLine>();
             var thread = registry.GetThread(entry.threadID);
+            return ResolveThreadLines(thread, entry.resolvedWorkerName, entry.resolvedWorkerTrait);
+        }
+
+        /// <summary>
+        /// Resolves a DialogueThreadSO directly into display-ready lines, independent of the
+        /// chat-history path, so non-chat presenters (the Narrative Popup façade's Dialog /
+        /// Character / Text views) render a thread identically to how chat renders it. Takes
+        /// the SO directly — the thread need not live in the registry (S2: one resolution path,
+        /// two surfaces).
+        /// </summary>
+        public List<ResolvedLine> ResolveThreadLines(DialogueThreadSO thread, string workerName = null, string workerTrait = null)
+        {
+            var result = new List<ResolvedLine>();
             if (thread == null) return result;
 
-            if (!string.IsNullOrEmpty(entry.resolvedWorkerName))
+            if (!string.IsNullOrEmpty(workerName))
             {
-                EventContext.SetOverride("workerName",  entry.resolvedWorkerName);
-                EventContext.SetOverride("workerTrait", entry.resolvedWorkerTrait ?? "");
+                EventContext.SetOverride("workerName",  workerName);
+                EventContext.SetOverride("workerTrait", workerTrait ?? "");
             }
 
             foreach (var line in thread.lines)
@@ -455,10 +472,10 @@ namespace Habitales.Dialogue
                     portrait    = spk.GetExpression(line.expressionID);
                     displayName = spk.displayName;
                 }
-                else if (!string.IsNullOrEmpty(entry.resolvedWorkerName))
+                else if (!string.IsNullOrEmpty(workerName))
                 {
-                    portrait    = GetWorkerPortrait(entry.resolvedWorkerName);
-                    displayName = entry.resolvedWorkerName;
+                    portrait    = GetWorkerPortrait(workerName);
+                    displayName = workerName;
                 }
 
                 result.Add(new ResolvedLine

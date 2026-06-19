@@ -69,9 +69,9 @@ public class RunManager : MonoBehaviour {
     [SerializeField] private bool spawnInitialZone = true;
     [SerializeField] private Vector2Int initialZoneOrigin = Vector2Int.zero;
     [SerializeField] private int initialZoneSize = 6; // 6x6 grid
-    [UnityEngine.Serialization.FormerlySerializedAs("zone1Profile")]
-    [SerializeField] private RegionProfile zone1Profile;
-    
+    // Zone 1's profile is owned by RegionManager.zone1Profile (single source of truth).
+    // RunManager just triggers generation; it no longer holds a duplicate profile field.
+
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
 
@@ -194,7 +194,7 @@ public class RunManager : MonoBehaviour {
     {
         Debug.Log("Generating initial Zone 1...");
 
-        RegionGenerationResult result = regionManager.GenerateInitialRegion(initialZoneOrigin, zone1Profile);
+        RegionGenerationResult result = regionManager.GenerateInitialRegion(initialZoneOrigin);
 
         if (result == null)
         {

@@ -115,6 +115,48 @@ public class ActionBarUI : MonoBehaviour
 
     // ─── Public API ───────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// The currently armed action, or null if nothing is selected.
+    /// Law-1 getter — read-only; write via ArmAction() / Disarm() only.
+    /// Consumed by OnboardingDirector to poll for "Plant Trees selected" without a dedicated event.
+    /// </summary>
+    public PlayerAction CurrentArmedAction => currentAction;
+
+    /// <summary>
+    /// Returns the RectTransform a coach-mark should point at to guide the player toward
+    /// arming <paramref name="action"/>. If the action's card is currently built (its category
+    /// strip is open) we point at the card; otherwise the strip is collapsed and there is no
+    /// card yet, so we point at the category tab that opens it. Pass null to get the Intervene
+    /// tab as a generic "open your action bar" target. Wiring-free — uses existing serialized refs.
+    /// </summary>
+    public RectTransform GetArmCueRect(PlayerAction action)
+    {
+        if (action != null && cardObjects.TryGetValue(action, out GameObject card) && card != null)
+            return card.transform as RectTransform;
+
+        Button tab = TabForCategory(action != null ? action.Category : ActionCategory.Intervene);
+        return tab != null ? tab.transform as RectTransform : null;
+    }
+
+    /// <summary>
+    /// The Confirm button's RectTransform, or null if unwired. Law-1 read-only getter —
+    /// consumed by OnboardingDirector to point a FidgetArrow at Confirm once a selection exists.
+    /// </summary>
+    public RectTransform GetConfirmButtonRect()
+        => confirmButton != null ? confirmButton.transform as RectTransform : null;
+
+    private Button TabForCategory(ActionCategory category)
+    {
+        switch (category)
+        {
+            case ActionCategory.Examine:   return examineTab;
+            case ActionCategory.Intervene: return interveneTab;
+            case ActionCategory.Emergency: return emergencyTab;
+            case ActionCategory.Cleanup:   return cleanupTab;
+            default:                       return interveneTab;
+        }
+    }
+
     public void SelectCategory(ActionCategory category)
     {
         if (currentAction != null)

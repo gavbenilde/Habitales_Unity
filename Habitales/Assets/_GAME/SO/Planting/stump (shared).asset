@@ -15,7 +15,7 @@ MonoBehaviour:
   entityId: stump
   displayName: 
   category: 3
-  tileSprite: {fileID: 0}
+  tileSprite: {fileID: 21300000, guid: c8aa917b9ccb33443a03922f2788b204, type: 3}
   vfxKey: 
   billboardScale: 1
   promoteAfterDays: 16

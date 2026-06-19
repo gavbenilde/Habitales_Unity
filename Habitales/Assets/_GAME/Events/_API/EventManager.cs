@@ -111,7 +111,13 @@ public class EventManager : MonoBehaviour
     {
         eventQueue.Clear();
         _pannedThisBatch = false;
-        if (IsShowingEvent) EventPopupUI.Instance?.Hide();
+        if (IsShowingEvent)
+        {
+            if (Habitales.UI.NarrativePopupManager.Instance != null)
+                Habitales.UI.NarrativePopupManager.Instance.HideAll();
+            else
+                EventPopupUI.Instance?.Hide();
+        }
         IsShowingEvent = false;
     }
 
@@ -178,10 +184,23 @@ public class EventManager : MonoBehaviour
 
         void ShowPopup()
         {
-            EventPopupUI.Instance.Show(ev, resolvedHeadline, resolvedBody,
-                onContinueCallback: ResumeAfterEvent,
-                onAbortCallback:    null
-            );
+            // Route through the single narrative surface (the façade). Until its GameObject is
+            // wired into the scene, fall back to the one-shot view directly so the running build
+            // never loses its events. TODO: drop this fallback once the façade ships in every
+            // gameplay scene — then a missing façade should loud-fail, not silently degrade.
+            var facade = Habitales.UI.NarrativePopupManager.Instance;
+            if (facade != null)
+            {
+                facade.ShowHeadline(ev, resolvedHeadline, resolvedBody, ResumeAfterEvent, null);
+            }
+            else
+            {
+                Debug.LogWarning("EventManager: NarrativePopupManager not in scene — showing via EventPopupUI directly. Wire the façade to route all narrative through one surface.");
+                EventPopupUI.Instance.Show(ev, resolvedHeadline, resolvedBody,
+                    onContinueCallback: ResumeAfterEvent,
+                    onAbortCallback:    null
+                );
+            }
         }
 
         if (ev.focusCameraOnTarget && focusTarget.HasValue && EventCameraHandler.Instance != null)

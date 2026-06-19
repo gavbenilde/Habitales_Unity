@@ -798,7 +798,8 @@ public class RegionManager : MonoBehaviour
     {
         if (tileManager == null) { Debug.LogError("RegionManager: TileManager missing!"); return null; }
 
-        RegionProfile profile = overrideProfile ?? GetProfileForNextRegion();
+        // Zone 1 authority lives here: event override > the inspector zone1Profile > random pool.
+        RegionProfile profile = overrideProfile ?? zone1Profile ?? GetProfileForNextRegion();
         if (profile == null) { Debug.LogError("RegionManager: No Region 1 profile assigned!"); return null; }
 
         const int regionID = 1;
