@@ -15,7 +15,7 @@ MonoBehaviour:
   actionId: plant_trees
   displayName: Plant Trees
   group: 1
-  description: 
+  description: asad
   icon: {fileID: 21300000, guid: 1d67587e864fe264296b38e410251242, type: 3}
   selectionMode: 0
   effects:
@@ -26,6 +26,6 @@ MonoBehaviour:
   minDays: 1
   minPeoplePerTile: 1
   fatigueMultiplierPerTile: 2
-  lore: 
-  infoTooltip: 
+  lore: asdasd
+  infoTooltip: asdasdadsa
   supplementaryImages: []

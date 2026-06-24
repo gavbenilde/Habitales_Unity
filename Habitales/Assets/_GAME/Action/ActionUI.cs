@@ -535,7 +535,7 @@ public class ActionUI : MonoBehaviour
                 if (BooglePanelUI.Instance != null)
                     BooglePanelUI.Instance.Show(action);
                 else
-                    Debug.LogWarning("BooglePanelUI.Instance is null — no Boogle panel in the scene.");
+                    Debug.LogWarning("[Boogle] Instance is null — no Boogle panel in the scene.");
             });
         }
 

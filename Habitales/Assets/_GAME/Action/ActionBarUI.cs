@@ -314,6 +314,21 @@ public class ActionBarUI : MonoBehaviour
             var captured = action;
             cardBtn.onClick.AddListener(() => ArmAction(captured));
         }
+
+        // Wire the "?" Boogle button → opens the standalone Boogle lookup panel with this
+        // action's authored encyclopedia data (ActionSO.lore / infoTooltip / images).
+        Button boogleBtn = card.transform.Find("BoogleButton")?.GetComponent<Button>();
+        if (boogleBtn != null)
+        {
+            var captured = action;
+            boogleBtn.onClick.AddListener(() =>
+            {
+                if (BooglePanelUI.Instance != null)
+                    BooglePanelUI.Instance.Show(captured);
+                else
+                    Debug.LogWarning("[Boogle] Instance is null — BooglePanel root is inactive or absent in the scene.");
+            });
+        }
     }
 
     void SpawnLockCard()

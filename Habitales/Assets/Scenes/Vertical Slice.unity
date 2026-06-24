@@ -801,7 +801,7 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 639688560}
   m_HandleRect: {fileID: 639688559}
   m_Direction: 0
-  m_Value: 1
+  m_Value: 0
   m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
@@ -7728,6 +7728,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 309b9b5673b2dd54a8f91652985c25c4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  actionRegistry: {fileID: 11400000, guid: 8a77207cd83ec8041bca888bafdc15fa, type: 2}
   showDebugInfo: 1
 --- !u!4 &651731310
 Transform:
@@ -12467,7 +12468,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8456889503058194043, guid: cb8241aa3189c804a956ddf9924ed9c0, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -22962,6 +22963,9 @@ MonoBehaviour:
   dragStartPos: {x: 0, y: 0}
   dragEndPos: {x: 200, y: 0}
   loopPauseSeconds: 0.6
+  validTileThreshold: 3
+  maxReplays: 3
+  fadeOutDuration: 0.5
 --- !u!1 &1936926421
 GameObject:
   m_ObjectHideFlags: 0
