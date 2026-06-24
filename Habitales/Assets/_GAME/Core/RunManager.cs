@@ -449,6 +449,12 @@ public class RunManager : MonoBehaviour {
                 entityEventSink);
             tileManager.UpdateAllEntities(in tickCtx);
 
+            // 2b. Natural neglect decay — every tile loses its escalating decayK from its soil
+            // substats + vegetation cover, then that decay grows (k *= Tile.DecayGrowth). Player
+            // interaction resets a tile's decay (ActionManager.FinishAction). Runs before cascade
+            // so the day's loss diffuses with everything else.
+            tileManager.ApplyDailyDecay();
+
             // 3. Cascade — neighbour diffusion, ONCE per day.
             CascadeTileUpdates();
 

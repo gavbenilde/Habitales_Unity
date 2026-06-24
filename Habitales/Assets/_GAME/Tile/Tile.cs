@@ -21,6 +21,16 @@ public class Tile
     public Tier lastTier;
     public bool tierSeeded = false;
 
+    // Exponentially escalating neglect decay (per-tile runtime state). Each resolved day the
+    // tile loses decayK from every soil substat + vegetation cover, then decayK grows by
+    // DecayGrowth — so an untended tile degrades faster the longer it's ignored. Working the
+    // tile (a player action) resets it to DecayStart. Applied by TileManager.ApplyDailyDecay.
+    public const float DecayStart  = 0.1f;   // starting / reset decay rate
+    public const float DecayGrowth = 1.01f;  // per-day multiplier (k *= 1.01)
+    public float decayK = DecayStart;
+
+    public void ResetDecay() => decayK = DecayStart;
+
     public float CalculateHealth() => stats.CalculateHealth();
     public float GetSoilComposite() => stats.soilComposite;
     public float GetVegetationCover() => stats.vegetationCover;

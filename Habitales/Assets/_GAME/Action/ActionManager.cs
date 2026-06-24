@@ -163,6 +163,7 @@ public class ActionManager : MonoBehaviour
             {
                 Tile tile = targetTiles[processedTiles];
                 action.ExecuteOnTile(tile, tileManager);
+                tileManager.ResetTileDecay(tile); // working a tile resets its neglect decay to DecayStart
 
                 Vector3 pos = tileManager.GridToWorldPosition(tile.gridPosition);
                 VFXManager.Instance.SpawnVFX("Default", pos);

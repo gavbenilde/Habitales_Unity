@@ -362,6 +362,42 @@ public class TileManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Exponentially escalating neglect decay — one step per resolved day (called by the heartbeat).
+    /// Every tile loses its current <c>decayK</c> from each of the 6 soil substats and vegetation
+    /// cover (clamped ≥0), then its <c>decayK</c> grows by <see cref="Tile.DecayGrowth"/> so an
+    /// untended tile degrades faster the longer it's ignored. Contamination and the derived
+    /// SoilComposite are untouched. Working a tile resets its decay via <see cref="ResetTileDecay"/>.
+    /// </summary>
+    public void ApplyDailyDecay()
+    {
+        foreach (Tile tile in tileCache.Values)
+        {
+            TileStats s = tile.stats;
+            float k = tile.decayK;
+            s.nutrientBalance    = Mathf.Max(0f, s.nutrientBalance    - k);
+            s.soilOrganicMatter  = Mathf.Max(0f, s.soilOrganicMatter  - k);
+            s.soilStructure      = Mathf.Max(0f, s.soilStructure      - k);
+            s.biologicalActivity = Mathf.Max(0f, s.biologicalActivity - k);
+            s.waterDynamics      = Mathf.Max(0f, s.waterDynamics      - k);
+            s.erosionResistance  = Mathf.Max(0f, s.erosionResistance  - k);
+            s.vegetationCover    = Mathf.Max(0f, s.vegetationCover    - k);
+
+            tile.decayK = k * Tile.DecayGrowth;
+        }
+    }
+
+    /// <summary>
+    /// Resets a tile's neglect decay back to <see cref="Tile.DecayStart"/> — call whenever the
+    /// player interacts with (works) the tile, so tending it slows its degradation again (Law 1
+    /// write path; callers don't poke <c>tile.decayK</c> directly).
+    /// </summary>
+    public void ResetTileDecay(Tile tile)
+    {
+        if (tile == null) return;
+        tile.ResetDecay();
+    }
+
+    /// <summary>
     /// Owner-side write path for §3.5 StatChange-shaped effects: applies a delta DIRECTLY to one
     /// named stat (clamped 0–100), then refreshes the visual. Actions and other systems mutate tile
     /// stats through here instead of writing <c>tile.stats</c> themselves (Law 1). Distinct from

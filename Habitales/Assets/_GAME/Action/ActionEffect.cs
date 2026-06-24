@@ -1,5 +1,4 @@
 using UnityEngine;
-using ArtificeToolkit.Attributes;
 using Habitales.Entities;
 
 // ActionEffect — one authorable unit of "what an action does to a tile" (arch §3.4).
@@ -11,8 +10,10 @@ using Habitales.Entities;
 //                    `tileManager.SpawnById(...)` that PlantTreesAction wrote by hand).
 //   CustomBehavior — escape hatch: delegate to an ActionEffectHook subclass asset.
 //
-// EnableIf hides the irrelevant field so only the chosen kind's slot shows (same pattern
-// TileEntitySO uses for its conditional fields).
+// Only the chosen kind's slot is shown in the Inspector; the other is hidden by
+// ActionEffectDrawer (see Editor/ActionEffectDrawer.cs). We can't reuse TileEntitySO's
+// [EnableIf] here because that conditional misbehaves on a field nested inside a struct
+// that's a reorderable list element — which is what each effect is.
 namespace Habitales.Actions
 {
     public enum ActionEffectType
@@ -31,11 +32,9 @@ namespace Habitales.Actions
         [Tooltip("What kind of effect this is. The relevant field below appears for each.")]
         public ActionEffectType type;
 
-        [EnableIf(nameof(type), ActionEffectType.PlaceEntity)]
         [Tooltip("Entity definition to spawn on the tile (only placed if the tile is empty).")]
         public TileEntitySO entityToPlace;
 
-        [EnableIf(nameof(type), ActionEffectType.CustomBehavior)]
         [Tooltip("Bespoke effect asset — the escape hatch, twin of EntityBehaviourHook.")]
         public ActionEffectHook customBehaviour;
 
