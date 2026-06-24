@@ -22952,7 +22952,7 @@ MonoBehaviour:
   cursorImage: {fileID: 18887888}
   cursorIdle: {fileID: 21300000, guid: 1fda9b9c3166cee46a7c576339903881, type: 3}
   cursorPressed: {fileID: 21300000, guid: a696e1b695d884c43b1657e8be3cf0f0, type: 3}
-  tileEmpty: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
+  tileEmpty: {fileID: 21300000, guid: 7c9236e2dee0ae44f8caacc328f25396, type: 3}
   tileFilled: {fileID: 21300000, guid: 87e9952e9d3f0d34fb2263205025d7fb, type: 3}
   ghostTiles:
   - {fileID: 1348335975}
