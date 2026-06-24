@@ -153,9 +153,11 @@ public class ActionUI : MonoBehaviour
             interveneButton.button.onClick.AddListener(() => OnCategoryButtonClicked(ActionCategory.Intervene));
         }
         
+        // Emergency is retired to 3 authorable groups; its two actions are dormant. Hide the
+        // tab so the empty category does not show. Re-activate to revive Emergency later.
         if (emergencyButton != null)
         {
-            emergencyButton.button.onClick.AddListener(() => OnCategoryButtonClicked(ActionCategory.Emergency));
+            emergencyButton.gameObject.SetActive(false);
         }
         
         if (cleanupButton != null)
@@ -489,11 +491,14 @@ public class ActionUI : MonoBehaviour
         Button cardButton = card.GetComponent<Button>();
         Image iconImage = card.transform.Find("ActionIcon")?.GetComponent<Image>();
         
-        // Set action sprite
-        if (iconImage != null && actionIconConfig != null)
+        // Set action sprite. Data-driven actions carry their own icon (ActionSO.icon);
+        // legacy code-defined actions fall back to the name-keyed ActionIconConfig.
+        if (iconImage != null)
         {
-            Sprite actionSprite = actionIconConfig.GetSpriteForAction(action.ActionName);
-            
+            Sprite actionSprite = action.Icon != null
+                ? action.Icon
+                : actionIconConfig != null ? actionIconConfig.GetSpriteForAction(action.ActionName) : null;
+
             if (actionSprite != null)
             {
                 iconImage.sprite = actionSprite;
@@ -501,20 +506,13 @@ public class ActionUI : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning($"No sprite found for action '{action.ActionName}' in ActionIconConfig!");
+                Debug.LogWarning($"No sprite found for action '{action.ActionName}' (no ActionSO.icon and no ActionIconConfig entry)!");
                 iconImage.enabled = false; // Hide if no sprite
             }
         }
         else
         {
-            if (iconImage == null)
-            {
-                Debug.LogWarning("ActionCardPrefab is missing child named 'ActionIcon' with Image component!");
-            }
-            if (actionIconConfig == null)
-            {
-                Debug.LogWarning("ActionIconConfig is not assigned in ActionUI! Assign it in Inspector.");
-            }
+            Debug.LogWarning("ActionCardPrefab is missing child named 'ActionIcon' with Image component!");
         }
         
         // Wire up click handler

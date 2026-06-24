@@ -1,0 +1,53 @@
+using System.Collections.Generic;
+using UnityEngine;
+using Habitales.Actions;
+
+// GenericPlayerAction — the data-driven runtime half of an action (arch §3.4). Wraps an
+// ActionSO and turns it into a live PlayerAction: all metadata reads from the SO, and
+// ExecuteOnTile simply runs the SO's authored effects in order. This is the action-side
+// twin of GenericTileEntity/TileEntitySO — authored actions need NO bespoke C# subclass.
+//
+// The cost math (GetMaxTiles / CalculateDays / fatigue) lives unchanged in the PlayerAction
+// base; it just reads the values surfaced below.
+public class GenericPlayerAction : PlayerAction
+{
+    private readonly ActionSO _def;
+
+    public GenericPlayerAction(ActionSO def)
+    {
+        _def = def;
+    }
+
+    public override string ActionName              => _def.displayName;
+    public override string Description             => _def.description;
+    public override SelectionMode selectionMode    => _def.selectionMode;
+    public override ActionCategory Category        => MapGroup(_def.group);
+
+    // Crew of 0 would divide-by-zero in the cost math; clamp to a sane floor.
+    public override int MinPeoplePerTile           => Mathf.Max(1, _def.minPeoplePerTile);
+    public override int BaseDays                   => Mathf.Max(1, _def.baseDays);
+    public override int MinDays                    => Mathf.Max(1, _def.minDays);
+    public override float FatigueMultiplierPerTile => _def.fatigueMultiplierPerTile;
+
+    public override Sprite Icon => _def.icon;
+
+    public override void ExecuteOnTile(Tile tile, TileManager tileManager)
+    {
+        if (tile == null || _def.effects == null) return;
+        foreach (ActionEffect effect in _def.effects)
+            effect.Apply(tile, tileManager);
+    }
+
+    // The author-facing 3-value ActionGroup maps onto the broader global ActionCategory.
+    // Emergency is intentionally unreachable here — it is dormant and not authorable.
+    private static ActionCategory MapGroup(ActionGroup group)
+    {
+        switch (group)
+        {
+            case ActionGroup.Examine:   return ActionCategory.Examine;
+            case ActionGroup.Intervene: return ActionCategory.Intervene;
+            case ActionGroup.Cleanup:   return ActionCategory.Cleanup;
+            default:                    return ActionCategory.Intervene;
+        }
+    }
+}

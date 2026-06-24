@@ -5,7 +5,8 @@ public enum SelectionMode
 {
     FloodFill,
     Adjacent,
-    NonAdjacent
+    NonAdjacent,
+    Single       // exactly one tile — routed through multi-select with the cap forced to 1
 }
 
 public abstract class PlayerAction
@@ -20,8 +21,13 @@ public abstract class PlayerAction
     public abstract int MinDays              { get; }
 
     public virtual float FatigueMultiplierPerTile => 2.0f;
-    
+
     public virtual string VariantGroupName => null;
+
+    // Author-supplied card sprite. Null for legacy code-defined actions (the UI falls back
+    // to ActionIconConfig); GenericPlayerAction returns its ActionSO.icon so data-driven
+    // actions display their own art without a config entry.
+    public virtual Sprite Icon => null;
 
     // ── Calculation helpers (unchanged) ─────────────────────────────────────
     public int GetMaxTiles(int availablePeople)

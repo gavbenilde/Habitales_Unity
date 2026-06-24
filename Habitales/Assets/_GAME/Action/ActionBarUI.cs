@@ -92,7 +92,8 @@ public class ActionBarUI : MonoBehaviour
 
         if (examineTab   != null) examineTab.onClick.AddListener(  () => SelectCategory(ActionCategory.Examine));
         if (interveneTab != null) interveneTab.onClick.AddListener(() => SelectCategory(ActionCategory.Intervene));
-        if (emergencyTab != null) emergencyTab.onClick.AddListener(() => SelectCategory(ActionCategory.Emergency));
+        // Emergency retired to 3 groups; its actions are dormant. Hide the empty tab.
+        if (emergencyTab != null) emergencyTab.gameObject.SetActive(false);
         if (cleanupTab   != null) cleanupTab.onClick.AddListener(  () => SelectCategory(ActionCategory.Cleanup));
     }
 
@@ -233,14 +234,28 @@ public class ActionBarUI : MonoBehaviour
 
         Tile seed = tileSelector?.GetSelectedTile();
         if (seed != null)
+            EnterSelectionFor(seed);
+    }
+
+    // Routes the armed action's selectionMode to the right TileSelector entry point.
+    // FloodFill → paint/blob mode; everything else (Single / Adjacent / NonAdjacent) →
+    // click-based multi-select, which self-caps to 1 tile for Single.
+    void EnterSelectionFor(Tile seed)
+    {
+        if (currentAction == null || tileSelector == null || seed == null) return;
+
+        if (currentAction.selectionMode == SelectionMode.FloodFill)
             tileSelector.EnterFloodFillMode(currentAction, seed);
+        else
+            tileSelector.EnterMultiSelectMode(currentAction, seed);
     }
 
     public void Disarm()
     {
         currentAction = null;
 
-        if (tileSelector != null && tileSelector.IsFloodFillMode)
+        // Covers both flood-fill and click-based multi-select (IsMultiSelectMode is true for both).
+        if (tileSelector != null && tileSelector.IsMultiSelectMode)
             tileSelector.CancelSelection();
 
         if (brushControls != null)
@@ -331,7 +346,7 @@ public class ActionBarUI : MonoBehaviour
     void HandleTileClicked(Tile tile, Vector3 _)
     {
         if (currentAction == null) return;
-        tileSelector.EnterFloodFillMode(currentAction, tile);
+        EnterSelectionFor(tile);
     }
 
     void HandleConfirmed(List<Tile> tiles)

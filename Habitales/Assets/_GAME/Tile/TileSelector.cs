@@ -294,6 +294,10 @@ public class TileSelector : MonoBehaviour
         ResourceManager rm = ResourceManager.Instance;
         maxSelectableTiles = rm.AvailablePeople / action.MinPeoplePerTile;
 
+        // Single mode reuses multi-select but is hard-capped to one tile.
+        if (action.selectionMode == SelectionMode.Single)
+            maxSelectableTiles = 1;
+
         originalTile = initialTile;
         selectedTiles.Add(initialTile);
 

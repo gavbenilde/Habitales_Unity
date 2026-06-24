@@ -2,6 +2,7 @@ using UnityEngine;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Habitales.Actions;
 
 [DefaultExecutionOrder(-100)] // manager — initializes after core services (arch §4 init order)
 public class ActionManager : MonoBehaviour
@@ -9,6 +10,10 @@ public class ActionManager : MonoBehaviour
     // Global flat offset added to every action's computed duration. Prototype
     // pacing knob — every action takes +N days longer than its CalculateDays result.
     private const int kActionDurationBonusDays = 2;
+
+    [Header("Authored Actions")]
+    [Tooltip("Every data-driven ActionSO (via the Action Creator) is registered from here.")]
+    [SerializeField] private ActionRegistry actionRegistry;
 
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
@@ -50,7 +55,6 @@ public class ActionManager : MonoBehaviour
         availableActions.Clear();
 
         // ── ACTIVE (prototype) ────────────────────────────────────────────────
-        availableActions.Add(new FireSuppressionAction());                 // Emergency
         availableActions.Add(new PlantTreesAction());                      // Intervene (replaces the 4 cube planting actions)
         availableActions.Add(new ApplyFertilizerAction());                 // Intervene  (Phase 5)
         availableActions.Add(new ClearTrashAction());                      // Cleanup    (Phase 5)
@@ -58,11 +62,31 @@ public class ActionManager : MonoBehaviour
         availableActions.Add(new InspectTrashAction());                    // Examine    (Phase 5)
 
         // ── DORMANT (post-prototype — kept in code per CLAUDE.md §7) ─────────
+        // Emergency category retired to 3 groups; the two fire actions are dormant for now.
+        // availableActions.Add(new FireSuppressionAction());
         // availableActions.Add(new CreateFirebreakAction());
         // availableActions.Add(new AnalyzeSoilSampleAction());
         // availableActions.Add(new EcologicalSurveyAction());
 
+        // ── AUTHORED (data-driven via the Action Creator) ───────────────────
+        RegisterAuthoredActions();
+
         Debug.Log($"✓ ActionManager registered {availableActions.Count} actions");
+    }
+
+    // Wraps every ActionSO in the registry as a GenericPlayerAction so author-created
+    // actions become playable with no bespoke C# subclass.
+    private void RegisterAuthoredActions()
+    {
+        if (actionRegistry == null) return;
+        if (!actionRegistry.ValidateAll())
+            Debug.LogError("ActionManager: ActionRegistry failed validation — see errors above.", this);
+
+        foreach (ActionSO def in actionRegistry.actions)
+        {
+            if (def == null) continue;
+            availableActions.Add(new GenericPlayerAction(def));
+        }
     }
 
     public bool IsActionRunning { get; private set; } = false;
