@@ -54,14 +54,15 @@ public class ActionManager : MonoBehaviour
     {
         availableActions.Clear();
 
-        // ── ACTIVE (prototype) ────────────────────────────────────────────────
-        availableActions.Add(new PlantTreesAction());                      // Intervene (replaces the 4 cube planting actions)
-        availableActions.Add(new ApplyFertilizerAction());                 // Intervene  (Phase 5)
-        availableActions.Add(new ClearTrashAction());                      // Cleanup    (Phase 5)
-        availableActions.Add(new StumpDeadTreeRemovalAction());            // Cleanup    (Phase 5)
-        availableActions.Add(new InspectTrashAction());                    // Examine    (Phase 5)
-
         // ── DORMANT (post-prototype — kept in code per CLAUDE.md §7) ─────────
+        // All hardcoded code-defined actions are now superseded by data-driven ActionSOs
+        // (the Action Creator). Classes stay on disk; registrations are off so only authored
+        // SO actions show in the UI. Re-enable a line to revive that legacy action.
+        // availableActions.Add(new PlantTreesAction());                   // Intervene (superseded by SO actions)
+        // availableActions.Add(new ApplyFertilizerAction());             // Intervene
+        // availableActions.Add(new ClearTrashAction());                  // Cleanup
+        // availableActions.Add(new StumpDeadTreeRemovalAction());        // Cleanup
+        // availableActions.Add(new InspectTrashAction());                // Examine
         // Emergency category retired to 3 groups; the two fire actions are dormant for now.
         // availableActions.Add(new FireSuppressionAction());
         // availableActions.Add(new CreateFirebreakAction());

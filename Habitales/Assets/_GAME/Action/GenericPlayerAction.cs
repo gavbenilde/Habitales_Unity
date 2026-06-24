@@ -31,6 +31,10 @@ public class GenericPlayerAction : PlayerAction
 
     public override Sprite Icon => _def.icon;
 
+    public override string Lore        => _def.lore;
+    public override string InfoTooltip => _def.infoTooltip;
+    public override IReadOnlyList<Sprite> SupplementaryImages => _def.supplementaryImages;
+
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
     {
         if (tile == null || _def.effects == null) return;

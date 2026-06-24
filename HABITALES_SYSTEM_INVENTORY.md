@@ -180,7 +180,7 @@ All paths below are relative to `Habitales/Assets/`. **LOC is exact as of this s
 | **RunEndCoordinator** | `_GAME/Scripts/Meta/RunEndCoordinator.cs` | **80** | NEW · ACTIVE · singleton | `Habitales.Meta`. **Single progression load point** (`Start` → `ProgressionPersistence.Load`, was dual-loaded). `ProcessRunEnd(thriving,degraded,critical,peak)` → XP weights (critical **0.1** / degraded **0.6** / thriving **2.4** per tile) → `progression.AddXp` → `Save` → returns `RunEndSummary` (xp + hardcoded `GenerateAziLine`). Called by `RunManager.TriggerGameOver`. F10 `ResetProgression`. XP unlocks nothing functional in Alpha. |
 | **Azi UI** | `AziSpeechBubbleUI.cs` (78) | — | NEW · ACTIVE · singleton | Run-end Azi bubble shown before EndGameScreen; self-heals disabled root; callback-driven. |
 | **MainMenu** | `_GAME/UI/MainMenu.cs` (86) | — | ACTIVE | Menu hub: level/XP display, level-up overlay via `lastSeen*` diff, scene loads, F-key reset. Uses `ProgressionPersistence` static + `PlayerProgressionSO`. |
-| **BooglePanelUI** | `_GAME/Prototype/Scripts/BooglePanelUI.cs` | — | **REMOVED** | Cube-slice plant-info panel. |
+| **BooglePanelUI** | `_GAME/Prototype/UI/BooglePanelUI.cs` | — | **REVIVED · ACTIVE · singleton** (2026-06-24) | "?" lookup overlay, **re-created ActionSO-driven**. `Show(PlayerAction)` renders `ActionSO` Boogle data (`displayName` + `lore` + `infoTooltip` + first `supplementaryImages`). Script GUID re-pinned to `f9f9fd92…` so the existing `BooglePanel.prefab` / scene wiring resolves (was a dangling missing-script after the cube-slice removal). Opened by the `?` `BoogleButton` on each action card, now wired in `ActionUI.CreateActionCard`. |
 
 ---
 
@@ -190,7 +190,8 @@ The disposable cube-planting prototype is fully deleted. Recorded so stale refs 
 
 | File | Now |
 |---|---|
-| `Prototype/Scripts/PlantingProfileSO.cs` · `PlantingProfileGenerator.cs` · `GeneratedPlantRegistry.cs` · `HWBColor.cs` · `PlantedCubeEntity.cs` · `PlantingAction.cs` · `RemoveWitheredAction.cs` · `BooglePanelUI.cs` | **REMOVED** |
+| `Prototype/Scripts/PlantingProfileSO.cs` · `PlantingProfileGenerator.cs` · `GeneratedPlantRegistry.cs` · `HWBColor.cs` · `PlantedCubeEntity.cs` · `PlantingAction.cs` · `RemoveWitheredAction.cs` | **REMOVED** |
+| `Prototype/Scripts/BooglePanelUI.cs` | **REVIVED** (2026-06-24) — re-created ActionSO-driven at `Prototype/UI/BooglePanelUI.cs`; see §J. |
 | `Action/PlayerActions/CoverCroppingAction.cs` | **REMOVED** (superseded by the planned CoverCrop behaviour hook) |
 
 `EntityRegistry` (§P) is the **sole** registry going forward. Orphan cube remnant: `ActionBarUI.OnPlantSpawnedTween()` empty stub (§G) — safe to delete.

@@ -525,6 +525,20 @@ public class ActionUI : MonoBehaviour
             Debug.LogWarning("ActionCardPrefab is missing Button component!");
         }
 
+        // Wire the "?" Boogle button → opens the standalone Boogle lookup panel with this
+        // action's authored encyclopedia data (ActionSO.lore / infoTooltip / images).
+        Button boogleButton = card.transform.Find("BoogleButton")?.GetComponent<Button>();
+        if (boogleButton != null)
+        {
+            boogleButton.onClick.AddListener(() =>
+            {
+                if (BooglePanelUI.Instance != null)
+                    BooglePanelUI.Instance.Show(action);
+                else
+                    Debug.LogWarning("BooglePanelUI.Instance is null — no Boogle panel in the scene.");
+            });
+        }
+
         // Optional: Set card name for debugging
         card.name = $"Card_{action.ActionName}";
     }

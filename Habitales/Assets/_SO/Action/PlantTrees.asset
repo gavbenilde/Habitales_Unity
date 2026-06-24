@@ -12,18 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f9be8fe52efe9a54994df2c0eac0a79c, type: 3}
   m_Name: PlantTrees
   m_EditorClassIdentifier: 
-  actionId: 
-  displayName: 
-  group: 0
+  actionId: plant_trees
+  displayName: Plant Trees
+  group: 1
   description: 
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 1d67587e864fe264296b38e410251242, type: 3}
   selectionMode: 0
-  effects: []
+  effects:
+  - type: 0
+    entityToPlace: {fileID: 0}
+    customBehaviour: {fileID: 0}
   baseDays: 1
   minDays: 1
   minPeoplePerTile: 1
   fatigueMultiplierPerTile: 2
+  lore: 
   infoTooltip: 
   supplementaryImages: []
-  lore: 
-  variantGroupName: 

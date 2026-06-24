@@ -29,6 +29,13 @@ public abstract class PlayerAction
     // actions display their own art without a config entry.
     public virtual Sprite Icon => null;
 
+    // ── Boogle ("?") panel data ──────────────────────────────────────────────
+    // The author-facing encyclopedia text surfaced by the Boogle panel. Null/empty for
+    // legacy code-defined actions; GenericPlayerAction returns its ActionSO's Boogle fields.
+    public virtual string Lore => null;
+    public virtual string InfoTooltip => null;
+    public virtual IReadOnlyList<Sprite> SupplementaryImages => null;
+
     // ── Calculation helpers (unchanged) ─────────────────────────────────────
     public int GetMaxTiles(int availablePeople)
         => Mathf.Max(1, availablePeople / MinPeoplePerTile);
