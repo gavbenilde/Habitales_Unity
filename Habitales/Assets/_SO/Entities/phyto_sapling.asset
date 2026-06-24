@@ -29,8 +29,15 @@ MonoBehaviour:
     outcome: 0
     transformTarget: {fileID: 11400000, guid: e32c25b4af662b241ba30a9df36bdb16, type: 2}
     onSatisfied: []
-  dailyEffects:
-  - stat: 7
-    delta: -0.5
+  plantDailyDeltas:
+    nutrientBalance: 0
+    soilOrganicMatter: 0
+    soilStructure: 0
+    biologicalActivity: 0
+    waterDynamics: 0
+    erosionResistance: 0
+    vegetationCover: 0
+    contamination: -0.5
+  dailyEffects: []
   deathConditions: []
   behaviour: {fileID: 0}

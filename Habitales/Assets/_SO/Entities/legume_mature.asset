@@ -29,20 +29,15 @@ MonoBehaviour:
     outcome: 0
     transformTarget: {fileID: 0}
     onSatisfied: []
-  dailyEffects:
-  - stat: 0
-    delta: 1.2
-  - stat: 1
-    delta: 0.6
-  - stat: 2
-    delta: 0.4
-  - stat: 3
-    delta: 1
-  - stat: 4
-    delta: 0.3
-  - stat: 5
-    delta: 0.5
-  - stat: 6
-    delta: 0.2
+  plantDailyDeltas:
+    nutrientBalance: 1.2
+    soilOrganicMatter: 0.6
+    soilStructure: 0.4
+    biologicalActivity: 1
+    waterDynamics: 0.3
+    erosionResistance: 0.5
+    vegetationCover: 0.2
+    contamination: 0
+  dailyEffects: []
   deathConditions: []
   behaviour: {fileID: 0}

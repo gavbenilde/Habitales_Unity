@@ -37,8 +37,11 @@ namespace Habitales.Entities
 
             if (!hookReplaces)
             {
-                // 1. Daily effects (per-stat, direct, clamped 0–100).
+                // 1. Daily effects (per-stat, direct, clamped 0–100). Non-plant entities use the
+                //    StatChange list; Plants use the 8 substat sliders. The other is zero/empty,
+                //    so applying both is correct with no category branch.
                 ApplyEffects(tile, def.dailyEffects);
+                ApplyDailyDeltas(tile, def.plantDailyDeltas);
 
                 // 2. Death conditions — first satisfied wins; apply its bonus, then its outcome.
                 if (def.deathConditions != null)
@@ -71,6 +74,21 @@ namespace Habitales.Entities
 
         private bool PromoteGateOpen(Tile tile)
             => !def.requirePromoteCondition || Satisfied(tile, def.promoteWhen);
+
+        // Plant daily sliders — same per-stat direct+clamp path as ApplyOne, applied to the 8
+        // writable substats. All-zero for non-plant defs (harmless no-op).
+        private static void ApplyDailyDeltas(Tile tile, in DailyStatDeltas d)
+        {
+            var s = tile.stats;
+            s.nutrientBalance    = Clamp(s.nutrientBalance    + d.nutrientBalance);
+            s.soilOrganicMatter  = Clamp(s.soilOrganicMatter  + d.soilOrganicMatter);
+            s.soilStructure      = Clamp(s.soilStructure      + d.soilStructure);
+            s.biologicalActivity = Clamp(s.biologicalActivity + d.biologicalActivity);
+            s.waterDynamics      = Clamp(s.waterDynamics      + d.waterDynamics);
+            s.erosionResistance  = Clamp(s.erosionResistance  + d.erosionResistance);
+            s.vegetationCover    = Clamp(s.vegetationCover    + d.vegetationCover);
+            s.contamination      = Clamp(s.contamination      + d.contamination);
+        }
 
         private void ResolveOutcome(Tile tile, in TickContext ctx, StatCondition c)
         {
@@ -132,15 +150,22 @@ namespace Habitales.Entities
             }
         }
 
+        // Death condition and promotion gate share the same threshold test — one core, two shapes.
         private static bool Satisfied(Tile tile, StatCondition c)
+            => Satisfied(tile, c.stat, c.comparator, c.threshold);
+
+        private static bool Satisfied(Tile tile, in StatGate g)
+            => Satisfied(tile, g.stat, g.comparator, g.threshold);
+
+        private static bool Satisfied(Tile tile, TargetStat stat, Comparator comparator, float threshold)
         {
-            float v = GetStat(tile, c.stat);
-            switch (c.comparator)
+            float v = GetStat(tile, stat);
+            switch (comparator)
             {
-                case Comparator.LessThan:       return v <  c.threshold;
-                case Comparator.LessOrEqual:    return v <= c.threshold;
-                case Comparator.GreaterThan:    return v >  c.threshold;
-                case Comparator.GreaterOrEqual: return v >= c.threshold;
+                case Comparator.LessThan:       return v <  threshold;
+                case Comparator.LessOrEqual:    return v <= threshold;
+                case Comparator.GreaterThan:    return v >  threshold;
+                case Comparator.GreaterOrEqual: return v >= threshold;
                 default:                        return false;
             }
         }

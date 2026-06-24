@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Habitales.Entities;
+using UnityEngine;   // UnityEngine.RangeAttribute → a native slider, honored by Unity's PropertyField
+                     // (and by Artifice's fallback for struct children) — more robust than Artifice's
+                     // own Range drawer when the fields live inside a nested struct.
 
 // Shared stat-addressing + effect/condition data types (arch §3.5).
 // Consumed by the entity system (daily effects, death, promotion) AND GenericSpawnAction.
@@ -36,7 +39,7 @@ namespace Habitales.Core
                                    // (NOT routed through ModifyTileStats' ÷6 soilDelta distribution) — arch §3.5
     }
 
-    // Death conditions, promotion gates.
+    // Death conditions — a full condition that resolves to an outcome (remove / transform).
     [Serializable]
     public struct StatCondition
     {
@@ -47,5 +50,33 @@ namespace Habitales.Core
         public TileEntitySO     transformTarget;  // used only when outcome == TransformTo
         public List<StatChange> onSatisfied;      // optional effects applied when the condition fires
                                                   // (e.g. Sapling returns +10 SOM on death). Applied before the outcome.
+    }
+
+    // Promotion gate — a PURE stat threshold, no outcome. The promotion destination is the
+    // SO's `nextStage`, NOT this gate (arch §5). Deliberately distinct from StatCondition so
+    // the promote-gate inspector never shows a redundant "Transform Target" / "Outcome".
+    // Field names mirror StatCondition's first three, so legacy serialized data migrates as-is.
+    [Serializable]
+    public struct StatGate
+    {
+        public TargetStat stat;
+        public Comparator comparator;
+        public float      threshold;
+    }
+
+    // Plant daily effects, authored as one slider per writable substat (arch §3.5) — replaces a
+    // free-form StatChange list for Plants. No SoilComposite field: it's a derived read, never a
+    // valid write target, so this shape structurally rules out the old invalid entries.
+    [Serializable]
+    public struct DailyStatDeltas
+    {
+        [Range(-10f, 10f)] public float nutrientBalance;
+        [Range(-10f, 10f)] public float soilOrganicMatter;
+        [Range(-10f, 10f)] public float soilStructure;
+        [Range(-10f, 10f)] public float biologicalActivity;
+        [Range(-10f, 10f)] public float waterDynamics;
+        [Range(-10f, 10f)] public float erosionResistance;
+        [Range(-10f, 10f)] public float vegetationCover;
+        [Range(-10f, 10f)] public float contamination;
     }
 }

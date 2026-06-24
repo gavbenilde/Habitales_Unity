@@ -62,7 +62,7 @@ This section maps the contract below onto **what is actually built**, verified b
 | §3.6 | `aziCalloutKey` → `OnRegionGenerated`/`OnZoneUnlocked` seam (decouple from DialogueManager) | 🟡 | `OnRegionGenerated` event exists and DialogueManager subscribes it (decoupled). `OnZoneUnlocked`/`OnRegionUnlocked` lives on **RunManager**, not RegionManager. |
 | §3.6 | RegionManager getters `GetZoneHealth`/`UnlockedRegions`/`ZoneCount` | 🟡 | `GetRegionHealth(int)` + `GetTotalAverageHealth()` present; `UnlockedRegions`/`ZoneCount` absent (unlock state on RunManager). |
 | §4 | Class rename Zone→Region | ✅ | `RegionManager`/`RegionProfile`/`RegionTheme`/`RegionGenerationResult` done; `regionID` canonical. |
-| §4 | Folder `Zone/`→`Regions/` + `Habitales.Regions` namespace | ⬜ | Folder still `Zone/`; region files still global-namespace. |
+| §4 | Folder & namespace layout | ❌ (plan revised 2026-06-24) | **Structure directive changed:** kept feature folders, **dissolved** the `Scripts/` tree and all `_API/` subfolders, moved every SO to a top-level `_SO/` (art in `_ART/`). Folder `Zone/` name retained (classes are `Region*`); namespaces no longer mirror folders (S5 revised). GUIDs preserved. |
 | §4 | `GameBootstrap` `[DefaultExecutionOrder(-1000)]` presence-validator | 🟡 | Validates 8 singletons (+EntityRegistry) in `Start()`; bootstrap-driven **ordered init** is still Phase 3. |
 | §5.1 | `TileEntitySO` identity model (`entityId`, stage chain, dailyEffects, deathConditions, behaviour) | ✅ | Replaces string `entityType`. |
 | §5.1 | One generic runtime `TileEntity` (`GenericTileEntity`) | ✅ | The 10 hand-coded kinds are deleted; per-instance state on the runtime entity. |
@@ -147,7 +147,7 @@ The `this` second argument makes clicking the console error highlight the exact 
 - **S2 — One concept, one place.** If "where is X defined?" has more than one answer, that is an architecture bug. Everything about the Narra Tree lives in `NarraTree.asset`. Everything about Apply Fertilizer lives in its SO + one small subclass.
 - **S3 — RunManager owns the simulation tick, not the frame tick.** See Section 2. Cosmetic per-frame updates (billboarding, camera, tweens) stay in each component's own `Update()`. RunManager never touches them.
 - **S4 — Choose one reference model per manager.** Core singletons (always exactly one) use `.Instance`. Per-instance / UI references use `[SerializeField]` + loud-fail. Never mix the two on the same field.
-- **S5 — Namespace and folder mirror each other.** `namespace Habitales.Core` lives in `Scripts/Core/`, etc. The Project window becomes free documentation.
+- **S5 — Code groups by feature; data and art live apart from code.** Each gameplay system is a flat feature folder directly under `_GAME/` (`_GAME/Tile/`, `_GAME/Dialogue/`, …) holding its scripts — no `_API/` or `Scripts/` sub-trees. All ScriptableObject assets live under the top-level `_SO/` (grouped by feature), all art under `_ART/`. The Project window becomes free documentation. *(Revised 2026-06-24 — supersedes the original "namespace mirrors folder" rule; see §4. `Habitales.*` namespaces are retained but no longer need to mirror folder names.)*
 
 ---
 
@@ -353,25 +353,43 @@ Preserve from `ARCHIVE`: the generation flow (seed → flood-fill organic blob �
 
 ---
 
-## 4. (reserved — folder & namespace map)
+## 4. Folder & namespace map (revised 2026-06-24)
 
 **Canonical term: "Region" (not "Zone").** The in-game concept is a *Region*. C# classes rename `ZoneManager → RegionManager`, `ZoneProfile → RegionProfile`, `ZoneGenerationResult → RegionGenerationResult`, `ZoneTheme → RegionTheme` (Phase 2.5). `regionID` is already the field name on `Tile` — the canonical identifier. Inspector display text and `zoneXxx` SO fields become `regionXxx`.
 
+> **Structure decision (2026-06-24 — supersedes the original `Scripts/<Domain>` plan).** The team kept the **feature-folder** layout instead of consolidating code under a parallel `Scripts/` tree. Code groups by feature directly under `_GAME/`; the old per-feature `_API/` subfolders and the `Scripts/` renovation tree were **dissolved**. **ScriptableObjects** moved to a top-level `_SO/` and **art** lives in `_ART/` — both siblings of `_GAME/`. `Habitales.*` namespaces are retained where they exist but no longer need to mirror folder names (S5 revised). The reorganization preserved every Unity GUID (each `.meta` moved with its file), so scene/prefab/asset references survived.
+
 ```
-Scripts/                         namespace
-├── Core/        Habitales.Core      RunManager, GameBootstrap, GameLog, global types
-├── Tiles/       Habitales.Tiles     Tile, TileStats, TileManager, TileVisualizer, EntityVisualizer
-├── Entities/    Habitales.Entities  TileEntity base, runtime entity, TileEntitySO, EntityRegistry, behaviour hooks
-├── Actions/     Habitales.Actions   PlayerAction base, GenericSpawnAction, subclasses, ActionSO
-├── Regions/     Habitales.Regions   RegionManager, RegionProfile, generation helpers (renamed from Zone)
-├── Meta/        Habitales.Meta      PlayerProgressionSO, RunSnapshot, ProgressionPersistence, RunEndCoordinator
-├── Dialogue/    Habitales.Dialogue  (already namespaced)
-├── UI/          Habitales.UI        all MonoBehaviour UI
-├── Data/        Habitales.Data      pure ScriptableObject definitions
-├── Editor/      Habitales.Editor    custom inspectors, art tools (editor-only)
-└── Utility/     Habitales.Utility   camera, VFX, helpers
-ARCHIVE/         (repo root, OUTSIDE Assets/) frozen pre-renovation scripts, behavioral reference
+Assets/
+├── _GAME/                     gameplay code — one flat feature folder per system
+│   ├── Core/        RunManager, GameBootstrap, GameLog, IEntityEventSink, StatTypes   (ns Habitales.Core)
+│   ├── Tile/        Tile, TileStats, TileManager, TileVisualizer, EntityVisualizer
+│   ├── Entities/    TileEntitySO, GenericTileEntity, EntityRegistry, hooks (+ Behaviours/)  (ns Habitales.Entities)
+│   ├── Action/      PlayerAction base, action subclasses, ActionManager, ActionSO, ActionBarUI (+ PlayerActions/)
+│   ├── Zone/        RegionManager, RegionProfile, generation helpers  (folder name kept; classes are Region*)
+│   ├── Dialogue/    DialogueManager, ConversationSO model, ChatApp (+ Editor/ for ConversationEditor)  (ns Habitales.Dialogue)
+│   ├── Events/      EventManager, GameEventSO, EventContext, popup/camera handlers
+│   ├── Weather/     WeatherManager, WeatherVFXController
+│   ├── Results/     EndGame, Level-Up, RunEndCoordinator, progression/meta
+│   ├── UI/          shared HUD/menu UI (+ Messaging/, Narrative/)  (ns Habitales.UI)
+│   ├── Onboarding/  OnboardingDirector + coach-marks + juice (+ CoachMarks/, Juice/)  (ns Habitales.Onboarding)
+│   ├── Utilities/   helpers
+│   ├── Prototype/   prototype-only meta slice (RunSnapshot, etc.)
+│   └── SO/          legacy holder — only orphaned archive assets remain; NOT a home for new SOs
+├── _SO/                       ALL ScriptableObject assets, grouped by feature
+│   ├── Entities/    entity defs + EntityRegistry + Fire/Village hooks
+│   └── Dialogue/ (+ Stickers/) · Events/ · Regions/ (+ Debug/) · Action/ · Progression/
+└── _ART/                      all art (characters, environment, tiles, UI, SFX)
+
+ARCHIVE/   (repo root, OUTSIDE Assets/) — frozen pre-renovation scripts, behavioral reference
 ```
+
+**New-content placement rule (the directive):**
+- A new gameplay script → its feature folder `_GAME/<Feature>/` (create a new feature folder for a new system). No `_API/` or `Scripts/` nesting.
+- Editor-only scripts (anything using `UnityEditor`) → `_GAME/<Feature>/Editor/`.
+- Every new ScriptableObject asset → `_SO/<Feature>/`.
+- Art → `_ART/`.
+- **Log the new system in `HABITALES_SYSTEM_INVENTORY.md` immediately, with its add-date.**
 
 **GameBootstrap:** one MonoBehaviour with `[DefaultExecutionOrder(-1000)]` that validates/initializes every core singleton in a known sequence. Ends initialization-order races. If a singleton's `Instance` is accessed before its `Awake`, log a loud error (Law 3).
 
@@ -564,7 +582,7 @@ Dependency-ordered. Items at the same depth with no shared files are **safe to p
 
 ```
 Phase 0 — Foundation (sequential, blocks everything)
-  0a. Move current codebase → ARCHIVE/.  Establish Scripts/ folders + namespaces (S5).
+  0a. Move current codebase → ARCHIVE/.  Establish feature folders under `_GAME/` + a top-level `_SO/` for assets (S5; revised 2026-06-24 — original plan was a `Scripts/<Domain>` tree with folder-mirrored namespaces, now superseded by §4).
   0b. GameBootstrap + GameLog + the three Laws encoded as a CONTRIBUTING note in-repo.
 
 Phase 1 — Data POCOs & spine skeletons (parallel after 0)
