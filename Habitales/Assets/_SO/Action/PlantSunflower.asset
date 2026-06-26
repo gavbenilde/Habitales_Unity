@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9be8fe52efe9a54994df2c0eac0a79c, type: 3}
+  m_Name: PlantSunflower
+  m_EditorClassIdentifier: 
+  actionId: plant_sunflower
+  displayName: Plant Sunflower
+  group: 1
+  description: 
+  icon: {fileID: 0}
+  selectionMode: 0
+  effects:
+  - type: 0
+    entityToPlace: {fileID: 11400000, guid: 395cf4083521cad4383f3bf480f8fa3f, type: 2}
+    customBehaviour: {fileID: 0}
+  baseDays: 1
+  minDays: 1
+  minPeoplePerTile: 1
+  fatigueMultiplierPerTile: 2
+  lore: 
+  infoTooltip: 
+  supplementaryImages: []

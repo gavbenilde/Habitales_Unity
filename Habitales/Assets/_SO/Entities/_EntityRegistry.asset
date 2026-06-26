@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0a140e9fb3f3f8a4f85b401ae32cdb24, type: 3}
-  m_Name: EntityRegistry
+  m_Name: _EntityRegistry
   m_EditorClassIdentifier: 
   entities:
   - {fileID: 11400000, guid: aafd120f67b4dba46aa54a96194530a8, type: 2}
@@ -30,3 +30,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 2636aa4747d73fc409be76a3813642ad, type: 2}
   - {fileID: 11400000, guid: 7de92f77ef4a3af47b3131c953328e00, type: 2}
   - {fileID: 11400000, guid: 365cf2c9e6af5e442a4b5911b3d74798, type: 2}
+  - {fileID: 11400000, guid: b6b8b1d73c81f2744b74aea09d5e4503, type: 2}
+  - {fileID: 11400000, guid: d49fa643c29670c4bac463200f242122, type: 2}
+  - {fileID: 11400000, guid: 395cf4083521cad4383f3bf480f8fa3f, type: 2}
+  - {fileID: 11400000, guid: e55283656fec7da459372cc2fc964e89, type: 2}

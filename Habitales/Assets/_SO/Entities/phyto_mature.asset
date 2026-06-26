@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: phyto_mature
   m_EditorClassIdentifier: 
   entityId: phyto_mature
-  displayName: 
+  displayName: Rinorea Mature
   category: 0
-  tileSprite: {fileID: 0}
+  tileSprite: {fileID: 21300000, guid: 5dd9f5368e77a964c878e66bb7a0dd75, type: 3}
   vfxKey: 
   billboardScale: 1
   promoteAfterDays: 0
@@ -26,9 +26,6 @@ MonoBehaviour:
     stat: 0
     comparator: 0
     threshold: 0
-    outcome: 0
-    transformTarget: {fileID: 0}
-    onSatisfied: []
   plantDailyDeltas:
     nutrientBalance: 0
     soilOrganicMatter: 0.3

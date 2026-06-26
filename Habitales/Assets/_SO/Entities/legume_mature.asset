@@ -26,9 +26,6 @@ MonoBehaviour:
     stat: 0
     comparator: 0
     threshold: 0
-    outcome: 0
-    transformTarget: {fileID: 0}
-    onSatisfied: []
   plantDailyDeltas:
     nutrientBalance: 1.2
     soilOrganicMatter: 0.6

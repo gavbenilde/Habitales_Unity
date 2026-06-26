@@ -21,9 +21,31 @@ MonoBehaviour:
     expressionId: 
     payload:
       rid: 973262932862042121
+  - sender: 0
+    expressionId: 
+    payload:
+      rid: 958808778194812929
   references:
     version: 2
     RefIds:
+    - rid: 958808778194812929
+      type: {class: ChoicePayload, ns: Habitales.Dialogue, asm: Assembly-CSharp}
+      data:
+        options:
+        - label:
+            rid: 958808778194812930
+          children: []
+        - label:
+            rid: 958808778194812931
+          children: []
+    - rid: 958808778194812930
+      type: {class: ContentPayload, ns: Habitales.Dialogue, asm: Assembly-CSharp}
+      data:
+        body: Go suck one!
+    - rid: 958808778194812931
+      type: {class: ContentPayload, ns: Habitales.Dialogue, asm: Assembly-CSharp}
+      data:
+        body: Go suck two!
     - rid: 973262932862042121
       type: {class: ContentPayload, ns: Habitales.Dialogue, asm: Assembly-CSharp}
       data:

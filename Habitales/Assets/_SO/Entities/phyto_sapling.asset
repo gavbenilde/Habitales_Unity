@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: phyto_sapling
   m_EditorClassIdentifier: 
   entityId: phyto_sapling
-  displayName: 
+  displayName: Rinorea Sapling
   category: 0
-  tileSprite: {fileID: 0}
+  tileSprite: {fileID: 21300000, guid: b06c63243921d7f42902f6bbf570a037, type: 3}
   vfxKey: 
   billboardScale: 1
   promoteAfterDays: 20
@@ -26,9 +26,6 @@ MonoBehaviour:
     stat: 0
     comparator: 0
     threshold: 0
-    outcome: 0
-    transformTarget: {fileID: 11400000, guid: e32c25b4af662b241ba30a9df36bdb16, type: 2}
-    onSatisfied: []
   plantDailyDeltas:
     nutrientBalance: 0
     soilOrganicMatter: 0

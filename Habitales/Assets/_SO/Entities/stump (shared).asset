@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: stump (shared)
   m_EditorClassIdentifier: 
   entityId: stump
-  displayName: 
+  displayName: Stump
   category: 3
   tileSprite: {fileID: 21300000, guid: c8aa917b9ccb33443a03922f2788b204, type: 3}
   vfxKey: 
@@ -30,9 +30,15 @@ MonoBehaviour:
     stat: 0
     comparator: 0
     threshold: 0
-    outcome: 0
-    transformTarget: {fileID: 0}
-    onSatisfied: []
+  plantDailyDeltas:
+    nutrientBalance: 0
+    soilOrganicMatter: 0
+    soilStructure: 0
+    biologicalActivity: 0
+    waterDynamics: 0
+    erosionResistance: 0
+    vegetationCover: 0
+    contamination: 0
   dailyEffects: []
   deathConditions: []
   behaviour: {fileID: 0}

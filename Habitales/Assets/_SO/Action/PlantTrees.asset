@@ -15,17 +15,18 @@ MonoBehaviour:
   actionId: plant_trees
   displayName: Plant Trees
   group: 1
-  description: asad
+  description: description
   icon: {fileID: 21300000, guid: 1d67587e864fe264296b38e410251242, type: 3}
   selectionMode: 0
   effects:
   - type: 0
-    entityToPlace: {fileID: 0}
+    entityToPlace: {fileID: 11400000, guid: 7de92f77ef4a3af47b3131c953328e00, type: 2}
     customBehaviour: {fileID: 0}
   baseDays: 1
   minDays: 1
   minPeoplePerTile: 1
   fatigueMultiplierPerTile: 2
-  lore: asdasd
-  infoTooltip: asdasdadsa
-  supplementaryImages: []
+  lore: lore
+  infoTooltip: tooltip
+  supplementaryImages:
+  - {fileID: 21300000, guid: 1d67587e864fe264296b38e410251242, type: 3}

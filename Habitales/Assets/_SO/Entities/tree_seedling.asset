@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: tree_seedling
   m_EditorClassIdentifier: 
   entityId: tree_seedling
-  displayName: Seedling
+  displayName: Narra Tree Seedling
   category: 0
   tileSprite: {fileID: 21300000, guid: e9687b7bc33f3f444b3d51ca4a6e80ba, type: 3}
   vfxKey: 2
@@ -28,9 +28,6 @@ MonoBehaviour:
     stat: 0
     comparator: 0
     threshold: 0
-    outcome: 0
-    transformTarget: {fileID: 0}
-    onSatisfied: []
   plantDailyDeltas:
     nutrientBalance: -0.5
     soilOrganicMatter: 0
