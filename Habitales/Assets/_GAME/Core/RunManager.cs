@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
 using Habitales.Dialogue;
+using Habitales.UI.Actions;
 
 /// <summary>
 /// Central game loop coordinator.  
@@ -13,7 +14,6 @@ public class RunManager : MonoBehaviour {
     [Header("System References")]
     [SerializeField] private TileManager tileManager;
     [SerializeField] private TileSelector tileSelector;
-    [SerializeField] private ActionUI actionUI; // DORMANT — replaced by actionBarUI; leave field but unwire in inspector.
     [SerializeField] private ActionBarUI actionBarUI;
     [SerializeField] private ActionManager actionManager;
     [UnityEngine.Serialization.FormerlySerializedAs("zoneManager")]
@@ -139,8 +139,6 @@ public class RunManager : MonoBehaviour {
             if (tileSelector == null) Debug.LogError("TileSelector missing!");
         }
         
-        // actionUI is dormant; skip auto-find to suppress the "not found" warning.
-
         if (actionBarUI == null)
             actionBarUI = FindObjectOfType<ActionBarUI>();
         

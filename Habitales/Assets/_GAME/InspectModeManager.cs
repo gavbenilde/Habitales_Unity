@@ -5,7 +5,7 @@ using System;
 /// <summary>
 /// Scene-wiring shell for Inspect Mode.
 /// Owns the inspector references (panel, selector, button) and the public API
-/// surface. All state lives in ActionUI — this class just delegates.
+/// surface. Inspect-mode state (_inspectMode) is self-contained here.
 /// </summary>
 public class InspectModeManager : MonoBehaviour
 {
@@ -14,15 +14,13 @@ public class InspectModeManager : MonoBehaviour
     [Header("References")]
     [SerializeField] private InspectPanelUI inspectPanel;
     [SerializeField] private TileSelector   tileSelector;
-    [SerializeField] private ActionUI       actionUI;
 
     [Header("Test Button (optional)")]
     [SerializeField] private Button inspectModeButton;
 
-    // Convenience — lets external callers check inspect state without
-    // reaching into ActionUI directly.
-    public bool IsInspectMode =>
-        actionUI != null && actionUI.CurrentState == ActionPanelState.InspectMode;
+    private bool _inspectMode;
+
+    public bool IsInspectMode => _inspectMode;
 
     // ── Unity lifecycle ──────────────────────────────────────────────────────
 
@@ -30,9 +28,6 @@ public class InspectModeManager : MonoBehaviour
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
-
-        if (actionUI == null)
-            actionUI = FindObjectOfType<ActionUI>();
     }
 
     void OnEnable()
@@ -63,15 +58,13 @@ public class InspectModeManager : MonoBehaviour
 
     public void EnterInspectMode()
     {
-        if (actionUI == null) return;
-        actionUI.EnterInspectMode();
+        _inspectMode = true;
         inspectPanel?.Show();
     }
 
     public void ExitInspectMode()
     {
-        if (actionUI == null) return;
-        actionUI.ExitInspectMode();
+        _inspectMode = false;
         tileSelector?.ClearSelection();
         inspectPanel?.Hide();
     }

@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 4044630224935922933}
   - component: {fileID: 4218935483293865289}
   - component: {fileID: 351224219977170590}
+  - component: {fileID: 5085041496439296795}
   m_Layer: 5
   m_Name: ActionCardPrefab
   m_TagString: Untagged
@@ -93,6 +94,23 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5085041496439296795
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1560006941438916198}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d29575e591431cf4f8fa3593adeea49c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  background: {fileID: 0}
+  cardButton: {fileID: 351224219977170590}
+  icon: {fileID: 209197513292402594}
+  label: {fileID: 2099950178831448838}
+  boogleButton: {fileID: 5039944069694408354}
 --- !u!1 &1638261878945765934
 GameObject:
   m_ObjectHideFlags: 0
