@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(ls -la \"C:/Users/Hamachi/AppData/LocalLow/Tent Of Thieves/Habitales/\" 2>/dev/null || echo \"DIR_NOT_FOUND\")",
-      "Bash(Get-Content \"C:\\\\Users\\\\Hamachi\\\\AppData\\\\LocalLow\\\\Tent Of Thieves\\\\Habitales\\\\Player.log\" -Tail 20)"
-    ]
-  }
-}
