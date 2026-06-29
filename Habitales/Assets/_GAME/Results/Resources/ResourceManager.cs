@@ -15,8 +15,16 @@ public class ResourceManager : MonoBehaviour
     [SerializeField] private int daysPerYear = 365;
     [SerializeField] private int maxYears = 5;
 
+    // Canonical run length — the single source of truth for when a run ends.
+    // A future season-picker UI sets this one field (seasons × 182.5 days).
+    [SerializeField] private int runLengthDays = 100;
+
     public int DaysPerYear => daysPerYear;
     public int CurrentYear => (totalDays / daysPerYear) + 1;
+
+    // Run-length accessors (Law 1: getters, not setters).
+    public int RunLengthDays => runLengthDays;
+    public int DaysRemaining => Mathf.Max(0, runLengthDays - totalDays);
 
     // ── Workers ───────────────────────────────────────────────────────────────
     [Header("Workers")]
@@ -86,7 +94,7 @@ public class ResourceManager : MonoBehaviour
         if (WeatherManager.Instance != null)
             WeatherManager.Instance.RollWeather(totalDays);
 
-        if (totalDays >= 100)
+        if (totalDays >= runLengthDays)
         {
             OnGameOver?.Invoke();
             return;
@@ -107,7 +115,7 @@ public class ResourceManager : MonoBehaviour
         if (WeatherManager.Instance != null)
             WeatherManager.Instance.RollWeather(totalDays);
 
-        if (totalDays >= 100)
+        if (totalDays >= runLengthDays)
         {
             OnGameOver?.Invoke();
             return;
@@ -123,7 +131,7 @@ public class ResourceManager : MonoBehaviour
     {
         for (int i = 0; i < days; i++)
         {
-            bool gameOver = totalDays + 1 >= 100;  // peek before advancing
+            bool gameOver = totalDays + 1 >= runLengthDays;  // peek before advancing
             AdvanceOneDay();
 
             if (gameOver)

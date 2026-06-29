@@ -227,55 +227,50 @@ namespace Habitales.Dialogue
 
         // ─── Chat Line Resolution ─────────────────────────────────────────────
 
-        public List<ResolvedLine> GetChatLines(string tabID)
+        /// <summary>
+        /// Returns the chat transcript visible for a tab. Interactive: walks each
+        /// thread following the player's recorded choices and pauses (emits nothing
+        /// further) at the first unanswered ChoicePayload. See ResolveTab.
+        /// </summary>
+        public List<ResolvedLine> GetChatLines(string tabID) => ResolveTab(tabID).lines;
+
+        /// <summary>
+        /// If the tab is currently paused on an unanswered choice, returns the
+        /// options to render as a button row; otherwise null. The chat UI calls this
+        /// after rebuilding bubbles to decide whether to show the choice row.
+        /// </summary>
+        public PendingChoice GetPendingChoice(string tabID)
         {
-            var result  = new List<ResolvedLine>();
-            var entries = GetEntriesForTab(tabID);
-            if (entries == null) return result;
+            var res = ResolveTab(tabID);
+            if (res.pendingChoice == null) return null;
 
-            foreach (var entry in entries)
+            var pending = new PendingChoice { tabID = tabID };
+            foreach (var option in res.pendingChoice.options)
+                pending.options.Add(BuildOptionView(option.label));
+            return pending;
+        }
+
+        /// <summary>
+        /// Player → runtime selection entry point. Records the chosen option on the
+        /// paused entry and re-pushes the tab; the next resolve appends the chosen
+        /// reply bubble, walks the option's sub-thread, then merges back to the parent.
+        /// </summary>
+        public void SelectChoice(string tabID, int optionIndex)
+        {
+            var res = ResolveTab(tabID);
+            if (res.pendingChoice == null || res.pendingEntry == null)
             {
-                switch (entry.entryType)
-                {
-                    case ChatEntryType.Thread:
-                        result.AddRange(ResolveEntry(entry));
-                        break;
-
-                    case ChatEntryType.Inline:
-                        result.Add(new ResolvedLine
-                        {
-                            speakerID   = entry.resolvedWorkerName,
-                            displayName = entry.resolvedWorkerName,
-                            portrait    = GetWorkerPortrait(entry.resolvedWorkerName),
-                            body        = entry.inlineBody
-                        });
-                        break;
-
-                    case ChatEntryType.PlayerSticker:
-                        result.Add(new ResolvedLine
-                        {
-                            speakerID       = "player",
-                            displayName     = "You",
-                            isPlayerBubble  = true,
-                            isStickerBubble = true,
-                            stickerSprite   = entry.stickerSprite
-                        });
-                        break;
-
-                    case ChatEntryType.WorkerSticker:
-                        result.Add(new ResolvedLine
-                        {
-                            speakerID       = entry.resolvedWorkerName,
-                            displayName     = entry.resolvedWorkerName,
-                            portrait        = GetWorkerPortrait(entry.resolvedWorkerName),
-                            isStickerBubble = true,
-                            stickerSprite   = entry.stickerSprite
-                        });
-                        break;
-                }
+                Debug.LogWarning($"[DialogueManager] SelectChoice('{tabID}', {optionIndex}) — no pending choice on this tab.");
+                return;
+            }
+            if (optionIndex < 0 || optionIndex >= res.pendingChoice.options.Count)
+            {
+                Debug.LogError($"[DialogueManager] SelectChoice: optionIndex {optionIndex} out of range (0..{res.pendingChoice.options.Count - 1}) on tab '{tabID}'.");
+                return;
             }
 
-            return result;
+            res.pendingEntry.chosenOptionIndices.Add(optionIndex);
+            OnMessagesUpdated?.Invoke(tabID);
         }
 
         public List<TabPreview> GetTabPreviews()
@@ -375,9 +370,60 @@ namespace Habitales.Dialogue
 
         private void HandleTimeAdvanced(int daysElapsed)
         {
+            // Lapse yesterday's unanswered choices BEFORE today's deliveries, so a fresh
+            // daily-roll message can't be hidden behind a stale halt — and so the message
+            // we're about to deliver isn't itself expired on arrival.
+            ExpireUnansweredChoices();
+
             int totalDays = ResourceManager.Instance.TotalDays;
             RunWorkerMessageRandomizer(totalDays);
             RunBirthdayCheck(totalDays);
+        }
+
+        // ─── Choice Expiry ────────────────────────────────────────────────────
+
+        // A day passed: seal every Thread entry that still has a reachable unanswered
+        // choice (across all tabs). Sealing freezes that thread at its prompt and stops
+        // it halting the tab. See RuntimeChatEntry.choicesExpired.
+        private void ExpireUnansweredChoices()
+        {
+            var sealedTabs = new List<string>();
+
+            if (SealTab(GetEntriesForTab(GROUP_TAB_ID))) sealedTabs.Add(GROUP_TAB_ID);
+            if (SealTab(GetEntriesForTab(AZI_TAB_ID)))   sealedTabs.Add(AZI_TAB_ID);
+            if (SealTab(GetEntriesForTab(BOB_TAB_ID)))   sealedTabs.Add(BOB_TAB_ID);
+            foreach (var kvp in _workerTabs)
+                if (SealTab(kvp.Value.entries)) sealedTabs.Add(kvp.Key);
+
+            // Notify AFTER the walk so an OnMessagesUpdated subscriber can't mutate
+            // _workerTabs mid-iteration. Refreshes any open view to drop stale buttons.
+            foreach (var tabID in sealedTabs)
+                OnMessagesUpdated?.Invoke(tabID);
+        }
+
+        private bool SealTab(List<RuntimeChatEntry> entries)
+        {
+            if (entries == null) return false;
+
+            bool sealedAny = false;
+            foreach (var entry in entries)
+            {
+                if (entry.entryType != ChatEntryType.Thread || entry.choicesExpired) continue;
+                if (!EntryHasUnansweredChoice(entry)) continue;
+                entry.choicesExpired = true;
+                sealedAny = true;
+            }
+            return sealedAny;
+        }
+
+        // True if walking this entry (with its current chosen path) reaches a choice the
+        // player hasn't answered yet. Probes a throwaway resolution — the entry is not
+        // yet sealed, so an unanswered choice surfaces as pendingChoice.
+        private bool EntryHasUnansweredChoice(RuntimeChatEntry entry)
+        {
+            var probe = new TabResolution();
+            ResolveThreadEntry(entry, probe);
+            return probe.pendingChoice != null;
         }
 
         private void HandleRegionGenerated(RegionGenerationResult result)
@@ -490,24 +536,15 @@ namespace Habitales.Dialogue
             _pendingStickerResponse = null;
         }
 
-        // Resolves a Thread-type RuntimeChatEntry via the bound conversation asset.
-        private List<ResolvedLine> ResolveEntry(RuntimeChatEntry entry)
-        {
-            return ResolveConversationLines(
-                entry.conversation,
-                entry.resolvedWorkerName,
-                entry.resolvedWorkerTrait
-            );
-        }
-
         /// <summary>
         /// Resolves a ConversationSO into display-ready lines, independent of the
         /// chat-history path, so non-chat presenters (the Narrative Popup façade's
         /// Dialog / Character / Text views) render a conversation identically to how
         /// chat renders it (S2: one resolution path, two surfaces).
         ///
-        /// Phase 1 — linear walk only. ChoicePayload nodes are skipped; interactive
-        /// choice walking is out of scope until Phase 2.
+        /// LINEAR fallback for non-interactive surfaces: ChoicePayload nodes are
+        /// skipped (the popup façade cannot pause for input). The interactive chat
+        /// path goes through ResolveTab instead.
         /// </summary>
         public List<ResolvedLine> ResolveConversationLines(ConversationSO conversation, string workerName = null, string workerTrait = null)
         {
@@ -523,76 +560,283 @@ namespace Habitales.Dialogue
             foreach (var node in conversation.thread)
             {
                 if (node == null || node.payload == null) continue;
+                if (node.payload is ChoicePayload) continue; // linear surfaces skip choices
 
-                // ── Phase 2: interactive choice walker ──
-                // ChoicePayload nodes are intentionally skipped here. The interactive
-                // choice runtime is out of scope for Phase 1. Add handling here in Phase 2.
-                if (node.payload is ChoicePayload)
-                    continue;
-
-                // Resolve speaker identity for this node.
-                string displayName;
-                Sprite portrait;
-                bool   isPlayer = node.sender == DialogueSpeaker.Player;
-
-                if (isPlayer)
-                {
-                    displayName = "You";
-                    portrait    = null;
-                }
-                else if (node.sender == DialogueSpeaker.Azi && registry?.aziProfile != null)
-                {
-                    displayName = registry.aziProfile.displayName;
-                    portrait    = registry.aziProfile.GetExpression(node.expressionId);
-                }
-                else if (node.sender == DialogueSpeaker.Bob && registry?.bobProfile != null)
-                {
-                    displayName = registry.bobProfile.displayName;
-                    portrait    = registry.bobProfile.GetExpression(node.expressionId);
-                }
-                else if (node.sender == DialogueSpeaker.Worker)
-                {
-                    // Worker-sender binding — name/portrait committed at append time.
-                    displayName = workerName ?? "Worker";
-                    portrait    = GetWorkerPortrait(workerName);
-                }
-                else
-                {
-                    // Fallback for Azi/Bob with missing profile.
-                    displayName = node.sender.ToString();
-                    portrait    = null;
-                }
-
-                // Emit one line per payload type.
-                if (node.payload is ContentPayload content)
-                {
-                    result.Add(new ResolvedLine
-                    {
-                        speakerID      = node.sender.ToString(),
-                        displayName    = displayName,
-                        portrait       = portrait,
-                        body           = EventContext.Resolve(content.body),
-                        expressionID   = node.expressionId,
-                        isPlayerBubble = isPlayer
-                    });
-                }
-                else if (node.payload is StickerPayload stickerPay)
-                {
-                    result.Add(new ResolvedLine
-                    {
-                        speakerID       = node.sender.ToString(),
-                        displayName     = displayName,
-                        portrait        = portrait,
-                        expressionID    = node.expressionId,
-                        isPlayerBubble  = isPlayer,
-                        isStickerBubble = true,
-                        stickerSprite   = stickerPay.sticker != null ? stickerPay.sticker.sprite : null
-                    });
-                }
-                // ChoicePayload already continued above.
+                var line = ResolveContentOrSticker(node, workerName);
+                if (line != null) result.Add(line);
             }
 
             return result;
+        }
+
+        // ─── Interactive Choice Walker (Phase 2) ──────────────────────────────
+
+        // Result of walking one tab interactively: the visible lines, plus the first
+        // unanswered choice encountered (which pauses the whole tab).
+        private sealed class TabResolution
+        {
+            public List<ResolvedLine> lines = new List<ResolvedLine>();
+            public RuntimeChatEntry   pendingEntry;   // entry holding the unanswered choice
+            public ChoicePayload      pendingChoice;  // the unanswered choice (null = none)
+            public bool Halted => pendingChoice != null;
+        }
+
+        /// <summary>
+        /// Walks every entry in a tab in order, resolving Thread entries via the
+        /// interactive tree walk. The first unanswered ChoicePayload pauses the tab:
+        /// no further lines (from that entry or later entries) are emitted until the
+        /// player selects an option, so the transcript ends exactly where the choice
+        /// buttons appear.
+        /// </summary>
+        private TabResolution ResolveTab(string tabID)
+        {
+            var res     = new TabResolution();
+            var entries = GetEntriesForTab(tabID);
+            if (entries == null) return res;
+
+            foreach (var entry in entries)
+            {
+                if (res.Halted) break; // a pending choice pauses the whole tab
+
+                switch (entry.entryType)
+                {
+                    case ChatEntryType.Thread:
+                        ResolveThreadEntry(entry, res);
+                        break;
+
+                    case ChatEntryType.Inline:
+                        res.lines.Add(new ResolvedLine
+                        {
+                            speakerID   = entry.resolvedWorkerName,
+                            displayName = entry.resolvedWorkerName,
+                            portrait    = GetWorkerPortrait(entry.resolvedWorkerName),
+                            body        = entry.inlineBody
+                        });
+                        break;
+
+                    case ChatEntryType.PlayerSticker:
+                        res.lines.Add(new ResolvedLine
+                        {
+                            speakerID       = "player",
+                            displayName     = "You",
+                            isPlayerBubble  = true,
+                            isStickerBubble = true,
+                            stickerSprite   = entry.stickerSprite
+                        });
+                        break;
+
+                    case ChatEntryType.WorkerSticker:
+                        res.lines.Add(new ResolvedLine
+                        {
+                            speakerID       = entry.resolvedWorkerName,
+                            displayName     = entry.resolvedWorkerName,
+                            portrait        = GetWorkerPortrait(entry.resolvedWorkerName),
+                            isStickerBubble = true,
+                            stickerSprite   = entry.stickerSprite
+                        });
+                        break;
+                }
+            }
+
+            return res;
+        }
+
+        // Resolves a Thread entry, following the player's recorded choice path.
+        private void ResolveThreadEntry(RuntimeChatEntry entry, TabResolution res)
+        {
+            var conversation = entry.conversation;
+            if (conversation == null) return;
+
+            if (!string.IsNullOrEmpty(entry.resolvedWorkerName))
+            {
+                EventContext.SetOverride("workerName",  entry.resolvedWorkerName);
+                EventContext.SetOverride("workerTrait", entry.resolvedWorkerTrait ?? "");
+            }
+
+            int choiceCounter = 0;
+            WalkNodes(conversation.thread, entry, res, ref choiceCounter);
+        }
+
+        // DFS pre-order walk over a node list. choiceCounter is the encounter index of
+        // each ChoicePayload across the whole entry — it keys into chosenOptionIndices,
+        // so the same recorded path always reproduces the same transcript. Returns false
+        // when the walk halts on an unanswered choice (so callers stop emitting).
+        private bool WalkNodes(List<MessageNode> nodes, RuntimeChatEntry entry, TabResolution res, ref int choiceCounter)
+        {
+            if (nodes == null) return true;
+
+            foreach (var node in nodes)
+            {
+                if (node == null || node.payload == null) continue;
+
+                if (node.payload is ChoicePayload choice)
+                {
+                    // Malformed authored choice (no options) can never be answered —
+                    // skip it transparently (no counter slot) so it can't soft-lock the tab.
+                    if (choice.options == null || choice.options.Count == 0)
+                    {
+                        Debug.LogWarning($"[DialogueManager] Choice node with no options in '{entry.conversation?.name}'. Merging through.");
+                        continue;
+                    }
+
+                    int idx = choiceCounter++;
+
+                    if (idx < entry.chosenOptionIndices.Count)
+                    {
+                        // Already answered — replay the chosen branch.
+                        int chosen = entry.chosenOptionIndices[idx];
+                        if (chosen < 0 || chosen >= choice.options.Count)
+                        {
+                            Debug.LogWarning($"[DialogueManager] Recorded choice index {chosen} out of range for choice #{idx} in '{entry.conversation?.name}'. Merging through.");
+                            continue; // empty-branch behaviour: fall through to parent's next node
+                        }
+
+                        var option    = choice.options[chosen];
+                        var labelLine = ResolveChoiceLabel(option.label);
+                        if (labelLine != null) res.lines.Add(labelLine);
+
+                        // Walk the option's sub-thread; empty children merge straight through.
+                        if (!WalkNodes(option.children, entry, res, ref choiceCounter))
+                            return false;
+                        // children exhausted → continue with the parent's next node (merge)
+                    }
+                    else if (entry.choicesExpired)
+                    {
+                        // Choice lapsed (a day passed with no reply). Freeze the thread
+                        // at the prompt — no buttons — but DON'T halt the tab, so later
+                        // entries / future days render normally.
+                        return false;
+                    }
+                    else
+                    {
+                        // First unanswered choice in the tab → pause here.
+                        res.pendingEntry  = entry;
+                        res.pendingChoice = choice;
+                        return false;
+                    }
+                }
+                else
+                {
+                    var line = ResolveContentOrSticker(node, entry.resolvedWorkerName);
+                    if (line != null) res.lines.Add(line);
+                }
+            }
+
+            return true;
+        }
+
+        // ─── Shared Node Resolution ───────────────────────────────────────────
+
+        // Resolves a Content/Sticker node into a display line (speaker identity +
+        // body/sticker). Returns null for ChoicePayload (callers handle choices).
+        // Shared by the linear fallback and the interactive walker (S2: one path).
+        private ResolvedLine ResolveContentOrSticker(MessageNode node, string workerName)
+        {
+            if (node?.payload == null || node.payload is ChoicePayload) return null;
+
+            bool   isPlayer = node.sender == DialogueSpeaker.Player;
+            string displayName;
+            Sprite portrait;
+
+            if (isPlayer)
+            {
+                displayName = "You";
+                portrait    = null;
+            }
+            else if (node.sender == DialogueSpeaker.Azi && registry?.aziProfile != null)
+            {
+                displayName = registry.aziProfile.displayName;
+                portrait    = registry.aziProfile.GetExpression(node.expressionId);
+            }
+            else if (node.sender == DialogueSpeaker.Bob && registry?.bobProfile != null)
+            {
+                displayName = registry.bobProfile.displayName;
+                portrait    = registry.bobProfile.GetExpression(node.expressionId);
+            }
+            else if (node.sender == DialogueSpeaker.Worker)
+            {
+                // Worker-sender binding — name/portrait committed at append time.
+                displayName = workerName ?? "Worker";
+                portrait    = GetWorkerPortrait(workerName);
+            }
+            else
+            {
+                // Fallback for Azi/Bob with missing profile.
+                displayName = node.sender.ToString();
+                portrait    = null;
+            }
+
+            if (node.payload is ContentPayload content)
+            {
+                return new ResolvedLine
+                {
+                    speakerID      = node.sender.ToString(),
+                    displayName    = displayName,
+                    portrait       = portrait,
+                    body           = EventContext.Resolve(content.body),
+                    expressionID   = node.expressionId,
+                    isPlayerBubble = isPlayer
+                };
+            }
+
+            var stickerPay = node.payload as StickerPayload;
+            return new ResolvedLine
+            {
+                speakerID       = node.sender.ToString(),
+                displayName     = displayName,
+                portrait        = portrait,
+                expressionID    = node.expressionId,
+                isPlayerBubble  = isPlayer,
+                isStickerBubble = true,
+                stickerSprite   = stickerPay != null && stickerPay.sticker != null ? stickerPay.sticker.sprite : null
+            };
+        }
+
+        // Resolves a chosen option's label into the player's reply bubble.
+        private ResolvedLine ResolveChoiceLabel(MessagePayload label)
+        {
+            if (label is ContentPayload content)
+            {
+                return new ResolvedLine
+                {
+                    speakerID      = "player",
+                    displayName    = "You",
+                    isPlayerBubble = true,
+                    body           = EventContext.Resolve(content.body)
+                };
+            }
+            if (label is StickerPayload sticker)
+            {
+                return new ResolvedLine
+                {
+                    speakerID       = "player",
+                    displayName     = "You",
+                    isPlayerBubble  = true,
+                    isStickerBubble = true,
+                    stickerSprite   = sticker.sticker != null ? sticker.sticker.sprite : null
+                };
+            }
+            return null;
+        }
+
+        // Resolves an option's label into button-display data.
+        private ChoiceOptionView BuildOptionView(MessagePayload label)
+        {
+            if (label is StickerPayload sticker)
+            {
+                return new ChoiceOptionView
+                {
+                    isSticker     = true,
+                    stickerSprite = sticker.sticker != null ? sticker.sticker.sprite : null
+                };
+            }
+
+            var content = label as ContentPayload;
+            return new ChoiceOptionView
+            {
+                isSticker = false,
+                label     = content != null ? EventContext.Resolve(content.body) : ""
+            };
         }
 
         // ─── Worker-Binding Helpers ───────────────────────────────────────────
@@ -698,26 +942,20 @@ namespace Habitales.Dialogue
             return registry?.fallbackWorkerPortrait;
         }
 
+        // Tab-preview teaser: the last *visible* text line (interactive walk honoured,
+        // so a paused choice shows the last NPC prompt). Falls back to "[Sticker]" when
+        // the only visible content is sticker bubbles.
         private string GetLastLineBody(string tabID)
         {
-            var entries = GetEntriesForTab(tabID);
-            if (entries == null || entries.Count == 0) return "";
+            var lines = ResolveTab(tabID).lines;
+            if (lines.Count == 0) return "";
 
-            var last = entries[entries.Count - 1];
-
-            if (last.entryType == ChatEntryType.Inline)
-                return last.inlineBody;
-
-            if (last.entryType != ChatEntryType.Thread) return "[Sticker]";
-
-            // Resolve the last content line from the conversation.
-            var lines = ResolveConversationLines(last.conversation, last.resolvedWorkerName, last.resolvedWorkerTrait);
             for (int i = lines.Count - 1; i >= 0; i--)
             {
                 if (!lines[i].isStickerBubble && !string.IsNullOrEmpty(lines[i].body))
                     return lines[i].body;
             }
-            return "";
+            return "[Sticker]";
         }
 
         private void MarkUnread(string tabID)

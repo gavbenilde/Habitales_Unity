@@ -30,6 +30,19 @@ namespace Habitales.Dialogue
         public string resolvedWorkerName;
         public string resolvedWorkerTrait;
 
+        // Phase 2 — interactive choice path. Element i holds the option index the
+        // player picked for the i-th ChoicePayload encountered during the (DFS pre-order)
+        // interactive walk of this entry's conversation. Persisting it here keeps the
+        // chat re-flatten (GetChatLines) a pure function of state, so re-opening a tab
+        // replays the same branch the player chose.
+        public List<int> chosenOptionIndices = new List<int>();
+
+        // Phase 2 — choice expiry. Set true when a day passes with this entry's choice
+        // still unanswered: the prompt stays as chat history but the buttons vanish and
+        // the thread freezes at the choice (the player "ghosted" the reply). Crucially it
+        // un-halts the tab so the next day's messages aren't hidden behind a stale choice.
+        public bool choicesExpired;
+
         public static RuntimeChatEntry FromConversation(ConversationSO conversation, string workerName = null, string workerTrait = null)
         {
             return new RuntimeChatEntry
@@ -94,6 +107,24 @@ namespace Habitales.Dialogue
         public string lastMessageBody;
         public bool hasUnread;
         public bool isBirthday;
+    }
+
+    // Pushed to the chat UI when an interactive walk pauses on an unanswered
+    // ChoicePayload. A pure view object (Law 1) — carries no asset/entry refs.
+    // The player's tap resolves to an index into 'options', sent back via
+    // DialogueManager.SelectChoice(tabID, index).
+    public class PendingChoice
+    {
+        public string tabID;
+        public List<ChoiceOptionView> options = new List<ChoiceOptionView>();
+    }
+
+    // Display data for one selectable choice button (the option's label).
+    public class ChoiceOptionView
+    {
+        public bool   isSticker;
+        public string label;          // resolved text when !isSticker
+        public Sprite stickerSprite;  // bubble sprite when isSticker
     }
 
     public class WorkerTabData

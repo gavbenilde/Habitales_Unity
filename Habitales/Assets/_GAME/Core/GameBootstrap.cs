@@ -1,6 +1,7 @@
 using UnityEngine;
 using Habitales.Dialogue;   // DialogueManager (namespaced)
 using Habitales.Entities;   // EntityRegistry
+using Habitales.UI;         // UIManager
 
 // GameBootstrap — single MonoBehaviour that confirms the core world is wired BEFORE any
 // gameplay Start runs (arch §4). [DefaultExecutionOrder(-1000)] puts THIS component's
@@ -49,6 +50,7 @@ namespace Habitales.Core
             failures += Require(EventManager.Instance    != null, "EventManager");
             failures += Require(DialogueManager.Instance != null, "DialogueManager");
             failures += Require(RunManager.Instance      != null, "RunManager");
+            failures += Require(UIManager.Instance      != null, "UIManager");
 
             // ── Project-asset references. Only validated when assigned: the SO-entity system is
             //    not wired into the live scene until Phase 4, so an empty field warns (expected),

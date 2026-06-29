@@ -14,7 +14,6 @@ namespace Habitales.UI.Actions
     {
         [SerializeField] private Button examineTab;
         [SerializeField] private Button interveneTab;
-        [SerializeField] private Button emergencyTab;
         [SerializeField] private Button cleanupTab;
 
         /// <summary>Raised when the player clicks a category tab (Law-2: on the click, not on mutation).</summary>
@@ -24,9 +23,7 @@ namespace Habitales.UI.Actions
 
         void OnEnable()
         {
-            // Emergency is retired — hide it; do NOT wire a click handler.
-            if (emergencyTab != null) emergencyTab.gameObject.SetActive(false);
-
+            // Emergency is retired — the tab is gone entirely (no field, no handler).
             if (examineTab   != null) examineTab.onClick.AddListener(  () => OnCategorySelected?.Invoke(ActionCategory.Examine));
             if (interveneTab != null) interveneTab.onClick.AddListener(() => OnCategorySelected?.Invoke(ActionCategory.Intervene));
             if (cleanupTab   != null) cleanupTab.onClick.AddListener(  () => OnCategorySelected?.Invoke(ActionCategory.Cleanup));
@@ -36,7 +33,6 @@ namespace Habitales.UI.Actions
         {
             if (examineTab   != null) examineTab.onClick.RemoveAllListeners();
             if (interveneTab != null) interveneTab.onClick.RemoveAllListeners();
-            if (emergencyTab != null) emergencyTab.onClick.RemoveAllListeners();
             if (cleanupTab   != null) cleanupTab.onClick.RemoveAllListeners();
         }
 
@@ -61,8 +57,8 @@ namespace Habitales.UI.Actions
             {
                 case ActionCategory.Examine:   tab = examineTab;   break;
                 case ActionCategory.Intervene: tab = interveneTab; break;
-                case ActionCategory.Emergency: tab = emergencyTab; break;
                 case ActionCategory.Cleanup:   tab = cleanupTab;   break;
+                // Emergency (retired) falls through to the default coach-mark target.
                 default:                       tab = interveneTab; break;
             }
             return tab != null ? tab.transform as RectTransform : null;

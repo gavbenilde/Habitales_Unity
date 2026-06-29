@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UI;
+using Habitales.UI;   // IUISubsystem
 
 namespace Habitales.UI.Actions
 {
@@ -20,13 +22,61 @@ namespace Habitales.UI.Actions
     ///   <item><see cref="GetConfirmButtonRect"/></item>
     /// </list>
     /// </summary>
-    public class ActionBarUI : MonoBehaviour
+    public class ActionBarUI : MonoBehaviour, IUISubsystem
     {
+        // ─── IUISubsystem ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// The root Canvas (or its GameObject) to show/hide for the master visibility sweep.
+        /// Wire the action-bar root Canvas component here in the Inspector.
+        /// </summary>
+        [Header("UISubsystem Root")]
+        [SerializeField] private Canvas rootCanvas;
+
+        // Whether input is currently allowed (cleared during modal popups).
+        private bool _interactable = true;
+
+        /// <inheritdoc/>
+        public string SubsystemId => "actionbar";
+
+        /// <inheritdoc/>
+        public bool IsVisible => rootCanvas != null && rootCanvas.gameObject.activeSelf;
+
+        /// <inheritdoc/>
+        public void SetVisible(bool visible)
+        {
+            if (rootCanvas != null)
+                rootCanvas.gameObject.SetActive(visible);
+            else
+                gameObject.SetActive(visible);
+        }
+
+        /// <summary>
+        /// Called by UIManager to block/unblock user input during an intrusive (modal) popup.
+        /// Toggles the root CanvasGroup's interactable + blocksRaycasts so no state is destroyed.
+        /// </summary>
+        public void SetInteractable(bool interactable)
+        {
+            _interactable = interactable;
+
+            // Prefer a CanvasGroup on the root for a clean raycast block without hiding content.
+            CanvasGroup cg = rootCanvas != null
+                ? rootCanvas.GetComponent<CanvasGroup>()
+                : GetComponent<CanvasGroup>();
+
+            if (cg != null)
+            {
+                cg.interactable    = interactable;
+                cg.blocksRaycasts  = interactable;
+            }
+        }
+
         [Header("Views")]
         [SerializeField] private ActionCategoryBar categoryBar;
         [SerializeField] private ActionStripView    strip;
         [SerializeField] private ActionEstimatePanel estimatePanel;
         [SerializeField] private LockModalView       lockModal;
+        [SerializeField] private FlowerBudToggle     flower;
 
         [Header("Systems")]
         [SerializeField] private ActionManager actionManager;
@@ -78,6 +128,20 @@ namespace Habitales.UI.Actions
         public RectTransform GetConfirmButtonRect()
             => estimatePanel != null ? estimatePanel.GetConfirmRect() : null;
 
+        /// <summary>
+        /// Programmatically blooms/collapses the category flower — lets OnboardingDirector open the
+        /// categories during a guided step without simulating a click. Routes through the same
+        /// controller path as a user toggle (Law-1-clean: mutation through the owning system).
+        /// </summary>
+        public void SetCategoriesExpanded(bool expanded) => HandleBloomToggled(expanded);
+
+        /// <summary>
+        /// The flower button's RectTransform, or null if unwired. Law-1 read-only getter — consumed
+        /// by OnboardingDirector to point a coach-mark at the flower ("tap here to see your actions").
+        /// </summary>
+        public RectTransform GetFlowerCueRect()
+            => flower != null ? flower.GetFlowerRect() : null;
+
         // ─── State ────────────────────────────────────────────────────────────
 
         private ActionCategory? currentCategory;
@@ -93,6 +157,13 @@ namespace Habitales.UI.Actions
 
             // Law-3 loud-fail for every view ref — if a view is missing the controller cannot function.
             bool ok = true;
+
+            // IUISubsystem root — warn (not fatal) so the bar still works without a dedicated Canvas ref;
+            // SetVisible will fall back to toggling this GameObject.
+            if (rootCanvas == null)
+                Debug.LogError($"{name}: rootCanvas is not wired — assign the action-bar root Canvas in the Inspector. " +
+                               "SetVisible will fall back to toggling this GameObject.", this);
+
             if (categoryBar == null)
             {
                 Debug.LogError($"{name}: categoryBar is not wired — assign the ActionCategoryBar component in the Inspector.", this);
@@ -113,6 +184,11 @@ namespace Habitales.UI.Actions
                 Debug.LogError($"{name}: lockModal is not wired — assign the LockModalView component in the Inspector.", this);
                 ok = false;
             }
+            if (flower == null)
+            {
+                Debug.LogError($"{name}: flower is not wired — assign the FlowerBudToggle component in the Inspector.", this);
+                ok = false;
+            }
             if (tileSelector == null)
             {
                 Debug.LogError($"{name}: tileSelector is not found — ensure a TileSelector is in the scene or wire it in the Inspector.", this);
@@ -121,9 +197,10 @@ namespace Habitales.UI.Actions
 
             if (!ok) { enabled = false; return; }
 
-            // Start with both panels collapsed.
+            // Start with both panels collapsed and the category flower closed (Hidden state).
             strip.SetVisible(false);
             estimatePanel.SetVisible(false);
+            if (flower != null) flower.SetBloomed(false);
         }
 
         void OnEnable()
@@ -145,6 +222,9 @@ namespace Habitales.UI.Actions
 
             if (estimatePanel != null)
                 estimatePanel.OnConfirmClicked += HandleConfirmClicked;
+
+            if (flower != null)
+                flower.OnBloomToggled += HandleBloomToggled;
         }
 
         void OnDisable()
@@ -166,6 +246,9 @@ namespace Habitales.UI.Actions
 
             if (estimatePanel != null)
                 estimatePanel.OnConfirmClicked -= HandleConfirmClicked;
+
+            if (flower != null)
+                flower.OnBloomToggled -= HandleBloomToggled;
         }
 
         void Update()
@@ -225,6 +308,27 @@ namespace Habitales.UI.Actions
         {
             if (actionManager == null) return Array.Empty<PlayerAction>();
             return actionManager.GetAvailableActions().Where(a => a.Category == category);
+        }
+
+        // ─── Flower bloom (category bar reveal) ───────────────────────────────
+
+        /// <summary>
+        /// Handles a flower toggle request from the FlowerBudToggle view. The controller owns the
+        /// bloom state machine: it drives the flower presentation down and, when collapsing, closes
+        /// the whole category UI (disarm + collapse strip + clear active category) so nothing is
+        /// left dangling behind a hidden flower.
+        /// </summary>
+        private void HandleBloomToggled(bool wantBloom)
+        {
+            if (flower != null) flower.SetBloomed(wantBloom);
+
+            if (!wantBloom)
+            {
+                if (currentAction != null) Disarm();
+                currentCategory = null;
+                if (strip       != null) strip.SetVisible(false);
+                if (categoryBar != null) categoryBar.SetActiveCategory(null);
+            }
         }
 
         // ─── Action arming ────────────────────────────────────────────────────

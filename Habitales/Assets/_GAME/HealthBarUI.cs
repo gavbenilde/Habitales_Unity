@@ -1,6 +1,13 @@
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// Passive HUD view — renders world health as a gradient slider with a threshold marker.
+/// Do NOT call RegionManager or any singleton from inside this class; the controller
+/// (HudController) owns the data push via <see cref="Render"/> (Law 1 / Law 2).
+/// Update() polling has been removed: health only changes when a day resolves, so
+/// HudController.HandleDayResolved → Render() is the correct and sufficient refresh path.
+/// </summary>
 public class HealthBarUI : MonoBehaviour
 {
     [Header("References")]
@@ -21,7 +28,6 @@ public class HealthBarUI : MonoBehaviour
     [SerializeField] private Color pink   = new Color(1f, 0.4f, 0.7f);
     [SerializeField] private Color green  = Color.green;
 
-    private RegionManager regionManager;
     private float threshold = 80f;
     private bool wasUnlocked = false;
 
@@ -38,25 +44,23 @@ public class HealthBarUI : MonoBehaviour
         SetMarkerUnlocked(false);
     }
 
-    void Update()
+    // Update() REMOVED — was polling RegionManager every frame (Law 2 violation).
+    // HudController subscribes to RunManager.OnDayResolved and calls Render() once
+    // per resolved day — the only time health data actually changes.
+
+    /// <summary>
+    /// Called by HudController to push the current world-average health value.
+    /// <paramref name="health"/> is 0–100. Passive: no game-state reads or writes.
+    /// </summary>
+    public void Render(float health)
     {
-        if (RunManager.Instance == null) return;
+        if (healthSlider != null)
+            healthSlider.value = health;
 
-        // Cache the RegionManager singleton once.
-        if (regionManager == null)
-            regionManager = RegionManager.Instance;
-        if (regionManager == null) return;
+        if (fillImage != null)
+            fillImage.color = GetStepGradient(health / 100f);
 
-        float currentHealth = regionManager.GetTotalAverageHealth();
-
-        // Update Slider
-        healthSlider.value = currentHealth;
-
-        // Update Color
-        fillImage.color = GetStepGradient(currentHealth / 100f);
-
-        // Flip the marker icon once health reaches the threshold
-        bool unlocked = currentHealth >= threshold;
+        bool unlocked = health >= threshold;
         if (unlocked != wasUnlocked)
             SetMarkerUnlocked(unlocked);
     }

@@ -76,7 +76,9 @@ public class RunManager : MonoBehaviour {
     [SerializeField] private bool showDebugInfo = true;
 
     [SerializeField] private bool isPrototypeRun = true;
-    [SerializeField] private int prototypeRunDays = 60;
+    // Run length is now canonical on ResourceManager.RunLengthDays (single source of
+    // truth — see the locked run-length unification). The old prototypeRunDays field
+    // (and its per-scene 60/61/90 overrides) is retired; this gate just defers to it.
 
     // Peak thriving — high-water mark across the run; drives run-end score + snapshot.
     private readonly RunSnapshot snapshot = new();
@@ -463,8 +465,8 @@ public class RunManager : MonoBehaviour {
             EvaluateThrivingPeak();
             healthHistory.Add(regionManager.GetTotalAverageHealth());
 
-            // Prototype field-season cutoff.
-            if (isPrototypeRun && resourceManager.TotalDays >= prototypeRunDays)
+            // Prototype field-season cutoff — defers to the canonical run length.
+            if (isPrototypeRun && resourceManager.TotalDays >= resourceManager.RunLengthDays)
             {
                 TriggerGameOver("Field Season Complete", GetThrivingTileCount());
                 return;

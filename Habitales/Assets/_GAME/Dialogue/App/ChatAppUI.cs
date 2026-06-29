@@ -43,15 +43,28 @@ namespace Habitales.UI
         [SerializeField] private Transform stickerTrayContent;
         [SerializeField] private StickerButtonUI stickerButtonPrefab;
 
+        [Header("Choice Row")]
+        [SerializeField] private GameObject     choiceRow;          // container, toggled active
+        [SerializeField] private Transform      choiceRowContent;   // parent for the option buttons
+        [SerializeField] private ChoiceButtonUI choiceButtonPrefab;
+
         // ── Runtime State ──────────────────────────────────────────────
 
         private bool _isOpen;
         private string _currentTabID;
         private bool _stickerTrayOpen;
 
+        // True while the player is mid-way through a conversation they've started
+        // answering (responded, but the thread still has a pending choice). While locked
+        // they can't exit the messaging app — close / back / tab-switch are gated here, and
+        // the HUD blocker behind the app keeps clicks off everything else (so no action can
+        // advance the day mid-conversation). Cleared when the thread ends.
+        private bool _conversationLocked;
+
         private readonly List<TabRowUI>       _tabRows        = new();
         private readonly List<ChatBubbleUI>   _bubbles        = new();
         private readonly List<StickerButtonUI> _stickerButtons = new();
+        private readonly List<ChoiceButtonUI>  _choiceButtons  = new();
 
         // ── Lifecycle ──────────────────────────────────────────────────
 
@@ -59,6 +72,14 @@ namespace Habitales.UI
         {
             chatPanel.SetActive(false);
             stickerTray.SetActive(false);
+
+            // Loud-fail unwired choice-row refs (Law 3) — a silent no-op would make
+            // authored player choices simply never appear.
+            if (choiceRow == null || choiceRowContent == null || choiceButtonPrefab == null)
+                Debug.LogError($"{name}: Choice Row is not fully wired (choiceRow / choiceRowContent / choiceButtonPrefab). " +
+                               "Player choice nodes will not render. Assign all three in the Inspector.", this);
+            else
+                choiceRow.SetActive(false);
         }
 
         private void OnEnable()
@@ -83,6 +104,8 @@ namespace Habitales.UI
         /// <summary>Called by the phone HUD messaging app button.</summary>
         public void ToggleChatApp()
         {
+            if (_conversationLocked) return; // can't close while mid-conversation
+
             _isOpen = !_isOpen;
             chatPanel.SetActive(_isOpen);
 
@@ -96,10 +119,14 @@ namespace Habitales.UI
 
         public void ShowTabList()
         {
+            if (_conversationLocked) return; // can't leave the thread while mid-conversation
+
             _currentTabID = null;
             threadView.SetActive(false);
             tabListView.SetActive(true);
             CloseStickerTray();
+            ClearChoiceRow();
+            if (choiceRow != null) choiceRow.SetActive(false);
             RefreshTabList();
         }
 
@@ -125,8 +152,10 @@ namespace Habitales.UI
 
         public void OpenThread(string tabID)
         {
+            if (_conversationLocked) return; // can't switch tabs while mid-conversation
+
             _currentTabID = tabID;
-            
+
             DialogueManager.Instance?.IncrementChatOpen(tabID);
             tabListView.SetActive(false);
             threadView.SetActive(true);
@@ -157,6 +186,7 @@ namespace Habitales.UI
             foreach (var line in lines)
                 SpawnBubble(line);
 
+            RefreshChoiceRow();
             ScrollToBottom();
         }
 
@@ -214,6 +244,89 @@ namespace Habitales.UI
             CloseStickerTray();
         }
 
+        // ── Choice Row ─────────────────────────────────────────────────
+
+        // Shows the option buttons when the current tab is paused on a player choice,
+        // otherwise tears the row down. Rebuilt from scratch each call because the
+        // pending options change as the player advances through the thread.
+        private void RefreshChoiceRow()
+        {
+            if (choiceRow == null || choiceRowContent == null || choiceButtonPrefab == null)
+                return; // already loud-failed in Awake
+
+            ClearChoiceRow();
+
+            if (string.IsNullOrEmpty(_currentTabID))
+            {
+                choiceRow.SetActive(false);
+                SetStickerToggleAvailable(true);
+                return;
+            }
+
+            var pending = DialogueManager.Instance.GetPendingChoice(_currentTabID);
+            if (pending == null || pending.options.Count == 0)
+            {
+                choiceRow.SetActive(false);
+                SetStickerToggleAvailable(true);
+                return;
+            }
+
+            for (int i = 0; i < pending.options.Count; i++)
+            {
+                var btn = Instantiate(choiceButtonPrefab, choiceRowContent);
+                btn.Setup(pending.options[i], i, OnChoiceSelected);
+                _choiceButtons.Add(btn);
+            }
+
+            choiceRow.SetActive(true);
+
+            // A pending choice IS the input — block stickers (even before the player
+            // responds) so a sticker can't be appended behind the tab's halt and vanish.
+            SetStickerToggleAvailable(false);
+            CloseStickerTray();
+        }
+
+        // Enables/disables the sticker tray toggle. Owned here (not by the lock) because a
+        // pending choice should suppress stickers regardless of whether the player has
+        // responded yet. Re-enabled the moment no choice is pending.
+        private void SetStickerToggleAvailable(bool available)
+        {
+            if (stickerToggleButton != null) stickerToggleButton.interactable = available;
+        }
+
+        private void ClearChoiceRow()
+        {
+            foreach (var btn in _choiceButtons)
+                Destroy(btn.gameObject);
+            _choiceButtons.Clear();
+        }
+
+        // Player tap → runtime selection. The walker records the pick and re-pushes
+        // the tab; HandleMessagesUpdated then appends the chosen reply + follow-up and
+        // refreshes (or hides) this row.
+        private void OnChoiceSelected(int optionIndex)
+        {
+            if (string.IsNullOrEmpty(_currentTabID)) return;
+
+            DialogueManager.Instance.SelectChoice(_currentTabID, optionIndex);
+
+            // Responding commits the player to finishing the thread. SelectChoice has
+            // already re-rendered synchronously (OnMessagesUpdated), so if a pending choice
+            // remains we lock until it's answered; if the thread ended, we release.
+            SetConversationLocked(DialogueManager.Instance.GetPendingChoice(_currentTabID) != null);
+        }
+
+        // Gates the in-app exit affordances while a started conversation is unfinished.
+        // Sticker suppression is handled by RefreshChoiceRow (a pending choice already
+        // disables it), which runs synchronously just before this on every response.
+        private void SetConversationLocked(bool locked)
+        {
+            _conversationLocked = locked;
+            backButton.interactable = !locked;
+            // ToggleChatApp() refuses to close while locked; the HUD blocker behind the app
+            // catches every click outside it, so no action can advance the day mid-conversation.
+        }
+
         // ── Event Handlers ─────────────────────────────────────────────
 
         private void HandleMessagesUpdated(string tabID)
@@ -228,6 +341,10 @@ namespace Habitales.UI
 
                 for (int i = newStart; i < lines.Count; i++)
                     SpawnBubble(lines[i]);
+
+                // The pending choice may have changed (advanced to the next one, or
+                // cleared) even when the line count did not — always refresh the row.
+                RefreshChoiceRow();
 
                 if (lines.Count > newStart)
                     ScrollToBottom();
