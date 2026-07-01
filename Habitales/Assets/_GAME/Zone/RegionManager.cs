@@ -64,6 +64,57 @@ public class RegionManager : MonoBehaviour
             resourceManager = ResourceManager.Instance;
     }
 
+    // Per-region health snapshot (yesterday) + the resulting per-day delta, for the trend
+    // arrow. Captured once per resolved day; UI reads GetRegionHealthDelta (Law 1).
+    private readonly Dictionary<int, float> _prevRegionHealth  = new Dictionary<int, float>();
+    private readonly Dictionary<int, float> _regionHealthDelta = new Dictionary<int, float>();
+
+    private void Start()
+    {
+        // RunManager (-100) initialises after RegionManager (-150), so subscribe in Start
+        // (not Awake/OnEnable) when its Instance is guaranteed set.
+        if (RunManager.Instance != null)
+            RunManager.Instance.OnDayResolved += HandleDayResolved;
+    }
+
+    private void OnDestroy()
+    {
+        if (RunManager.Instance != null)
+            RunManager.Instance.OnDayResolved -= HandleDayResolved;
+    }
+
+    /// <summary>
+    /// Snapshots each region's average health once per resolved day and records the change
+    /// since yesterday. Single pass over all tiles (no per-region rescans, no GetRegionHealth
+    /// debug spam) — mirrors GetRegionHealth's mean-of-CalculateHealth.
+    /// </summary>
+    private void HandleDayResolved(int day)
+    {
+        if (tileManager == null) return;
+
+        var sum   = new Dictionary<int, float>();
+        var count = new Dictionary<int, int>();
+
+        foreach (Tile t in tileManager.GetAllTiles())
+        {
+            if (t == null) continue;
+            int id = t.regionID;
+            sum.TryGetValue(id, out float s);
+            count.TryGetValue(id, out int c);
+            sum[id]   = s + t.CalculateHealth();
+            count[id] = c + 1;
+        }
+
+        foreach (var kv in sum)
+        {
+            int   id      = kv.Key;
+            float current = kv.Value / count[id];
+            float prev    = _prevRegionHealth.TryGetValue(id, out float p) ? p : current;
+            _regionHealthDelta[id] = current - prev;
+            _prevRegionHealth[id]  = current;
+        }
+    }
+
     // =====================================================================
     // PUBLIC API
     // =====================================================================
@@ -193,6 +244,14 @@ public class RegionManager : MonoBehaviour
         if (showDebugInfo) Debug.Log($"Region {regionID} Health: {avg:F1} ({tiles.Count} tiles)");
         return avg;
     }
+
+    /// <summary>
+    /// Per-day change in this region's average health (today − yesterday), in health-points.
+    /// 0 until two days have resolved or if the region is unknown. Read-only (Law 1) —
+    /// drives the region trend arrow.
+    /// </summary>
+    public float GetRegionHealthDelta(int regionID)
+        => _regionHealthDelta.TryGetValue(regionID, out float d) ? d : 0f;
 
     // =====================================================================
     // STEP 1 — SEED TILE

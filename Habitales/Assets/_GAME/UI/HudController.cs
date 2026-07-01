@@ -48,6 +48,8 @@ namespace Habitales.UI
         [SerializeField] private UnlockNextZoneButtonUI  _unlockNextZoneButton;
         [SerializeField] private ResourceDisplay         _resourceDisplay;
         [SerializeField] private RegionHealthUI          _regionHealthUI;
+        [Tooltip("Optional — the tiered trend arrow beside the world health bar.")]
+        [SerializeField] private TrendIndicatorUI        _worldTrend;
 
         // ─── Lifecycle ────────────────────────────────────────────────────────
 
@@ -68,6 +70,7 @@ namespace Habitales.UI
             // Initial push so the views show correct values on scene load.
             PushHealthToBar();
             PushTimeToHud();
+            PushWorldTrend();
         }
 
         void OnDisable()
@@ -87,6 +90,7 @@ namespace Habitales.UI
         {
             PushHealthToBar();
             PushTimeToHud();
+            PushWorldTrend();
         }
 
         // ─── Push helpers ─────────────────────────────────────────────────────
@@ -108,6 +112,14 @@ namespace Habitales.UI
             _timeRemaining.Render(
                 ResourceManager.Instance.TotalDays,
                 ResourceManager.Instance.RunLengthDays);
+        }
+
+        private void PushWorldTrend()
+        {
+            if (_worldTrend == null) return;
+            if (RunManager.Instance == null) return;
+
+            _worldTrend.SetDelta(RunManager.Instance.WorldHealthDelta);
         }
 
         // ─── Validation (Law 3) ───────────────────────────────────────────────

@@ -28,6 +28,13 @@ namespace Habitales.UI
 
         [SerializeField] private TooltipAnchor _anchor = TooltipAnchor.Top;
 
+        /// <summary>
+        /// Sets the tooltip text at runtime — e.g. a <see cref="TrendIndicatorUI"/> pushing its
+        /// current delta, or a <see cref="TooltipBadge"/> pulling from a <see cref="StatIconLibrary"/>.
+        /// Positioning still lives only in TooltipController (S2); this just swaps the content.
+        /// </summary>
+        public void SetText(string text) => _tooltipText = text;
+
         // ── Serialized-ref validation (Law 3) ────────────────────────────────
         // No [SerializeField] ref to UIManager — it is accessed via .Instance (S4: managers
         // are read via .Instance; subsystem views use [SerializeField]).  No loud-fail needed

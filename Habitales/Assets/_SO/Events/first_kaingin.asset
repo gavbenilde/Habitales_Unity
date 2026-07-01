@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: first_kaingin
   m_EditorClassIdentifier: 
   eventID: first_kaingin
-  triggerType: 4
+  triggerType: 0
   fireOnce: 0
   headline: Fire
   bodyText: Fire has been spotted!

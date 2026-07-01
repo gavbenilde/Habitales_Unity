@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
+using Habitales.Dialogue;
 
 namespace Habitales.UI
 {
@@ -9,6 +11,11 @@ namespace Habitales.UI
     // Defines the public contract between callers (EventManager, UIManager,
     // OnboardingDirector) and PopupController. All other popup-related code
     // lives in PopupController (S2 — one concept, one place).
+    //
+    // Edited 2026-06-30 (WO-1): replaced the single-line content fields
+    // (showPortrait/portrait/speakerName/body) with a thread
+    // (IReadOnlyList<ResolvedLine> lines). PopupHandle and PopupIntrusiveness
+    // are unchanged — UIManager's contract is unaffected.
     // ─────────────────────────────────────────────────────────────────────────
 
     // ── Intrusiveness axis ────────────────────────────────────────────────────
@@ -38,32 +45,67 @@ namespace Habitales.UI
     /// Everything a caller needs to describe a popup — passed by value so there
     /// is no shared mutable state between the caller and PopupController.
     /// Pass <c>in PopupRequest</c> to avoid copies on the hot path.
+    ///
+    /// <para>
+    /// <b>Content:</b> the popup pages through <see cref="lines"/> one at a time.
+    /// Each <see cref="ResolvedLine"/> carries its own <c>displayName</c>,
+    /// <c>portrait</c>, and <c>body</c>, so every line in a thread can use a
+    /// different speaker. The list must be non-null and non-empty;
+    /// <c>PopupController.Show</c> loud-fails and returns
+    /// <see cref="PopupHandle.None"/> otherwise.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Confirm/Next (Intrusive):</b> intermediate lines show a "Next" button;
+    /// the final line shows <see cref="confirmLabel"/> (default "OK"). Pressing
+    /// the button on the last line dismisses the popup and invokes
+    /// <see cref="onConfirm"/>.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Auto-advance (NonIntrusive):</b> if <see cref="autoDismissSeconds"/>
+    /// is positive, each line auto-advances after that many seconds; the final
+    /// advance dismisses the popup. A tap always advances/dismisses immediately.
+    /// </para>
     /// </summary>
     [Serializable]
     public struct PopupRequest
     {
         // ── Classification ────────────────────────────────────────────────
+        /// <summary>
+        /// Controls presentation mode. Intrusive = modal dim + input block
+        /// (UIManager pauses the sim). NonIntrusive = side bubble, game runs.
+        /// </summary>
         public PopupIntrusiveness intrusiveness;
-        public bool               showPortrait;
 
-        // ── Content ───────────────────────────────────────────────────────
-        public Sprite portrait;
-        public string speakerName;
-        public string body;
+        // ── Content (thread) ─────────────────────────────────────────────
+        /// <summary>
+        /// Ordered sequence of lines to page through. Each line carries its own
+        /// <c>displayName</c>, <c>portrait</c>, and <c>body</c>.
+        /// Must be non-null and contain at least one element —
+        /// <c>PopupController.Show</c> returns <see cref="PopupHandle.None"/>
+        /// and logs an error otherwise.
+        /// </summary>
+        [NonSerialized] public IReadOnlyList<ResolvedLine> lines;
 
         // ── Confirm (Intrusive only) ──────────────────────────────────────
-        /// <summary>Label on the confirm button. Defaults to "OK" when null/empty.</summary>
+        /// <summary>
+        /// Label on the final confirm/dismiss button. Defaults to "OK" when
+        /// null or empty. Intermediate lines always show "Next".
+        /// </summary>
         public string confirmLabel;
 
         /// <summary>
-        /// Invoked when the player taps Confirm (Intrusive) or the popup auto-dismisses
+        /// Invoked when the player taps the confirm button on the last line
+        /// (Intrusive) or when the popup auto-dismisses after all lines
         /// (NonIntrusive). Optional — null is safe.
         /// </summary>
         [NonSerialized] public Action onConfirm;
 
-        // ── Auto-dismiss (NonIntrusive only) ─────────────────────────────
+        // ── Auto-dismiss per line (NonIntrusive only) ─────────────────────
         /// <summary>
-        /// Seconds before the bubble self-dismisses. 0 = wait for a tap.
+        /// Seconds to display each line before auto-advancing to the next.
+        /// 0 = wait for a tap on every line.
         /// Ignored for Intrusive popups (they always wait for the button).
         /// </summary>
         public float autoDismissSeconds;

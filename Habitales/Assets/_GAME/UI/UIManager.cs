@@ -70,6 +70,12 @@ namespace Habitales.UI
         // Key: subsystem index in the `subsystems` list; Value: IsVisible at snapshot time.
         private readonly Dictionary<int, bool> _visibilitySnapshot = new();
 
+        // ─── Managed-popup tracking ───────────────────────────────────────────
+
+        // Handles for popups whose pause/resume the hub owns (manageSimState:true).
+        // EventManager passes manageSimState:false so the batch pause stays balanced.
+        private readonly HashSet<int> _managedHandles = new();
+
         // ─── Lifecycle ────────────────────────────────────────────────────────
 
         void Awake()
@@ -171,29 +177,44 @@ namespace Habitales.UI
         // ─── Popup routing ────────────────────────────────────────────────────
 
         /// <summary>
-        /// Routes a popup request through the hub. If intrusive: sets modal state, blocks the
-        /// action bar, pauses the sim, then delegates to PopupController. Non-intrusive requests
-        /// are passed straight through without touching game state.
+        /// Routes a popup request through the hub. If intrusive and
+        /// <paramref name="manageSimState"/> is <c>true</c> (the default): sets modal state,
+        /// blocks the action bar, and pauses the sim. Non-intrusive requests are passed straight
+        /// through without touching game state.
+        ///
+        /// <para>
+        /// Pass <c>manageSimState: false</c> when the <em>caller</em> already owns the pause
+        /// lifecycle — e.g. EventManager, which manages a batch pause across multiple queued
+        /// events and must not have each popup toggle it independently.
+        /// </para>
         /// </summary>
-        public PopupHandle ShowPopup(in PopupRequest request)
+        public PopupHandle ShowPopup(in PopupRequest request, bool manageSimState = true)
         {
-            if (request.intrusiveness == PopupIntrusiveness.Intrusive)
+            var handle = popups.Show(request);
+
+            if (manageSimState
+                && request.intrusiveness == PopupIntrusiveness.Intrusive
+                && handle.IsValid)
             {
                 IsModalActive = true;
                 actionBar?.SetInteractable(false);
                 RunManager.Instance.PauseForEvent();
+                _managedHandles.Add(handle.id);
             }
 
-            return popups.Show(request);
+            return handle;
         }
 
         /// <summary>
-        /// Called by PopupController's OnPopupDismissed event. Clears modal state for intrusive
-        /// dismissals and resumes the sim.
+        /// Called by PopupController's OnPopupDismissed event. Clears modal state and resumes
+        /// the sim only for popups that were shown with <c>manageSimState: true</c>.
+        /// Unmanaged dismissals (e.g. EventManager's batch popups) are silently ignored here;
+        /// EventManager owns their pause/resume cycle.
         /// </summary>
         private void HandlePopupDismissed(PopupHandle handle, PopupIntrusiveness intrusiveness)
         {
-            if (intrusiveness == PopupIntrusiveness.Intrusive)
+            if (intrusiveness == PopupIntrusiveness.Intrusive
+                && _managedHandles.Remove(handle.id))
             {
                 IsModalActive = false;
                 actionBar?.SetInteractable(true);

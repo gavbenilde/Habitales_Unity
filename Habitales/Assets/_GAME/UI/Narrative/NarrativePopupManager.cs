@@ -6,24 +6,26 @@ using Habitales.Dialogue;
 namespace Habitales.UI
 {
     /// <summary>
-    /// The single front door for narrative popups. One call site, four flavours:
+    /// The front door for THREADED narrative popups. Two flavours remain:
     ///
-    ///   • Headline  — the existing one-shot EventPopupUI (title + body + optional portrait).
     ///   • Dialog    — intrusive, dimmed, portrait, THREADED (DialoguePopupView).
     ///   • Character — non-intrusive side bubble with portrait (SideNarrativeBubble).
     ///   • Text      — non-intrusive side bubble, no portrait (SideNarrativeBubble).
     ///
+    /// The former "Headline" (one-shot EventPopupUI) flavour has been retired (WO-2,
+    /// 2026-06-30). EventManager now routes event popups through UIManager.ShowPopup →
+    /// PopupController instead. Do not add ShowHeadline back here.
+    ///
     /// Threaded calls accept either a ConversationSO (authored once, also renders in chat)
     /// or a raw list of ResolvedLines (hardcoded onboarding beats). Style presets live on
-    /// <see cref="PopupStyle"/>. This is the only class the rest of the game talks to;
-    /// the three views are wiring details behind it (S2 — one concept, one place).
+    /// <see cref="PopupStyle"/>. This is the only class the rest of the game talks to for
+    /// threaded narrative; single-shot popups go through UIManager → PopupController (S2).
     /// </summary>
     public class NarrativePopupManager : MonoBehaviour
     {
         public static NarrativePopupManager Instance { get; private set; }
 
-        [Header("Views (wire all three)")]
-        [SerializeField] private EventPopupUI headlineView;        // existing one-shot
+        [Header("Views (wire both)")]
         [SerializeField] private DialoguePopupView dialogueView;   // intrusive threaded
         [SerializeField] private SideNarrativeBubble sideBubble;   // non-intrusive side
 
@@ -88,25 +90,12 @@ namespace Habitales.UI
             PlayLines(new List<ResolvedLine> { line }, style, onComplete);
         }
 
-        // ── Headline one-shot (delegates to the existing EventPopupUI) ──
-
-        /// <summary>The classic full-screen one-shot. EventManager routes its events here.</summary>
-        public void ShowHeadline(GameEventSO ev, string headline, string body,
-            Action onContinue = null, Action onAbort = null)
-        {
-            if (headlineView == null)
-            {
-                Debug.LogError($"{name}: headlineView (EventPopupUI) is not wired — headline event can't show. Assign it in the Inspector.", this);
-                onContinue?.Invoke();   // don't strand EventManager's resume callback
-                return;
-            }
-            headlineView.Show(ev, headline, body, onContinue, onAbort);
-        }
-
-        /// <summary>Hard-hide every surface (e.g. on game over).</summary>
+        /// <summary>
+        /// Hard-hide every threaded narrative surface (e.g. on game over).
+        /// Does NOT touch event-popup dismissal — that goes through UIManager → PopupController.
+        /// </summary>
         public void HideAll()
         {
-            if (headlineView != null) headlineView.Hide();
             if (dialogueView != null) dialogueView.Hide();
             if (sideBubble != null) sideBubble.Hide();
         }

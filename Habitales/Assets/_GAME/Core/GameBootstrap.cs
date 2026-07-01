@@ -48,6 +48,7 @@ namespace Habitales.Core
             failures += Require(TileManager.Instance     != null, "TileManager");
             failures += Require(ActionManager.Instance   != null, "ActionManager");
             failures += Require(EventManager.Instance    != null, "EventManager");
+            failures += Require(Habitales.Triggers.TriggerManager.Instance != null, "TriggerManager");
             failures += Require(DialogueManager.Instance != null, "DialogueManager");
             failures += Require(RunManager.Instance      != null, "RunManager");
             failures += Require(UIManager.Instance      != null, "UIManager");

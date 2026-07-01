@@ -39,6 +39,20 @@ public class RunManager : MonoBehaviour {
     /// <summary>World-health % at which the next region becomes unlockable. Single source of truth for the health-bar marker and the unlock button.</summary>
     public float ZoneUnlockThreshold => regionUnlockThreshold;
 
+    /// <summary>
+    /// Per-day change in world-average health (today − yesterday), in health-points.
+    /// 0 until at least two days have resolved. Read-only (Law 1) — drives the HUD trend arrow.
+    /// Sourced from the existing daily <c>healthHistory</c> push (heartbeat step "4b").
+    /// </summary>
+    public float WorldHealthDelta
+    {
+        get
+        {
+            int n = healthHistory.Count;
+            return n >= 2 ? healthHistory[n - 1] - healthHistory[n - 2] : 0f;
+        }
+    }
+
     /// <summary>Fired once when world health first crosses the threshold and a region is awaiting manual unlock. Subscribers: unlock button, objective banner.</summary>
     public event System.Action OnRegionUnlockReady;
     /// <summary>Fired after the player presses the button and the next region is generated.</summary>

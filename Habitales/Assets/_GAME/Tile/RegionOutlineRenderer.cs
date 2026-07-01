@@ -117,7 +117,8 @@ public class RegionOutlineRenderer : MonoBehaviour
 
         if (regionHealthUI != null && regionManager != null)
         {
-            regionHealthUI.Show(regionID, avgHealth);
+            float delta = regionManager.GetRegionHealthDelta(regionID);
+            regionHealthUI.Show(regionID, avgHealth, delta);
         }
     }
 

@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using Habitales.UI;
 
 /// <summary>
 /// Displays the average health of the currently selected region as a 0–100 bar.
@@ -19,6 +20,9 @@ public class RegionHealthUI : MonoBehaviour
     [SerializeField] private Slider healthSlider;           // min 0 / max 100
     [SerializeField] private Image  fillImage;              // optional — tinted by state
 
+    [Header("Trend")]
+    [SerializeField] private TrendIndicatorUI trendIndicator; // optional — tiered up/down arrow
+
     [Header("Health Colors")]
     [SerializeField] private Color thrivingColor  = new Color(0.3f, 0.9f, 0.3f);
     [SerializeField] private Color degradedColor  = new Color(0.9f, 0.8f, 0.3f);
@@ -35,11 +39,19 @@ public class RegionHealthUI : MonoBehaviour
     }
 
     /// <summary>
-    /// Shows the panel and populates it with region data.
-    /// avgHealth is 0–100.
+    /// Back-compat overload — no trend data. Shows a flat (hidden) arrow.
     /// </summary>
-    public void Show(int regionID, float avgHealth)
+    public void Show(int regionID, float avgHealth) => Show(regionID, avgHealth, 0f);
+
+    /// <summary>
+    /// Shows the panel and populates it with region data.
+    /// avgHealth is 0–100; delta is the per-day change in health-points (drives the trend arrow).
+    /// </summary>
+    public void Show(int regionID, float avgHealth, float delta)
     {
+        if (trendIndicator != null)
+            trendIndicator.SetDelta(delta);
+
         if (regionLabel != null)
             regionLabel.text = $"Zone {regionID}";
 

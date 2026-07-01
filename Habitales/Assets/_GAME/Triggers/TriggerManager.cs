@@ -1,0 +1,336 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using UTILITIES.Camera;
+using Habitales.Dialogue;
+using Habitales.UI;
+
+namespace Habitales.Triggers
+{
+    // ─────────────────────────────────────────────────────────────────────────
+    // TriggerManager.cs — code-subscription trigger layer (WO-3).
+    //
+    // Supersedes EventManager's data-driven trigger switch. All real event fires
+    // in the current build are Manual (by-ID via Fire(string)), so TriggerManager
+    // exposes Fire(id) as its primary entry point. Reactive hook stubs (§4 in
+    // the handoff doc) are wired in Start/OnDestroy but have no auto-fire logic
+    // yet — they are extension points for future authored triggers.
+    //
+    // IMPORTANT: Do NOT add a TriggerManager GameObject to any scene until WO-4
+    // ships the EventManager shim. Running both managers simultaneously is benign
+    // (TriggerManager has no data-driven auto-fire, so there is no double-fire
+    // risk), but it is confusing and wastes resources. Keep TriggerManager inert
+    // (no scene GameObject) until WO-4 explicitly wires it in.
+    //
+    // Parallel class — does NOT modify EventManager.cs.
+    //
+    // Batch-pause contract (mirrors EventManager / WO-2):
+    //   • One PauseForEvent on the first Fire of a batch.
+    //   • ShowPopup called with manageSimState:false (TriggerManager owns the pause).
+    //   • One ResumeFromEvent when the queue drains.
+    //
+    // Added 2026-06-30 (WO-3).
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [DefaultExecutionOrder(-100)] // manager — initializes after core services (arch §4 init order)
+    public class TriggerManager : MonoBehaviour
+    {
+        // ─── Singleton ────────────────────────────────────────────────────────
+
+        public static TriggerManager Instance { get; private set; }
+
+        // ─── Serialized refs ──────────────────────────────────────────────────
+
+        [Header("Data")]
+        [Tooltip("Required. PopupSO catalog keyed by eventName. Loud-fails in Awake when null.")]
+        [SerializeField] private PopupCatalogSO _catalog;
+
+        [Tooltip("Required. Used to resolve Azi/Bob speaker identity for each popup's lines. Loud-fails in Awake when null.")]
+        [SerializeField] private DialogueRegistry _registry;
+
+        [Header("Debug")]
+        [SerializeField] private bool showDebugInfo = true;
+
+        // ─── Runtime state ────────────────────────────────────────────────────
+
+        /// <summary>
+        /// True while at least one popup is in flight (the queue has entries OR
+        /// a popup is currently being displayed). Replacement for EventManager.IsShowingEvent.
+        /// </summary>
+        public bool IsBusy { get; private set; } = false;
+
+        // IDs that have been fired at least once this run (for fireOnce dedup).
+        private readonly HashSet<string> _firedIds = new HashSet<string>();
+
+        // Pending popups that have not yet been presented.
+        private readonly Queue<PopupSO> _queue = new Queue<PopupSO>();
+
+        // Track whether we panned the camera during this batch so we can return.
+        private bool _pannedThisBatch = false;
+
+        // Handle for the popup currently on screen (so HandleGameOver can dismiss it).
+        private PopupHandle _currentPopup = PopupHandle.None;
+
+        // ─── Lifecycle ────────────────────────────────────────────────────────
+
+        void Awake()
+        {
+            // Singleton guard.
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+
+            // Law 3 loud-fail for serialized refs.
+            if (_catalog == null)
+                Debug.LogError("TriggerManager: _catalog is not assigned in the Inspector — Fire() will always fail.", this);
+            if (_registry == null)
+                Debug.LogError("TriggerManager: _registry is not assigned in the Inspector — Azi/Bob names will fall back to literals.", this);
+        }
+
+        void Start()
+        {
+            // ── Reactive hook subscriptions ────────────────────────────────────
+            // Subscribe to ResourceManager for token refresh (RefreshGlobalContext)
+            // and game-over cleanup (HandleGameOver).
+            ResourceManager rm = ResourceManager.Instance;
+            if (rm != null)
+            {
+                rm.OnTimeAdvanced += RefreshGlobalContext;
+                rm.OnGameOver     += HandleGameOver;
+            }
+            else
+            {
+                Debug.LogError("TriggerManager: ResourceManager.Instance is null in Start — context tokens won't refresh and HandleGameOver won't fire.", this);
+            }
+
+            // HOOK: OnRegionGenerated — subscribe for future reactive triggers tied
+            // to region unlock events. No auto-fire logic here; author triggers in code.
+            RegionManager zm = RegionManager.Instance;
+            if (zm != null)
+                zm.OnRegionGenerated += HandleRegionGenerated;
+            else
+                Debug.LogWarning("TriggerManager: RegionManager.Instance is null — OnRegionGenerated hook won't fire.", this);
+
+            // Prime the global token set immediately so tokens are available on day 0.
+            RefreshGlobalContext(0);
+        }
+
+        void OnDestroy()
+        {
+            if (ResourceManager.Instance != null)
+            {
+                ResourceManager.Instance.OnTimeAdvanced -= RefreshGlobalContext;
+                ResourceManager.Instance.OnGameOver     -= HandleGameOver;
+            }
+
+            if (RegionManager.Instance != null)
+                RegionManager.Instance.OnRegionGenerated -= HandleRegionGenerated;
+        }
+
+        // ─── Public API ───────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Fire a popup by its catalog ID (<c>PopupSO.eventName</c>).
+        /// Replaces <c>EventManager.FireEventByID</c>. Safe to call while a popup
+        /// is already showing — the new one is queued and plays after the current one dismisses.
+        /// </summary>
+        public void Fire(string id)
+        {
+            if (_catalog == null)
+            {
+                Debug.LogWarning($"TriggerManager.Fire('{id}'): _catalog is null — cannot look up popup.", this);
+                return;
+            }
+
+            PopupSO popup = _catalog.GetById(id);
+            if (popup == null)
+                return; // GetById already logged the warning
+
+            // fireOnce dedup — skip if already fired this run.
+            if (popup.fireOnce && _firedIds.Contains(id))
+            {
+                if (showDebugInfo)
+                    Debug.Log($"TriggerManager: '{id}' skipped (fireOnce already fired).");
+                return;
+            }
+
+            _queue.Enqueue(popup);
+
+            if (!IsBusy)
+                ShowNextInQueue();
+            // If IsBusy, the new entry sits in the queue and will play after the current one.
+        }
+
+        /// <summary>
+        /// Clears fired-ID history, the pending queue, and camera-pan state.
+        /// Call this at the start of a new run.
+        /// </summary>
+        public void ResetForNewRun()
+        {
+            _firedIds.Clear();
+            _queue.Clear();
+            _pannedThisBatch = false;
+        }
+
+        // ─── Queue management ─────────────────────────────────────────────────
+
+        private void ShowNextInQueue()
+        {
+            if (_queue.Count == 0)
+            {
+                IsBusy = false;
+
+                if (showDebugInfo)
+                    Debug.Log("TriggerManager: Queue empty — resuming game.");
+
+                if (_pannedThisBatch && EventCameraHandler.Instance != null)
+                {
+                    _pannedThisBatch = false;
+                    EventCameraHandler.Instance.ReturnToOrigin(
+                        onComplete: () => RunManager.Instance?.ResumeFromEvent()
+                    );
+                }
+                else
+                {
+                    RunManager.Instance?.ResumeFromEvent();
+                }
+
+                return;
+            }
+
+            FirePopup(_queue.Dequeue());
+        }
+
+        private void FirePopup(PopupSO p)
+        {
+            if (showDebugInfo)
+                Debug.Log($"TriggerManager: Firing '{p.eventName}' ({_queue.Count} remaining in queue).");
+
+            // Record fireOnce before we show (consistent with EventManager's approach).
+            if (p.fireOnce)
+                _firedIds.Add(p.eventName);
+
+            // Batch pause — one pause for the whole queue, not per-popup.
+            if (!IsBusy)
+                RunManager.Instance?.PauseForEvent();
+            IsBusy = true;
+
+            // Resolve lines and apply EventContext token substitution.
+            List<ResolvedLine> lines = p.ResolveLines(_registry);
+            foreach (ResolvedLine l in lines)
+                l.body = EventContext.Resolve(l.body);
+
+            // Read and clear the focus target BEFORE deciding whether to pan.
+            Vector3? focusTarget = EventContext.GetFocusTarget();
+            EventContext.ClearOverrides(); // clears token overrides AND focus target
+
+            // Append the linked dialogue thread (if any) to DialogueManager.
+            if (p.linkedThread != null)
+                DialogueManager.Instance?.AppendConversation(p.linkedThread);
+
+            // Build the presentation action as a local closure so it can be called
+            // directly OR from the camera pan's onComplete callback.
+            Action showPopup = () =>
+            {
+                var ui = UIManager.Instance;
+                if (ui == null)
+                {
+                    Debug.LogError("TriggerManager: UIManager.Instance is null — cannot present popup. " +
+                                   "Resuming queue so it doesn't stall.", this);
+                    ResumeAfterEvent();
+                    return;
+                }
+
+                var request = new PopupRequest
+                {
+                    intrusiveness      = p.intrusiveness,
+                    lines              = lines,
+                    confirmLabel       = "OK",
+                    onConfirm          = ResumeAfterEvent,   // advances the queue on dismiss
+                    autoDismissSeconds = 0f,
+                    anchor             = ScreenAnchor.BottomCenter
+                };
+
+                // manageSimState:false — TriggerManager owns the batch pause,
+                // exactly like EventManager. The hub must NOT double-toggle it.
+                _currentPopup = ui.ShowPopup(request, manageSimState: false);
+            };
+
+            // Camera pan (optional).
+            if (p.focusCameraOnTarget && focusTarget.HasValue && EventCameraHandler.Instance != null)
+            {
+                _pannedThisBatch = true;
+                EventCameraHandler.Instance.PanTo(focusTarget.Value, onComplete: showPopup);
+            }
+            else
+            {
+                showPopup();
+            }
+        }
+
+        private void ResumeAfterEvent()
+        {
+            if (showDebugInfo)
+                Debug.Log("TriggerManager: Popup dismissed — checking queue...");
+            ShowNextInQueue();
+        }
+
+        // ─── Hook handlers ────────────────────────────────────────────────────
+
+        // HOOK: OnRegionGenerated — wired in Start.
+        // Author reactive popup triggers here in future work-orders (code-subscription model).
+        // Do NOT auto-fire from the old data-driven trigger-collection loop.
+        private void HandleRegionGenerated(RegionGenerationResult result)
+        {
+            // HOOK: reactive triggers for region events go here.
+        }
+
+        private void HandleGameOver()
+        {
+            _queue.Clear();
+            _pannedThisBatch = false;
+
+            if (IsBusy)
+            {
+                // Dismiss the active popup through the hub (keeps PopupController state clean).
+                UIManager.Instance?.Popups?.Dismiss(_currentPopup);
+                _currentPopup = PopupHandle.None;
+
+                // Also hide any lingering threaded-dialogue surfaces.
+                NarrativePopupManager.Instance?.HideAll();
+            }
+
+            IsBusy = false;
+        }
+
+        // ─── Context token refresh ────────────────────────────────────────────
+
+        // Keeps global EventContext tokens fresh each day. Ported verbatim from
+        // EventManager.RefreshGlobalContext so token-interpolated popup bodies
+        // work identically under TriggerManager.
+        private void RefreshGlobalContext(int _ = 0)
+        {
+            ResourceManager rm = ResourceManager.Instance;
+            if (rm == null) return;
+
+            int year = rm.TotalDays / rm.DaysPerYear + 1;
+            int day  = rm.TotalDays % rm.DaysPerYear + 1;
+
+            EventContext.Set("current_year",       year.ToString());
+            EventContext.Set("current_day",        day.ToString());
+            EventContext.Set("available_workers",  rm.AvailablePeople.ToString());
+            EventContext.Set("total_workers",      rm.TotalPeople.ToString());
+            EventContext.Set("recovering_workers", rm.RecoveringPeopleCount.ToString());
+
+            RegionManager zm = RegionManager.Instance;
+            if (zm != null)
+            {
+                EventContext.Set("zone_count",   (zm.NextRegionID - 1).ToString());
+                EventContext.Set("world_health", zm.GetTotalAverageHealth().ToString("F1"));
+            }
+        }
+    }
+}
