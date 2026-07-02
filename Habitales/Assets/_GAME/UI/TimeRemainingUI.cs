@@ -12,22 +12,22 @@ namespace Habitales.UI
     /// length only changes meaning when a day resolves, so HudController.HandleDayResolved →
     /// Render() is the correct and sufficient refresh path.
     ///
-    /// <para><b>Display conventions (not sim concepts):</b> 1 year = 365 days; 1 "season" =
-    /// 6 months = 182.5 days. The math lives here so the rest of the codebase never has to
-    /// know about either.</para>
+    /// <para><b>Display conventions:</b> 1 year = <see cref="GameCalendar.DaysPerYear"/> (360)
+    /// days; 1 season = half a year = 180 days (matches the sim's Dry/Wet season length).
+    /// The division math lives here so the rest of the codebase never has to.</para>
     /// </summary>
     public class TimeRemainingUI : MonoBehaviour
     {
-        // Display-only divisors. Not sim concepts.
-        private const float DaysPerYear   = 365f;
-        private const float DaysPerSeason = 182.5f;
+        // Display-only divisors, derived from the sim calendar so they can't drift from it.
+        private const float DaysPerYear   = GameCalendar.DaysPerYear;
+        private const float DaysPerSeason = GameCalendar.DaysPerYear / 2f;
 
         [Header("Reference (TextMeshPro)")]
         [Tooltip("Single line, e.g. \"1 year and 39 days left\".")]
         [SerializeField] private TMP_Text timeText;
 
         [Header("Display")]
-        [Tooltip("Use Seasons instead — render the remaining time in seasons (182.5 days) rather than years.")]
+        [Tooltip("Use Seasons instead — render the remaining time in seasons (180 days) rather than years.")]
         [SerializeField] private bool useSeasons;
 
         void Awake()

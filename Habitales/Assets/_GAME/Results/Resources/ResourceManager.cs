@@ -12,15 +12,42 @@ public class ResourceManager : MonoBehaviour
     // ── Time ─────────────────────────────────────────────────────────────────
     [Header("Time")]
     [SerializeField] private int totalDays = 0;
-    [SerializeField] private int daysPerYear = 365;
     [SerializeField] private int maxYears = 5;
 
     // Canonical run length — the single source of truth for when a run ends.
-    // A future season-picker UI sets this one field (seasons × 182.5 days).
+    // A future season-picker UI sets this one field (seasons × 180 days).
     [SerializeField] private int runLengthDays = 100;
 
-    public int DaysPerYear => daysPerYear;
-    public int CurrentYear => (totalDays / daysPerYear) + 1;
+    [Header("Calendar")]
+    [Tooltip("If true, the run's starting day-of-year is randomized in Awake() (never a season's " +
+             "first day, so weather doesn't open on a hard transition). Turn off for deterministic testing.")]
+    [SerializeField] private bool randomizeStartDate = true;
+    [Tooltip("Used only when Randomize Start Date is OFF and this is >= 0 — pins the starting " +
+             "day-of-year (0 = Jan 1) for repeatable test runs.")]
+    [SerializeField] private int startDayOfYearOverride = -1;
+
+    /// <summary>The 0-based day-of-year (Jan 1 = 0) the run started on. Chosen once in Awake().</summary>
+    public int StartDayOfYear { get; private set; }
+
+    // Year length is owned by GameCalendar (12 × 30 = 360) — derived here rather than mirrored
+    // in a serialized field so the calendar and the year math can never drift apart.
+    public int DaysPerYear => GameCalendar.DaysPerYear;
+    public int CurrentYear => (totalDays / GameCalendar.DaysPerYear) + 1;
+
+    /// <summary>The current 0-based calendar day-of-year, accounting for the random start date.</summary>
+    public int DayOfYear => DayOfYearFor(totalDays);
+
+    /// <summary>The 0-based calendar day-of-year for an arbitrary total-day count (past or future) —
+    /// used by the weather forecast / calendar UI to resolve dates ahead of "today".</summary>
+    public int DayOfYearFor(int totalDay)
+    {
+        int d = (StartDayOfYear + totalDay) % GameCalendar.DaysPerYear;
+        if (d < 0) d += GameCalendar.DaysPerYear;
+        return d;
+    }
+
+    /// <summary>The active season for the current calendar day (Law 1 getter — WeatherManager reads this).</summary>
+    public Season CurrentSeason => GameCalendar.GetSeason(DayOfYear);
 
     // Run-length accessors (Law 1: getters, not setters).
     public int RunLengthDays => runLengthDays;
@@ -67,6 +94,32 @@ public class ResourceManager : MonoBehaviour
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
+
+        // Pick the run's starting calendar day here (before any Start() runs) so every other
+        // system's Start() can already read StartDayOfYear/DayOfYear (e.g. WeatherManager's
+        // 21-day window init).
+        PickStartDayOfYear();
+    }
+
+    // Chooses StartDayOfYear. Random runs never begin exactly on a season boundary (Dec 1 / Jun 1)
+    // so weather doesn't open on a hard seasonal snap — reroll while IsSeasonStart.
+    private void PickStartDayOfYear()
+    {
+        if (!randomizeStartDate)
+        {
+            StartDayOfYear = startDayOfYearOverride >= 0
+                ? startDayOfYearOverride % GameCalendar.DaysPerYear
+                : 0;
+            return;
+        }
+
+        int day;
+        do
+        {
+            day = UnityEngine.Random.Range(0, GameCalendar.DaysPerYear);
+        } while (GameCalendar.IsSeasonStart(day));
+
+        StartDayOfYear = day;
     }
 
     void Start()
@@ -143,9 +196,15 @@ public class ResourceManager : MonoBehaviour
 
     public string GetFullTimeDisplay()
     {
-        int year = totalDays / daysPerYear + 1;
-        int day = totalDays % daysPerYear + 1;
+        int year = totalDays / GameCalendar.DaysPerYear + 1;
+        int day = totalDays % GameCalendar.DaysPerYear + 1;
         return $"Year {year}, Day {day}";
+    }
+
+    /// <summary>Calendar-flavored date display for the weather app / UI, e.g. "Jun 14, Year 1".</summary>
+    public string GetCalendarDisplay()
+    {
+        return $"{GameCalendar.GetShortDate(DayOfYear)}, Year {CurrentYear}";
     }
 
     // ── Fatigue ───────────────────────────────────────────────────────────────

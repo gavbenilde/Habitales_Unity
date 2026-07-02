@@ -31,7 +31,8 @@ namespace Habitales.Entities
         public override void OnDailyUpdate(Tile tile, in TickContext ctx)
         {
             if (def == null) return;
-            daysExisting++;
+            daysExisting += GrowthStepFor(tile, in ctx);
+            if (daysExisting < 0) daysExisting = 0;
 
             bool hookReplaces = def.behaviour != null && def.behaviour.ReplacesGenericLifecycle;
 
@@ -74,6 +75,27 @@ namespace Habitales.Entities
 
         private bool PromoteGateOpen(Tile tile)
             => !def.requirePromoteCondition || Satisfied(tile, def.promoteWhen);
+
+        // An active drought/deluge can STALL (+0) or REGRESS (−1) a plant's growth instead of the
+        // normal +1 day. Stress = spell depth × tile exposure (1 − VegCover/100) × species
+        // vulnerability (1 − resistance): a lush tile shelters its plant, a sturdy species (tree)
+        // shrugs off what stalls a tender crop, and both bite harder the longer the spell runs.
+        // Non-plants (buildings, debris timers, hazards) always advance normally.
+        private int GrowthStepFor(Tile tile, in TickContext ctx)
+        {
+            if (def.category != EntityCategory.Plant) return 1;
+
+            int spellDepth = ctx.DroughtStreakDays > 0 ? ctx.DroughtStreakDays : ctx.DelugeStreakDays;
+            if (spellDepth <= 0) return 1;
+
+            float resistance = ctx.DroughtStreakDays > 0 ? def.droughtResistance : def.floodResistance;
+            float exposure   = 1f - tile.stats.vegetationCover / 100f;
+            float stress     = spellDepth * exposure * (1f - resistance);
+
+            if (stress >= ctx.GrowthRegressPoint) return -1;
+            if (stress >= ctx.GrowthStallPoint)   return 0;
+            return 1;
+        }
 
         // Plant daily sliders — same per-stat direct+clamp path as ApplyOne, applied to the 8
         // writable substats. All-zero for non-plant defs (harmless no-op).

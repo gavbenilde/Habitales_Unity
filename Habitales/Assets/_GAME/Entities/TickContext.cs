@@ -15,12 +15,28 @@ namespace Habitales.Entities
         public readonly float            FireSpreadMultiplier;
         public readonly IEntityEventSink Events;              // meaning-event sink (never a global grab)
 
-        public TickContext(TileManager tiles, float fireBonusDamage, float fireSpreadMultiplier, IEntityEventSink events)
+        // ── Weather spell stress (resolved by RunManager from WeatherManager + TileManager) ──
+        // How deep into an ACTIVE drought/deluge the day is: 0 = not active, 1 = the day the
+        // spell crossed the streak threshold, +1 per active day after. At most one is non-zero
+        // (drought needs a Sunny day, deluge a Rainy/Stormy one). Plants combine this with their
+        // tile's VegetationCover and their species resistance to decide growth stall/regression.
+        public readonly int   DroughtStreakDays;
+        public readonly int   DelugeStreakDays;
+        public readonly float GrowthStallPoint;    // stress ≥ this → plant growth pauses
+        public readonly float GrowthRegressPoint;  // stress ≥ this → plant growth rolls backwards
+
+        public TickContext(TileManager tiles, float fireBonusDamage, float fireSpreadMultiplier, IEntityEventSink events,
+                           int droughtStreakDays = 0, int delugeStreakDays = 0,
+                           float growthStallPoint = float.MaxValue, float growthRegressPoint = float.MaxValue)
         {
             Tiles                = tiles;
             FireBonusDamage      = fireBonusDamage;
             FireSpreadMultiplier = fireSpreadMultiplier;
             Events               = events ?? NullEntityEventSink.Instance;
+            DroughtStreakDays    = droughtStreakDays;
+            DelugeStreakDays     = delugeStreakDays;
+            GrowthStallPoint     = growthStallPoint;
+            GrowthRegressPoint   = growthRegressPoint;
         }
     }
 }

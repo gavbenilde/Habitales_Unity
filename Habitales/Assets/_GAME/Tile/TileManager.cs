@@ -24,6 +24,53 @@ public class TileManager : MonoBehaviour
              "Assign the EntityRegistry asset in the Inspector.")]
     [SerializeField] private EntityRegistry entityRegistry;
 
+    [Header("Weather Streak Stress")]
+    [Tooltip("Per resolved day of an active drought, how much WaterDynamics a fully-vulnerable " +
+             "(0 VegetationCover) tile loses, before the severity ramp.")]
+    [SerializeField] private float droughtWaterLoss = 1.5f;
+    [Tooltip("Per resolved day of an active drought, how much VegetationCover a fully-vulnerable " +
+             "tile loses, before the severity ramp.")]
+    [SerializeField] private float droughtVegLoss = 0.75f;
+    [Tooltip("Per resolved day of an active deluge, how much ErosionResistance a fully-vulnerable " +
+             "tile loses, before the severity ramp.")]
+    [SerializeField] private float delugeErosionLoss = 1.5f;
+    [Tooltip("Per resolved day of an active deluge, how much NutrientBalance a fully-vulnerable " +
+             "tile loses (nutrient leaching), before the severity ramp.")]
+    [SerializeField] private float delugeLeachLoss = 0.75f;
+    [Tooltip("Base per-day chance a plant withers/dies during an active drought, before the " +
+             "vegetation-vulnerability skew, severity ramp, and species resistance are applied. " +
+             "Lower than the rain chances by design — drought is survivable, rain destroys.")]
+    [SerializeField] private float droughtKillChance = 0.05f;
+    [Tooltip("Drought wither rolls only begin once the dry spell reaches this many days — short " +
+             "droughts stall growth and drain stats; only EXTREME dry spells kill outright.")]
+    [SerializeField] private int witherStartDays = 6;
+    [Tooltip("Base per-day chance a plant is killed during an active deluge on a Rainy day, " +
+             "before the vegetation-vulnerability skew, severity ramp, and species resistance.")]
+    [SerializeField] private float rainKillChance = 0.15f;
+    [Tooltip("Base per-day chance a plant is killed during an active deluge on a Stormy day, " +
+             "before the vegetation-vulnerability skew, severity ramp, and species resistance.")]
+    [SerializeField] private float stormKillChance = 0.30f;
+    [Tooltip("How much a low VegetationCover skews a tile's vulnerability to weather stress. " +
+             "1 = linear; >1 makes barren tiles disproportionately more vulnerable than lush ones.")]
+    [SerializeField] private float vulnerabilityPower = 1.5f;
+    [Tooltip("Severity growth per day once a streak passes WeatherManager's activation threshold " +
+             "(ramp = 1 + rampPerDay * (streak - StreakThreshold)).")]
+    [SerializeField] private float rampPerDay = 0.25f;
+    [Tooltip("Hard cap on the severity ramp multiplier, so a very long streak doesn't spiral " +
+             "into instant tile destruction.")]
+    [SerializeField] private float rampCap = 2f;
+    [Tooltip("Plant growth STALLS (no progress toward the next stage) once its weather stress — " +
+             "spell days past threshold × (1 − VegCover/100) × (1 − species resistance) — reaches this.")]
+    [SerializeField] private float growthStallPoint = 0.5f;
+    [Tooltip("Plant growth REGRESSES (loses a day of progress per day) once its weather stress " +
+             "reaches this. Keep well above the stall point so regression only hits deep spells.")]
+    [SerializeField] private float growthRegressPoint = 2f;
+
+    /// <summary>Weather-stress level at which plant growth stalls — RunManager threads this into TickContext (Law 1).</summary>
+    public float GrowthStallPoint => growthStallPoint;
+    /// <summary>Weather-stress level at which plant growth regresses — RunManager threads this into TickContext (Law 1).</summary>
+    public float GrowthRegressPoint => growthRegressPoint;
+
     private Dictionary<Vector2Int, Tile> tileCache;
     private Dictionary<Tile, GameObject> tileGameObjects; // Links data to GameObjects
     private Dictionary<Tile, VisualEffect> activeVFX = new Dictionary<Tile, VisualEffect>();
@@ -383,6 +430,82 @@ public class TileManager : MonoBehaviour
             s.vegetationCover    = Mathf.Max(0f, s.vegetationCover    - k);
 
             tile.decayK = k * Tile.DecayGrowth;
+        }
+    }
+
+    /// <summary>
+    /// Weather-streak stress — one step per resolved day (called by the heartbeat, after
+    /// ApplyDailyDecay). Once a dry or wet streak reaches its 3rd day (arch: WeatherManager's
+    /// IsDroughtActive / IsDelugeActive), the active weather starts actively hurting tiles instead
+    /// of just failing to help: DROUGHT drains WaterDynamics + VegetationCover, DELUGE drains
+    /// ErosionResistance + NutrientBalance (leaching), both clamped ≥0. Severity ramps the longer
+    /// the streak runs (capped). Every tile's vulnerability is skewed by its own VegetationCover —
+    /// a fully vegetated tile (100) is immune, a barren tile takes the full hit — so lush tiles
+    /// shrug off a dry spell that devastates a bare one. Plants on vulnerable tiles additionally
+    /// roll a chance to wither/die outright, removed via the existing RemoveEntity path so the
+    /// meaning-event (OnEntityDied) still fires (Law 2). Read-only against WeatherManager (Law 1) —
+    /// this method never writes weather state, only reacts to it.
+    /// </summary>
+    public void ApplyWeatherStress()
+    {
+        if (WeatherManager.Instance == null) return; // weather optional in test scenes (Law 3 — silent by design here)
+
+        bool drought = WeatherManager.Instance.IsDroughtActive;
+        bool deluge  = WeatherManager.Instance.IsDelugeActive;
+        if (!drought && !deluge) return;
+
+        int streak = drought ? WeatherManager.Instance.DrySpellDays : WeatherManager.Instance.WetSpellDays;
+        float ramp = Mathf.Min(1f + rampPerDay * (streak - WeatherManager.Instance.StreakThreshold), rampCap);
+
+        // Drought kills are gated behind an EXTREME spell (witherStartDays) — short droughts only
+        // stall growth and drain stats. Rain has no such grace period: an active deluge kills at once.
+        float baseKillChance;
+        if (drought)
+            baseKillChance = streak >= witherStartDays ? droughtKillChance : 0f;
+        else
+            baseKillChance = WeatherManager.Instance.CurrentWeather == WeatherState.Stormy ? stormKillChance : rainKillChance;
+
+        int tilesStressed = 0;
+        int plantsWithered = 0;
+
+        foreach (Tile tile in tileCache.Values)
+        {
+            TileStats s = tile.stats;
+            float vulnerability = Mathf.Pow(1f - s.vegetationCover / 100f, vulnerabilityPower);
+
+            if (drought)
+            {
+                s.waterDynamics   = Mathf.Max(0f, s.waterDynamics   - droughtWaterLoss * vulnerability * ramp);
+                s.vegetationCover = Mathf.Max(0f, s.vegetationCover - droughtVegLoss   * vulnerability * ramp);
+            }
+            else
+            {
+                s.erosionResistance = Mathf.Max(0f, s.erosionResistance - delugeErosionLoss * vulnerability * ramp);
+                s.nutrientBalance   = Mathf.Max(0f, s.nutrientBalance   - delugeLeachLoss    * vulnerability * ramp);
+            }
+            if (vulnerability > 0.001f) tilesStressed++;
+
+            // Plant wither/death roll — the designer's "random number skewed by low Vegetation
+            // Coverage that just causes plants to die," further scaled by the species' own
+            // resistance (trees shrug off what kills a crop). Only plants roll; other categories
+            // (Building, Hazard, Debris) are untouched by this check.
+            if (baseKillChance > 0f &&
+                tile.entity is Habitales.Entities.GenericTileEntity g && g.def != null &&
+                g.def.category == Habitales.Entities.EntityCategory.Plant)
+            {
+                float resistance = drought ? g.def.droughtResistance : g.def.floodResistance;
+                if (UnityEngine.Random.value < baseKillChance * vulnerability * ramp * (1f - resistance))
+                {
+                    RemoveEntity(tile); // fires OnEntityDied — a plant dying is meaning (Law 2)
+                    plantsWithered++;
+                }
+            }
+        }
+
+        if (tilesStressed > 0)
+        {
+            string label = drought ? "Drought" : "Deluge";
+            Debug.Log($"[WeatherStress] {label} day {streak}: {tilesStressed} tiles stressed, {plantsWithered} plants withered.");
         }
     }
 

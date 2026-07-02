@@ -456,11 +456,20 @@ public class RunManager : MonoBehaviour {
             // TickContext ONCE here (reading weather via Law 1) and thread it down — entities
             // READ the resolved day instead of grabbing singletons mid-tick (arch §5.2 / S1).
             // The real EventManager-backed sink decouples entities from the EventManager singleton.
+            // Spell depth = days past the activation threshold (≥1 while active, 0 otherwise) —
+            // plants combine it with their tile's VegCover + species resistance for stall/regression.
+            var wm = WeatherManager.Instance;
+            int droughtStreakDays = (wm != null && wm.IsDroughtActive) ? wm.DrySpellDays - wm.StreakThreshold + 1 : 0;
+            int delugeStreakDays  = (wm != null && wm.IsDelugeActive)  ? wm.WetSpellDays - wm.StreakThreshold + 1 : 0;
             var tickCtx = new Habitales.Entities.TickContext(
                 tileManager,
-                WeatherManager.Instance != null ? WeatherManager.Instance.GetFireBonusDamage()     : 0f,
-                WeatherManager.Instance != null ? WeatherManager.Instance.GetFireSpreadMultiplier() : 1f,
-                entityEventSink);
+                wm != null ? wm.GetFireBonusDamage()     : 0f,
+                wm != null ? wm.GetFireSpreadMultiplier() : 1f,
+                entityEventSink,
+                droughtStreakDays,
+                delugeStreakDays,
+                tileManager.GrowthStallPoint,
+                tileManager.GrowthRegressPoint);
             tileManager.UpdateAllEntities(in tickCtx);
 
             // 2b. Natural neglect decay — every tile loses its escalating decayK from its soil
@@ -468,6 +477,11 @@ public class RunManager : MonoBehaviour {
             // interaction resets a tile's decay (ActionManager.FinishAction). Runs before cascade
             // so the day's loss diffuses with everything else.
             tileManager.ApplyDailyDecay();
+
+            // 2c. Weather streak stress — once a dry/wet streak hits 3+ days, active weather
+            // starts actively draining tiles (skewed by low VegetationCover) and can wither
+            // plants outright. No-ops if WeatherManager isn't present or no streak is active.
+            tileManager.ApplyWeatherStress();
 
             // 3. Cascade — neighbour diffusion, ONCE per day.
             CascadeTileUpdates();

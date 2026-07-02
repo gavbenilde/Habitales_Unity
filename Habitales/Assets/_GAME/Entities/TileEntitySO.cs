@@ -67,6 +67,19 @@ namespace Habitales.Entities
         [Tooltip("Non-plant entities: stat deltas applied every day this entity lives.")]
         public List<StatChange> dailyEffects = new List<StatChange>();
 
+        [BoxGroup("Weather Resilience")]
+        [EnableIf(nameof(category), EntityCategory.Plant)]
+        [UnityEngine.Range(0f, 1f)] // fully qualified — ArtificeToolkit ships its own RangeAttribute
+        [Tooltip("Plants only: 0 = fully exposed, 1 = immune. Scales down drought growth-stall/regression " +
+                 "AND the drought wither roll. Trees run high (~0.6+), tender crops low (~0.1).")]
+        public float droughtResistance;
+        [BoxGroup("Weather Resilience")]
+        [EnableIf(nameof(category), EntityCategory.Plant)]
+        [UnityEngine.Range(0f, 1f)] // fully qualified — ArtificeToolkit ships its own RangeAttribute
+        [Tooltip("Plants only: 0 = fully exposed, 1 = immune. Scales down deluge growth-stall/regression " +
+                 "AND the rain/storm kill roll (which is deadlier than drought). Trees high, crops low.")]
+        public float floodResistance;
+
         [BoxGroup("Death")]
         [Tooltip("Condition → outcome (remove / transform-to). First satisfied condition wins.")]
         public List<StatCondition> deathConditions = new List<StatCondition>();

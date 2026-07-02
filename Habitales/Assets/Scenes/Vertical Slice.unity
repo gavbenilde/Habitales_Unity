@@ -8257,7 +8257,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _root: {fileID: 581280662}
   _intrusiveView: {fileID: 1019381994}
-  _sideBubble: {fileID: 0}
+  _sideBubble: {fileID: 258119816}
   _registry: {fileID: 11400000, guid: 00740f2f62daebe438a859c0107aa145, type: 2}
 --- !u!1 &587068993
 GameObject:
@@ -9163,7 +9163,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: 450, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &639688558
 GameObject:
@@ -10977,6 +10977,19 @@ MonoBehaviour:
   tileParent: {fileID: 1488361861}
   entityVisualizerPrefab: {fileID: 273496731299126067, guid: d90f3f5eec7b5154297d14a8f2689470, type: 3}
   entityRegistry: {fileID: 11400000, guid: 2e30b846553348e49ad95ac22c0cf23f, type: 2}
+  droughtWaterLoss: 1.5
+  droughtVegLoss: 0.75
+  delugeErosionLoss: 1.5
+  delugeLeachLoss: 0.75
+  droughtKillChance: 0.05
+  witherStartDays: 6
+  rainKillChance: 0.15
+  stormKillChance: 0.3
+  vulnerabilityPower: 1.5
+  rampPerDay: 0.25
+  rampCap: 2
+  growthStallPoint: 0.5
+  growthRegressPoint: 2
 --- !u!1 &782247243
 GameObject:
   m_ObjectHideFlags: 0
@@ -14148,10 +14161,10 @@ RectTransform:
   - {fileID: 635706882}
   m_Father: {fileID: 581280663}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1019381994
 MonoBehaviour:
@@ -17443,9 +17456,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   totalDays: 0
-  daysPerYear: 365
   maxYears: 5
   runLengthDays: 100
+  randomizeStartDate: 1
+  startDayOfYearOverride: -1
   startingWorkerCount: 8
 --- !u!4 &1232716295
 Transform:
@@ -17901,10 +17915,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1019381993}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1252304617
 MonoBehaviour:
@@ -22130,6 +22144,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1601831422}
   - component: {fileID: 1601831423}
+  - component: {fileID: 1601831424}
   m_Layer: 5
   m_Name: ActionBarUI
   m_TagString: Untagged
@@ -22174,7 +22189,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5c758c2c730225a46af93cf0cf8268f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rootCanvas: {fileID: 0}
+  rootCanvas: {fileID: 1601831424}
   categoryBar: {fileID: 328862640}
   strip: {fileID: 1286808614}
   estimatePanel: {fileID: 1920364477}
@@ -22182,6 +22197,29 @@ MonoBehaviour:
   flower: {fileID: 1132824495}
   actionManager: {fileID: 651731309}
   tileSelector: {fileID: 545579444}
+--- !u!223 &1601831424
+Canvas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1601831421}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_RenderMode: 2
+  m_Camera: {fileID: 0}
+  m_PlaneDistance: 100
+  m_PixelPerfect: 0
+  m_ReceivesEvents: 1
+  m_OverrideSorting: 0
+  m_OverridePixelPerfect: 0
+  m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
+  m_AdditionalShaderChannelsFlag: 0
+  m_UpdateRectTransformForStandalone: 0
+  m_SortingLayerID: 0
+  m_SortingOrder: 0
+  m_TargetDisplay: 0
 --- !u!1 &1602270679
 GameObject:
   m_ObjectHideFlags: 0
