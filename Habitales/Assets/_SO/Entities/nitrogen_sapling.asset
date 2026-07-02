@@ -18,7 +18,7 @@ MonoBehaviour:
   tileSprite: {fileID: 21300000, guid: 62647700b307fdb4ca4a8fc9369144f7, type: 3}
   vfxKey: 
   billboardScale: 1
-  promoteAfterDays: 0
+  promoteAfterDays: 5
   nextStage: {fileID: 11400000, guid: 2dbb6079d64e0cd4f88bae884960122f, type: 2}
   transitionEffects: []
   requirePromoteCondition: 0

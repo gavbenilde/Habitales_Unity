@@ -15,7 +15,7 @@ MonoBehaviour:
   entityId: trash_nonbio
   displayName: Non-Biodegradeable Trash
   category: 3
-  tileSprite: {fileID: 0}
+  tileSprite: {fileID: 21300000, guid: d5ebaa77aec4ed5489809a50fd402ac6, type: 3}
   vfxKey: 
   billboardScale: 1
   promoteAfterDays: 100

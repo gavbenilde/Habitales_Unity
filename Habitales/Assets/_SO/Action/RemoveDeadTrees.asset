@@ -10,15 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f9be8fe52efe9a54994df2c0eac0a79c, type: 3}
-  m_Name: New Action SO
+  m_Name: RemoveDeadTrees
   m_EditorClassIdentifier: 
-  actionId: 
-  displayName: 
-  group: 0
+  actionId: remove_deadtrees
+  displayName: Remove Stump & Dead Trees
+  group: 2
   description: 
   icon: {fileID: 0}
-  selectionMode: 0
-  effects: []
+  selectionMode: 2
+  effects:
+  - type: 1
+    entityToPlace: {fileID: 0}
+    customBehaviour: {fileID: 11400000, guid: 9cdca914eaee5204e99bca5edf721700, type: 2}
   baseDays: 1
   minDays: 1
   minPeoplePerTile: 1

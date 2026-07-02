@@ -37,12 +37,6 @@ MonoBehaviour:
     contamination: 0
   dailyEffects:
   - stat: 0
-    delta: 0
-  deathConditions:
-  - stat: 8
-    comparator: 0
-    threshold: 0
-    outcome: 0
-    transformTarget: {fileID: 0}
-    onSatisfied: []
+    delta: 0.03
+  deathConditions: []
   behaviour: {fileID: 0}

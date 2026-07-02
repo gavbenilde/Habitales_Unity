@@ -33,8 +33,8 @@ MonoBehaviour:
   matureTreeSpawnChance: 0
   saplingSpawnChance: 0
   seedlingSpawnChance: 0
-  deadTreeSpawnChance: 0.083
-  stumpSpawnChance: 0.13
+  deadTreeSpawnChance: 0.05
+  stumpSpawnChance: 0.045
   bioTrashSpawnChance: 0
   forceTheme: 0
   forcedTheme: 0
@@ -48,5 +48,7 @@ MonoBehaviour:
   forceSpecificEntities: 1
   forcedEntities:
   - offset: {x: 0, y: 0}
-    entityType: stump
+    entityType: trash_bio
+  - offset: {x: 1, y: 1}
+    entityType: trash_nonbio
   aziCalloutKey: 

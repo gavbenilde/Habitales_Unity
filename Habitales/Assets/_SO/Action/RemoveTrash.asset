@@ -10,22 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f9be8fe52efe9a54994df2c0eac0a79c, type: 3}
-  m_Name: PlantSunflower
+  m_Name: RemoveTrash
   m_EditorClassIdentifier: 
-  actionId: plant_sunflower
-  displayName: Plant Sunflower
-  group: 1
+  actionId: remove_trash
+  displayName: Remove Trash
+  group: 2
   description: 
   icon: {fileID: 0}
-  selectionMode: 0
+  selectionMode: 2
   effects:
-  - type: 0
-    entityToPlace: {fileID: 11400000, guid: 395cf4083521cad4383f3bf480f8fa3f, type: 2}
-    customBehaviour: {fileID: 0}
+  - type: 1
+    entityToPlace: {fileID: 0}
+    customBehaviour: {fileID: 11400000, guid: 781898d330c10224bad6f6e73fcf1b91, type: 2}
   baseDays: 1
   minDays: 1
   minPeoplePerTile: 1
   fatigueMultiplierPerTile: 2
-  lore: A sunflower is awesome cause it's yellow
+  lore: 
   infoTooltip: 
   supplementaryImages: []
