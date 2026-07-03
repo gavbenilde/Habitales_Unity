@@ -34,6 +34,8 @@ namespace Habitales.UI.Actions
         [SerializeField] private Image  flowerImage;
         [SerializeField] private Sprite budSprite;
         [SerializeField] private Sprite bloomedSprite;
+        [SerializeField] private Vector2 budSize = new Vector2(90, 90);
+        [SerializeField] private Vector2 bloomedSize = new Vector2(150, 150);
 
         [Header("Category icons")]
         [Tooltip("The container (e.g. CategoryTabs grid) holding the 3 category hexagons.")]
@@ -117,7 +119,12 @@ namespace Habitales.UI.Actions
             IsBloomed = bloomed;
 
             if (flowerImage != null)
+            {
                 flowerImage.sprite = bloomed ? bloomedSprite : budSprite;
+                
+                RectTransform rect = flowerImage.rectTransform;
+                rect.sizeDelta = bloomed ? bloomedSize : budSize;
+            }
 
             if (iconContainer == null) return;
 
