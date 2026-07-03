@@ -23589,8 +23589,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9984b741ae4c22242ae7ddd5a6331cb4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  dialogueView: {fileID: 1444601636531597380, guid: 5f73761fe8a6a47428e6ad28c2fa4ef2, type: 3}
-  sideBubble: {fileID: 4409020107988448053, guid: b27b32bc4bf52c14481ab19582d7f6ba, type: 3}
 --- !u!4 &1517798147
 Transform:
   m_ObjectHideFlags: 0
@@ -29454,7 +29452,7 @@ MonoBehaviour:
   healthText: {fileID: 1799107094}
   healthSlider: {fileID: 1736034022}
   fillImage: {fileID: 1987238996}
-  trendIndicator: {fileID: 0}
+  trendIndicator: {fileID: 9155000000000000005}
   thrivingColor: {r: 0.3, g: 0.9, b: 0.3, a: 1}
   degradedColor: {r: 0.9, g: 0.8, b: 0.3, a: 1}
   criticalColor: {r: 0.9, g: 0.3, b: 0.3, a: 1}

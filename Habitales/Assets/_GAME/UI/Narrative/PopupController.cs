@@ -228,6 +228,22 @@ namespace Habitales.UI
         }
 
         /// <summary>
+        /// Hard-dismiss every active popup — the one intrusive modal (if any) plus all
+        /// live side bubbles. Each dismissal fires <see cref="OnPopupDismissed"/> so
+        /// UIManager clears modal state / un-pauses. Used by
+        /// <c>NarrativePopupManager.HideAll</c> on teardown (game over, trigger-batch abort).
+        /// </summary>
+        public void DismissAll()
+        {
+            if (_activeIntrusive.IsValid)
+                DismissIntrusive(_activeIntrusive, fireCallback: false);
+
+            // Iterate a snapshot backwards — DismissSide mutates _activeSide.
+            for (int i = _activeSide.Count - 1; i >= 0; i--)
+                DismissSide(_activeSide[i], fireCallback: false);
+        }
+
+        /// <summary>
         /// Dismiss a specific popup by handle. Safe to call with
         /// <see cref="PopupHandle.None"/> or an already-dismissed handle.
         /// </summary>

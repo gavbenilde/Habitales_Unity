@@ -8,26 +8,28 @@ namespace Habitales.UI
     /// <summary>
     /// The front door for THREADED narrative popups. Two flavours remain:
     ///
-    ///   • Dialog    — intrusive, dimmed, portrait, THREADED (DialoguePopupView).
-    ///   • Character — non-intrusive side bubble with portrait (SideNarrativeBubble).
-    ///   • Text      — non-intrusive side bubble, no portrait (SideNarrativeBubble).
+    ///   • Dialog    — intrusive, dimmed, portrait, THREADED.
+    ///   • Character — non-intrusive side bubble WITH portrait.
+    ///   • Text      — non-intrusive side bubble, NO portrait.
     ///
-    /// The former "Headline" (one-shot EventPopupUI) flavour has been retired (WO-2,
-    /// 2026-06-30). EventManager now routes event popups through UIManager.ShowPopup →
-    /// PopupController instead. Do not add ShowHeadline back here.
+    /// <para><b>This is now a thin facade over <see cref="PopupController"/> (routed through
+    /// <see cref="UIManager"/>).</b> It owns no views of its own — it maps a
+    /// <see cref="PopupStyle"/> + a list of <see cref="ResolvedLine"/> onto a
+    /// <see cref="PopupRequest"/> and hands it to the hub, which drives the one properly-wired
+    /// presenter. Presentation logic lives ONLY in PopupController (S2 — one concept, one place);
+    /// this class exists so the many callers (onboarding beats, DaysLeftPopupNotifier, etc.) keep
+    /// a stable <c>Say</c>/<c>PlayThread</c>/<c>PlayLines</c> surface.</para>
     ///
-    /// Threaded calls accept either a ConversationSO (authored once, also renders in chat)
-    /// or a raw list of ResolvedLines (hardcoded onboarding beats). Style presets live on
-    /// <see cref="PopupStyle"/>. This is the only class the rest of the game talks to for
-    /// threaded narrative; single-shot popups go through UIManager → PopupController (S2).
+    /// <para>The former self-driven <c>DialoguePopupView</c>/<c>SideNarrativeBubble</c> refs are
+    /// gone — they were routinely mis-wired to prefab assets (not scene instances), so popups
+    /// silently no-op'd. Do not re-add per-view refs here; add them to PopupController's scene
+    /// wiring instead.</para>
     /// </summary>
     public class NarrativePopupManager : MonoBehaviour
     {
         public static NarrativePopupManager Instance { get; private set; }
 
-        [Header("Views (wire both)")]
-        [SerializeField] private DialoguePopupView dialogueView;   // intrusive threaded
-        [SerializeField] private SideNarrativeBubble sideBubble;   // non-intrusive side
+        private bool _warnedNoHub;   // warn-once guard so a missing hub doesn't spam the log
 
         void Awake()
         {
@@ -56,29 +58,52 @@ namespace Habitales.UI
             PlayLines(dm.ResolveConversationLines(conversation), style, onComplete);
         }
 
-        /// <summary>Play a raw line list (hardcoded beats) in the given style.</summary>
+        /// <summary>
+        /// Play a raw line list (hardcoded beats) in the given style. Builds a
+        /// <see cref="PopupRequest"/> and routes it through <see cref="UIManager.ShowPopup"/>,
+        /// which pauses the sim for intrusive popups and drives <see cref="PopupController"/>.
+        /// </summary>
         public void PlayLines(IList<ResolvedLine> lines, in PopupStyle style, Action onComplete = null)
         {
-            if (style.intrusive)
+            if (lines == null || lines.Count == 0) { onComplete?.Invoke(); return; }
+
+            var hub = UIManager.Instance;
+            if (hub == null || hub.Popups == null)
             {
-                if (dialogueView == null)
+                if (!_warnedNoHub)
                 {
-                    Debug.LogError($"{name}: dialogueView is not wired — intrusive Dialog Popup can't show. Assign a DialoguePopupView in the Inspector.", this);
-                    onComplete?.Invoke();
-                    return;
+                    Debug.LogError($"{name}: UIManager / PopupController unavailable — cannot present narrative popup. " +
+                                   "Firing onComplete so callers aren't softlocked.", this);
+                    _warnedNoHub = true;
                 }
-                dialogueView.Play(lines, style.showPortrait, onComplete);
+                onComplete?.Invoke();
+                return;
             }
-            else
+
+            // Honour showPortrait: PopupController draws a portrait whenever a line carries one,
+            // so for the portrait-less Text style we strip it. Always copy — never mutate the
+            // caller's list — and carry every ResolvedLine field across on the stripped clone.
+            var resolved = new List<ResolvedLine>(lines.Count);
+            foreach (var src in lines)
             {
-                if (sideBubble == null)
-                {
-                    Debug.LogError($"{name}: sideBubble is not wired — Character/Text popup can't show. Assign a SideNarrativeBubble in the Inspector.", this);
-                    onComplete?.Invoke();
-                    return;
-                }
-                sideBubble.Play(lines, style, onComplete);
+                if (src == null) continue;
+                resolved.Add(style.showPortrait ? src : StripPortrait(src));
             }
+            if (resolved.Count == 0) { onComplete?.Invoke(); return; }
+
+            var request = new PopupRequest
+            {
+                intrusiveness      = style.intrusive ? PopupIntrusiveness.Intrusive : PopupIntrusiveness.NonIntrusive,
+                lines              = resolved,
+                confirmLabel       = "OK",
+                onConfirm          = onComplete,
+                autoDismissSeconds = style.autoAdvanceSeconds,
+                anchor             = style.anchor
+            };
+
+            // Route through the hub so intrusive popups pause the sim (manageSimState);
+            // non-intrusive side bubbles leave the sim running.
+            hub.ShowPopup(request, manageSimState: style.intrusive);
         }
 
         // ── Single-line convenience ────────────────────────────────────
@@ -91,13 +116,28 @@ namespace Habitales.UI
         }
 
         /// <summary>
-        /// Hard-hide every threaded narrative surface (e.g. on game over).
-        /// Does NOT touch event-popup dismissal — that goes through UIManager → PopupController.
+        /// Hard-hide every narrative surface (e.g. on game over / trigger-batch abort).
+        /// Delegates to <see cref="PopupController.DismissAll"/> via the hub.
         /// </summary>
         public void HideAll()
         {
-            if (dialogueView != null) dialogueView.Hide();
-            if (sideBubble != null) sideBubble.Hide();
+            UIManager.Instance?.Popups?.DismissAll();
         }
+
+        // ── Helpers ────────────────────────────────────────────────────
+
+        // Clone a line with its portrait cleared, preserving every other field so the
+        // Text style loses only the portrait (not speaker name, sticker, expression, etc.).
+        private static ResolvedLine StripPortrait(ResolvedLine src) => new ResolvedLine
+        {
+            speakerID       = src.speakerID,
+            displayName     = src.displayName,
+            portrait        = null,
+            body            = src.body,
+            expressionID    = src.expressionID,
+            isPlayerBubble  = src.isPlayerBubble,
+            isStickerBubble = src.isStickerBubble,
+            stickerSprite   = src.stickerSprite
+        };
     }
 }
