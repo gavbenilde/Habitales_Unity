@@ -22,10 +22,12 @@ public class EndGameData
     public int degradedCount;
     public int criticalCount;
 
-    // Peak-thriving snapshot — produced and captured by RunSnapshot, referenced here.
-    public RunSnapshot snapshot;
+    // Peak-thriving snapshot — tracked by RunManager, captured UI-free by ScreenshotService.
+    // The texture is owned by RunManager (destroyed on scene teardown); UI only reads it.
+    public int       peakThrivingCount;
+    public Texture2D peakScreenshot;
 
-    public int xpEarned;   // = snapshot.peakThrivingCount; kept separate for LevelUpScreenUI clarity
+    public int xpEarned;   // = peakThrivingCount; kept separate for LevelUpScreenUI clarity
     public int xpBefore;   // totalXp BEFORE AddXp; drives bar fill start position
 
     // Per-unlocked-zone health snapshot  (regionID → avg health)

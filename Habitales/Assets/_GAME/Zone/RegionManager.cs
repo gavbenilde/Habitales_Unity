@@ -64,10 +64,12 @@ public class RegionManager : MonoBehaviour
             resourceManager = ResourceManager.Instance;
     }
 
-    // Per-region health snapshot (yesterday) + the resulting per-day delta, for the trend
-    // arrow. Captured once per resolved day; UI reads GetRegionHealthDelta (Law 1).
-    private readonly Dictionary<int, float> _prevRegionHealth  = new Dictionary<int, float>();
-    private readonly Dictionary<int, float> _regionHealthDelta = new Dictionary<int, float>();
+    // Per-region rolling health history (last TrendWindowDays + 1 samples) + the resulting
+    // smoothed per-day delta, for the trend arrow. Averaging the daily deltas over the window
+    // telescopes to (newest − oldest) / span, so the queue is all we need. Captured once per
+    // resolved day; UI reads GetRegionHealthDelta (Law 1).
+    private readonly Dictionary<int, Queue<float>> _regionHealthHistory = new Dictionary<int, Queue<float>>();
+    private readonly Dictionary<int, float>        _regionHealthDelta   = new Dictionary<int, float>();
 
     private void Start()
     {
@@ -84,9 +86,10 @@ public class RegionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Snapshots each region's average health once per resolved day and records the change
-    /// since yesterday. Single pass over all tiles (no per-region rescans, no GetRegionHealth
-    /// debug spam) — mirrors GetRegionHealth's mean-of-CalculateHealth.
+    /// Snapshots each region's average health once per resolved day into a rolling window
+    /// (RunManager.TrendWindowDays) and records the smoothed per-day change across it.
+    /// Single pass over all tiles (no per-region rescans, no GetRegionHealth debug spam)
+    /// — mirrors GetRegionHealth's mean-of-CalculateHealth.
     /// </summary>
     private void HandleDayResolved(int day)
     {
@@ -109,9 +112,18 @@ public class RegionManager : MonoBehaviour
         {
             int   id      = kv.Key;
             float current = kv.Value / count[id];
-            float prev    = _prevRegionHealth.TryGetValue(id, out float p) ? p : current;
-            _regionHealthDelta[id] = current - prev;
-            _prevRegionHealth[id]  = current;
+
+            if (!_regionHealthHistory.TryGetValue(id, out Queue<float> history))
+                _regionHealthHistory[id] = history = new Queue<float>();
+
+            history.Enqueue(current);
+            // Window + 1 samples span exactly TrendWindowDays daily deltas.
+            while (history.Count > RunManager.TrendWindowDays + 1)
+                history.Dequeue();
+
+            // Average daily delta over the window == (newest − oldest) / span.
+            int span = history.Count - 1;
+            _regionHealthDelta[id] = span > 0 ? (current - history.Peek()) / span : 0f;
         }
     }
 
@@ -246,7 +258,8 @@ public class RegionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Per-day change in this region's average health (today − yesterday), in health-points.
+    /// Smoothed per-day change in this region's average health, in health-points — the
+    /// average daily delta over the last RunManager.TrendWindowDays days (fewer early on).
     /// 0 until two days have resolved or if the region is unknown. Read-only (Law 1) —
     /// drives the region trend arrow.
     /// </summary>

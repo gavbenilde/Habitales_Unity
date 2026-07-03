@@ -39,9 +39,14 @@ public class RunManager : MonoBehaviour {
     /// <summary>World-health % at which the next region becomes unlockable. Single source of truth for the health-bar marker and the unlock button.</summary>
     public float ZoneUnlockThreshold => regionUnlockThreshold;
 
+    /// <summary>Days of history the trend arrows average over (world here, regions in RegionManager).</summary>
+    public const int TrendWindowDays = 15;
+
     /// <summary>
-    /// Per-day change in world-average health (today − yesterday), in health-points.
-    /// 0 until at least two days have resolved. Read-only (Law 1) — drives the HUD trend arrow.
+    /// Smoothed per-day change in world-average health, in health-points: the average daily
+    /// delta over the last <see cref="TrendWindowDays"/> days (or fewer early in the run —
+    /// averaging daily deltas telescopes to (newest − oldest) / span). 0 until at least two
+    /// days have resolved. Read-only (Law 1) — drives the HUD trend arrow.
     /// Sourced from the existing daily <c>healthHistory</c> push (heartbeat step "4b").
     /// </summary>
     public float WorldHealthDelta
@@ -49,7 +54,9 @@ public class RunManager : MonoBehaviour {
         get
         {
             int n = healthHistory.Count;
-            return n >= 2 ? healthHistory[n - 1] - healthHistory[n - 2] : 0f;
+            if (n < 2) return 0f;
+            int span = Mathf.Min(TrendWindowDays, n - 1);
+            return (healthHistory[n - 1] - healthHistory[n - 1 - span]) / span;
         }
     }
 
@@ -95,11 +102,16 @@ public class RunManager : MonoBehaviour {
     // (and its per-scene 60/61/90 overrides) is retired; this gate just defers to it.
 
     // Peak thriving — high-water mark across the run; drives run-end score + snapshot.
-    private readonly RunSnapshot snapshot = new();
+    // Capture is delegated to ScreenshotService so the saved shot is UI-free (was RunSnapshot,
+    // which captured the HUD too — that class is retired).
+    [SerializeField] private Habitales.UI.ScreenshotService screenshotService;
+    private int       peakThrivingCount;
+    private int       peakAtDay;
+    private Texture2D peakScreenshot;
     // XP / level-up / persistence moved to RunEndCoordinator (Habitales.Meta) — decoupled from the run sim.
 
-    public int PeakThrivingCount => snapshot.peakThrivingCount;
-    public Texture2D PeakScreenshot => snapshot.peakScreenshot;
+    public int PeakThrivingCount => peakThrivingCount;
+    public Texture2D PeakScreenshot => peakScreenshot;
 
     private HashSet<int> unlockedRegions = new HashSet<int>();
     
@@ -173,7 +185,14 @@ public class RunManager : MonoBehaviour {
             resourceManager = ResourceManager.Instance;
             if (resourceManager == null) Debug.LogError("ResourceManager not found!");
         }
-    
+
+        if (screenshotService == null)
+        {
+            screenshotService = FindObjectOfType<Habitales.UI.ScreenshotService>();
+            if (screenshotService == null)
+                Debug.LogWarning("[RunManager] ScreenshotService not found — peak-thriving snapshots will be skipped (end screen shows no image). Add one to the scene or wire it in the Inspector.");
+        }
+
         // Subscribe to resource events (optional but useful)
         if (resourceManager != null)
         {
@@ -287,15 +306,28 @@ public class RunManager : MonoBehaviour {
 
     /// <summary>
     /// Tracks the high-water mark of simultaneously-thriving tiles. On a new peak,
-    /// delegates to RunSnapshot to capture a screenshot.
+    /// asks ScreenshotService for a UI-free capture of the frame.
     /// </summary>
     void EvaluateThrivingPeak()
     {
         if (isGameOver) return;
         int count = GetThrivingTileCount();
-        int day   = resourceManager != null ? resourceManager.TotalDays : 0;
-        if (snapshot.TryRecordPeak(count, day))
-            StartCoroutine(snapshot.CaptureRoutine());
+        if (count <= peakThrivingCount) return;
+
+        peakThrivingCount = count;
+        peakAtDay         = resourceManager != null ? resourceManager.TotalDays : 0;
+
+        if (screenshotService != null)
+            screenshotService.CaptureCleanTexture(HandlePeakCaptured);
+        // else: peak count still recorded; the end screen just shows no snapshot.
+    }
+
+    /// <summary>Receives the UI-free peak capture. We own the texture (see CaptureCleanTexture).</summary>
+    void HandlePeakCaptured(Texture2D captured)
+    {
+        if (captured == null) return;
+        if (peakScreenshot != null) Destroy(peakScreenshot);
+        peakScreenshot = captured;
     }
 
     /// <summary>
@@ -402,13 +434,13 @@ public class RunManager : MonoBehaviour {
     void TriggerGameOver(string reason, int thrivingTiles)
     {
         isGameOver = true;
-        Debug.Log($"GAME OVER: {reason} | Peak Thriving: {snapshot.peakThrivingCount}");
+        Debug.Log($"GAME OVER: {reason} | Peak Thriving: {peakThrivingCount}");
 
         // Meta layer (XP / level-up / persistence / Azi line) is owned by RunEndCoordinator.
         ComputeTileCounts(out int thriving, out int degraded, out int critical);
         Habitales.Meta.RunEndCoordinator.RunEndSummary summary = default;
         if (runEndCoordinator != null)
-            summary = runEndCoordinator.ProcessRunEnd(thriving, degraded, critical, snapshot.peakThrivingCount);
+            summary = runEndCoordinator.ProcessRunEnd(thriving, degraded, critical, peakThrivingCount);
         else
             Debug.LogError("[RunManager] runEndCoordinator is NOT wired — XP/level-up/persistence will not run and the Azi line will be blank. Wire it in the Inspector.");
 
@@ -558,7 +590,8 @@ public class RunManager : MonoBehaviour {
 
         // Tile counts — reuses existing threshold fields on this class
         ComputeTileCounts(out data.thrivingCount, out data.degradedCount, out data.criticalCount);
-        data.snapshot       = snapshot;
+        data.peakThrivingCount = peakThrivingCount;
+        data.peakScreenshot    = peakScreenshot;
         data.aziSummaryLine = summary.aziLine;
         data.xpEarned       = summary.xpEarned;
         data.xpBefore       = summary.xpBefore;
@@ -792,7 +825,11 @@ public class RunManager : MonoBehaviour {
             resourceManager.OnGameOver -= HandleGameOver;
         }
 
-        snapshot.Dispose();
+        if (peakScreenshot != null)
+        {
+            Destroy(peakScreenshot);
+            peakScreenshot = null;
+        }
     }
     
     

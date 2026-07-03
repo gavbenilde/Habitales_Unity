@@ -88,7 +88,7 @@ namespace Habitales.UI.Actions
             PlayerAction captured = action;
             view.Bind(
                 captured.ActionName,
-                null,               // icon hidden in the bar (parity with prior behaviour)
+                captured.Icon,      // ActionSO.icon via GenericPlayerAction; null hides the icon
                 defaultCardColor,
                 () => OnActionCardClicked?.Invoke(captured),
                 () => OpenBoogle(captured));

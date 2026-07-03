@@ -59,11 +59,20 @@ namespace Habitales.UI
         /// to a PNG in <see cref="GalleryPath"/>, then restores UI visibility.
         /// Safe to call from a UI Button's OnClick.
         /// </summary>
-        public void CaptureToGallery()
+        public void CaptureToGallery() => CaptureCleanTexture(SaveToGallery);
+
+        /// <summary>
+        /// Hides all UI, waits one frame, captures the screen as a Texture2D, restores UI,
+        /// then invokes <paramref name="onCaptured"/> with the result (null on failure).
+        /// OWNERSHIP: the callback owns the texture and must Destroy() it when done.
+        /// Used by RunManager for the UI-free peak-thriving snapshot.
+        /// </summary>
+        public void CaptureCleanTexture(Action<Texture2D> onCaptured)
         {
             if (_capturing)
             {
-                Debug.LogWarning($"{name}: CaptureToGallery() is already running — ignoring duplicate call.", this);
+                Debug.LogWarning($"{name}: a capture is already running — ignoring duplicate call.", this);
+                onCaptured?.Invoke(null);
                 return;
             }
 
@@ -71,15 +80,16 @@ namespace Habitales.UI
             {
                 Debug.LogError($"{name}: UIManager.Instance is null — cannot hide UI for screenshot. " +
                                "Ensure UIManager is present and initialised before ScreenshotService.", this);
+                onCaptured?.Invoke(null);
                 return;
             }
 
-            StartCoroutine(CaptureRoutine());
+            StartCoroutine(CaptureRoutine(onCaptured));
         }
 
         // ─── Capture coroutine ────────────────────────────────────────────────
 
-        private IEnumerator CaptureRoutine()
+        private IEnumerator CaptureRoutine(Action<Texture2D> onCaptured)
         {
             _capturing = true;
 
@@ -101,36 +111,43 @@ namespace Habitales.UI
                 Debug.LogError($"{name}: Screen capture failed — {ex.Message}", this);
             }
 
-            // 4. Write the PNG to disk.
-            if (screenshot != null)
-            {
-                try
-                {
-                    EnsureDirectoryExists();
-
-                    string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
-                    string filename  = $"Habitales_{timestamp}.png";
-                    string fullPath  = Path.Combine(GalleryPath, filename);
-
-                    byte[] pngBytes = screenshot.EncodeToPNG();
-                    File.WriteAllBytes(fullPath, pngBytes);
-
-                    Debug.Log($"{name}: Screenshot saved → {fullPath}", this);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"{name}: Failed to write screenshot to disk — {ex.Message}", this);
-                }
-                finally
-                {
-                    Destroy(screenshot);
-                }
-            }
-
-            // 5. Restore UI regardless of whether the write succeeded.
+            // 4. Restore UI regardless of whether the capture succeeded.
             UIManager.Instance.RestoreUIVisibility();
 
             _capturing = false;
+
+            // 5. Hand the texture (or null) to the caller — they own it now.
+            onCaptured?.Invoke(screenshot);
+        }
+
+        // ─── Gallery sink ─────────────────────────────────────────────────────
+
+        /// <summary>Writes the captured texture to a timestamped PNG, then destroys it.</summary>
+        private void SaveToGallery(Texture2D screenshot)
+        {
+            if (screenshot == null) return;
+
+            try
+            {
+                EnsureDirectoryExists();
+
+                string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+                string filename  = $"Habitales_{timestamp}.png";
+                string fullPath  = Path.Combine(GalleryPath, filename);
+
+                byte[] pngBytes = screenshot.EncodeToPNG();
+                File.WriteAllBytes(fullPath, pngBytes);
+
+                Debug.Log($"{name}: Screenshot saved → {fullPath}", this);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"{name}: Failed to write screenshot to disk — {ex.Message}", this);
+            }
+            finally
+            {
+                Destroy(screenshot);
+            }
         }
 
         // ─── Helpers ──────────────────────────────────────────────────────────

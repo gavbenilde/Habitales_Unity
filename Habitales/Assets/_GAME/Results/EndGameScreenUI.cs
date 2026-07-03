@@ -184,14 +184,14 @@ public class EndGameScreenUI : MonoBehaviour
 
         // Snapshot — null texture leaves RawImage in its default (empty) state
         if (snapshotImage != null)
-            snapshotImage.texture = data.snapshot?.peakScreenshot;
+            snapshotImage.texture = data.peakScreenshot;
 
         // Tile counts
         thrivingCountText.text = data.thrivingCount.ToString();
         degradedCountText.text = data.degradedCount.ToString();
         criticalCountText.text = data.criticalCount.ToString();
         if (peakThrivingText != null)
-            peakThrivingText.text = (data.snapshot?.peakThrivingCount ?? 0).ToString();
+            peakThrivingText.text = data.peakThrivingCount.ToString();
 
         // Employee of the Year
         PopulateWorker(data.topWorker);
