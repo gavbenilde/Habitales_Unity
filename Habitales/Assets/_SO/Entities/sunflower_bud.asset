@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
   m_Name: sunflower_bud
   m_EditorClassIdentifier: 
-  entityId: sunflower_bud
   displayName: Sunflower Bud
   category: 0
   tileSprite: {fileID: 21300000, guid: 8296276d4f7648d42b41dde5f9c82733, type: 3}

@@ -69,8 +69,9 @@ public class TileVisualizer : MonoBehaviour
         if (meshRenderer == null || materialInstance == null || tile == null) return;
         meshRenderer = GetTileRenderer();
         
-        // Base health colour
-        // Color baseColor = GetHealthColor(tile.CalculateHealth());
+        // Base colour is the material's original tint — health is communicated by the tile
+        // SHADER (fed _Soil_Composite/_Vegetation_Cover in GetTileRenderer), never by a C#
+        // tint (GetHealthColor deleted 2026-07-08; the shader owns health visuals).
         Color baseColor = originalColor;
 
         // Contamination tint — blends toward sickly purple above 60
@@ -131,15 +132,6 @@ public class TileVisualizer : MonoBehaviour
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
-    Color GetHealthColor(float health)
-    {
-        // if (health < 33f) return new Color(0.8f, 0.2f, 0.2f);  // Red   — Critical
-        // if (health < 67f) return new Color(0.9f, 0.8f, 0.3f);  // Yellow — Degraded
-        // return             new Color(0.3f, 0.8f, 0.3f);         // Green  — Thriving
-
-        return new Color(1.0f, 1.0f, 1.0f);
-    }
-
     MeshRenderer GetTileRenderer()
     {
         meshRenderer.material.SetFloat("_Soil_Composite", (tile.GetSoilComposite() / 100f));
@@ -148,8 +140,9 @@ public class TileVisualizer : MonoBehaviour
         return meshRenderer;
     }
 
-    public Color GetBaseColor() =>
-        tile != null ? GetHealthColor(tile.CalculateHealth()) : Color.white;
+    // White by contract: the tile-flash restore color (Beat1_3JuiceDirector). Identical to the
+    // old behavior — GetHealthColor always returned white before it was deleted.
+    public Color GetBaseColor() => Color.white;
 
     public Tile           GetTileData()    => tile;
     public TileVisualState GetCurrentState() => currentState;

@@ -4,7 +4,8 @@ using Habitales.Core;
 using ArtificeToolkit.Attributes;
 
 // TileEntitySO — the canonical entity IDENTITY + DATA (arch §5.1). Replaces the
-// string `entityType` and the one-C#-class-per-entity model. `entityId` is identity;
+// string `entityType` and the one-C#-class-per-entity model. `displayName` is the
+// only authored identity; `EntityId` is a code-derived slug of it (2026-07-07) —
 // the runtime is one generic TileEntity (Phase 4) that reads this SO and delegates.
 //
 // One SO per stage, chained via `nextStage`. DeadTree/Stump are SHARED generic assets
@@ -19,14 +20,34 @@ namespace Habitales.Entities
     public class TileEntitySO : ScriptableObject
     {
         [BoxGroup("Identity")]
-        [Tooltip("Stable machine ID, e.g. \"narra_mature\". THE identity + save key. Stable-forever / write-once.")]
-        public string entityId;
-        [BoxGroup("Identity")]
-        [Tooltip("Human-facing name, e.g. \"Narra Tree\".")]
+        [Tooltip("Human-facing name, e.g. \"Narra Tree\". THE only author-facing handle (design " +
+                 "decision 2026-07-07) — the machine id is derived from this, never authored directly.")]
         public string displayName;
         [BoxGroup("Identity")]
         [Tooltip("Broad behavioural grouping. Replaces `is VillageEntity` type-checks.")]
         public EntityCategory category;
+
+        /// <summary>
+        /// Stable machine id, derived from <see cref="displayName"/> via <see cref="GenerateId"/>.
+        /// THE identity + save key — but code-derived, never hand-authored (design decision
+        /// 2026-07-07). Renaming displayName changes this id; there is no persistent save data
+        /// keyed by entity ids in the prototype, so that tradeoff is accepted.
+        /// </summary>
+        public string EntityId => GenerateId(displayName);
+
+        /// <summary>
+        /// Deterministic displayName → id slug: trim, lowercase, collapse any run of
+        /// non-alphanumeric characters to a single underscore, trim leading/trailing underscores.
+        /// Shared by TileEntitySO.EntityId and EntityRegistry lookups so a display name and its
+        /// derived id always resolve to the same entry.
+        /// </summary>
+        public static string GenerateId(string displayName)
+        {
+            if (string.IsNullOrWhiteSpace(displayName)) return string.Empty;
+            string lowered = displayName.Trim().ToLowerInvariant();
+            string collapsed = System.Text.RegularExpressions.Regex.Replace(lowered, "[^a-z0-9]+", "_");
+            return collapsed.Trim('_');
+        }
 
         [BoxGroup("Visuals")]
         [PreviewSprite]
@@ -87,5 +108,30 @@ namespace Habitales.Entities
         [BoxGroup("Custom Behaviour (optional)")]
         [Tooltip("Null for pure-data entities; set for bespoke ones (Fire, Village).")]
         public EntityBehaviourHook behaviour;
+
+        // Per-asset loud-fail validation (arch Law 3). Duplicate/registry-wide checks are NOT
+        // done here — EntityRegistry.ValidateAll() owns those at boot. `nextStage == null` is
+        // deliberately NOT flagged: it's meaningful (entity is REMOVED after promoteAfterDays).
+        private void OnValidate()
+        {
+            if (string.IsNullOrWhiteSpace(displayName))
+                Debug.LogError($"TileEntitySO '{name}': displayName is blank — it is the only author-facing " +
+                                "handle and the source of the derived EntityId (save key). It must be set.", this);
+
+            if (promoteAfterDays < 0)
+                Debug.LogWarning($"TileEntitySO '{name}': promoteAfterDays is negative ({promoteAfterDays}).", this);
+
+            if (category == EntityCategory.Plant && dailyEffects.Count > 0)
+                Debug.LogWarning($"TileEntitySO '{name}': category is Plant but the legacy dailyEffects list is non-empty — " +
+                                 "plants must use plantDailyDeltas; the runtime applies both, so leftovers double-apply.", this);
+
+            if (category != EntityCategory.Plant &&
+                (plantDailyDeltas.nutrientBalance != 0f    || plantDailyDeltas.soilOrganicMatter != 0f ||
+                 plantDailyDeltas.soilStructure != 0f      || plantDailyDeltas.biologicalActivity != 0f ||
+                 plantDailyDeltas.waterDynamics != 0f      || plantDailyDeltas.erosionResistance != 0f ||
+                 plantDailyDeltas.vegetationCover != 0f    || plantDailyDeltas.contamination != 0f))
+                Debug.LogWarning($"TileEntitySO '{name}': category is not Plant but plantDailyDeltas has nonzero fields — " +
+                                 "non-plants must use dailyEffects.", this);
+        }
     }
 }

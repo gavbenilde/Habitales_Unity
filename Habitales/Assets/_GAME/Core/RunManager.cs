@@ -26,6 +26,15 @@ public class RunManager : MonoBehaviour {
     [SerializeField] private AziSpeechBubbleUI   aziSpeechBubbleUI;
     [SerializeField] private Habitales.Meta.RunEndCoordinator runEndCoordinator; // owns XP/level-up/persistence
 
+    [Header("Run End Conversation")]
+    [Tooltip("The scripted Azi/Bob conversation shown when the field season completes, before the end report. " +
+             "Variant selection reuses the check-in comparators with end-of-run semantics: 'improved' = final " +
+             "thriving tile count, 'decayed' = final critical tile count, days-left is real (0 unless the run " +
+             "ended past the cap). Unwired → falls back to the legacy Azi speech bubble.")]
+    [SerializeField] private CheckInConversationSO seasonEndConversation;
+    [Tooltip("Same as above but for the Ecosystem Collapse ending. Unwired → Azi speech bubble fallback.")]
+    [SerializeField] private CheckInConversationSO collapseConversation;
+
     
     [Header("Cascade Settings")]
     [SerializeField] [Range(0.05f, 0.5f)] private float diffusionRate = 0.15f;
@@ -39,17 +48,22 @@ public class RunManager : MonoBehaviour {
     /// <summary>World-health % at which the next region becomes unlockable. Single source of truth for the health-bar marker and the unlock button.</summary>
     public float ZoneUnlockThreshold => regionUnlockThreshold;
 
-    /// <summary>Days of history the trend arrows average over (world here, regions in RegionManager).</summary>
-    public const int TrendWindowDays = 15;
+    /// <summary>
+    /// Length of the SHORT recent window the trend arrows average change over (world here,
+    /// regions in RegionManager). This is a responsiveness knob for the arrow only — it is
+    /// deliberately NOT the full-run <c>healthHistory</c> progress record. Keep it small so the
+    /// arrow reacts to recent play; the progress graph reads the whole history separately.
+    /// </summary>
+    public const int TrendWindowDays = 3;
 
     /// <summary>
     /// Smoothed per-day change in world-average health, in health-points: the average daily
-    /// delta over the last <see cref="TrendWindowDays"/> days (or fewer early in the run —
+    /// change over the last <see cref="TrendWindowDays"/> days (or fewer early in the run —
     /// averaging daily deltas telescopes to (newest − oldest) / span). 0 until at least two
-    /// days have resolved. Read-only (Law 1) — drives the HUD trend arrow.
-    /// Sourced from the existing daily <c>healthHistory</c> push (heartbeat step "4b").
+    /// days have resolved. Read-only (Law 1) — drives the HUD trend arrow. Peeks only the tail
+    /// of <c>healthHistory</c>; the full list stays the run-progress record (see EndGameData).
     /// </summary>
-    public float WorldHealthDelta
+    public float WorldHealthTrend
     {
         get
         {
@@ -74,16 +88,30 @@ public class RunManager : MonoBehaviour {
     // True once the threshold is crossed and we are waiting on the player's button press.
     private bool regionUnlockPending = false;
 
+    /// <summary>True while a region unlock is earned but not yet claimed (Law 1 read).
+    /// The progress bar latches at 100% while this is set, even if health decays back
+    /// below the threshold — mirrors the mechanic (the button stays available too).</summary>
+    public bool RegionUnlockPending => regionUnlockPending;
+
     // The real meaning-event sink threaded into every per-day TickContext (arch §5.2 / §6.1).
-    // Built once; entities raise through ctx.Events instead of grabbing EventManager (S1).
-    private readonly Habitales.Core.IEntityEventSink entityEventSink = new Habitales.Core.EventManagerEntitySink();
+    // Built once; entities raise through ctx.Events instead of grabbing a singleton (S1).
+    private readonly Habitales.Core.IEntityEventSink entityEventSink = new Habitales.Core.TriggerManagerEntitySink();
 
     [Header("Victory/Loss Conditions")]
     [SerializeField] private float collapseThreshold = 90f; // Percentage of critical tiles
     [SerializeField] private float criticalHealthThreshold = 33f; // Critical state
     [SerializeField] private float thrivingHealthThreshold = 67f; // Thriving state
     private bool isGameOver = false;
+    /// <summary>True once the run has ended (Law 1 read). TriggerManager reads this to drop
+    /// a popup whose mid-fire action-abort just ended the run underneath it.</summary>
+    public bool IsGameOver => isGameOver;
     public bool IsEventPaused { get; private set; } = false;
+
+    /// <summary>Fires the moment the run ends, BEFORE any end-flow UI shows. Subscribers stand
+    /// down pending presentation (TriggerManager clears its popup queue — game over trumps
+    /// queued events). Replaces the deleted ResourceManager.OnGameOver as the game-over signal;
+    /// RunManager is now the sole authority on when a run ends.</summary>
+    public event System.Action OnGameOverTriggered;
 
     
     [Header("Initial Zone Setup")]
@@ -106,7 +134,7 @@ public class RunManager : MonoBehaviour {
     // which captured the HUD too — that class is retired).
     [SerializeField] private Habitales.UI.ScreenshotService screenshotService;
     private int       peakThrivingCount;
-    private int       peakAtDay;
+    private int       peakAtDay = -1; // day index into healthHistory; -1 until EvaluateThrivingPeak first fires
     private Texture2D peakScreenshot;
     // XP / level-up / persistence moved to RunEndCoordinator (Habitales.Meta) — decoupled from the run sim.
 
@@ -115,6 +143,9 @@ public class RunManager : MonoBehaviour {
 
     private HashSet<int> unlockedRegions = new HashSet<int>();
     
+    // Full-run world-health time series (one sample per resolved day) — the player-progress
+    // record surfaced at run end via EndGameData.healthHistory. The trend arrow only peeks its
+    // last TrendWindowDays samples (WorldHealthTrend); it does NOT define or shorten this list.
     private List<float> healthHistory = new List<float>();
     
     public static RunManager Instance { get; private set; }
@@ -199,7 +230,8 @@ public class RunManager : MonoBehaviour {
             resourceManager.OnTimeAdvanced += HandleTimeAdvanced;
             resourceManager.OnPeopleFatigued += HandlePeopleFatigued;
             resourceManager.OnPeopleRecovered += HandlePeopleRecovered;
-            resourceManager.OnGameOver += HandleGameOver;
+            // ResourceManager.OnGameOver is gone — the clock never declares game over.
+            // EvaluateGameOver (per resolved day when idle, and on OnActionCompleted) owns it.
         }
         
         // Connect events
@@ -259,15 +291,15 @@ public class RunManager : MonoBehaviour {
     }
     
     /// <summary>
-    /// Fired after an action's coroutine completes. The per-day heartbeat
-    /// (HandleTimeAdvanced) now owns cascade, threshold/collapse/unlock checks, the
-    /// thriving-peak snapshot, and the visual refresh — all run once per day (arch §2.1).
-    /// This handler is intentionally a no-op now; kept for the OnActionCompleted wiring
-    /// and any future end-of-action bookkeeping.
+    /// Fired after an action's coroutine completes (clean finish OR abort). The per-day
+    /// heartbeat owns all per-day work; the one thing that lives HERE is the game-over
+    /// evaluation — the run can't end mid-action ("the actions dictate the length of the
+    /// season"), so an action that crossed the final day, or one whose days pushed the
+    /// world into collapse, gets its verdict the moment the crew comes home.
     /// </summary>
     void HandleActionCompleted(Tile targetTile, int daysElapsed)
     {
-        // Intentionally empty — work moved to the per-day heartbeat (arch §2.1).
+        EvaluateGameOver();
     }
 
     /// <summary>
@@ -315,7 +347,10 @@ public class RunManager : MonoBehaviour {
         if (count <= peakThrivingCount) return;
 
         peakThrivingCount = count;
-        peakAtDay         = resourceManager != null ? resourceManager.TotalDays : 0;
+        // 0-based index into healthHistory — TotalDays is 1-based and this day's entry hasn't
+        // been appended yet (EvaluateThrivingPeak runs immediately before healthHistory.Add in
+        // HandleTimeAdvanced), so TotalDays - 1 is exactly the index that entry will land at.
+        peakAtDay         = resourceManager != null ? resourceManager.TotalDays - 1 : -1;
 
         if (screenshotService != null)
             screenshotService.CaptureCleanTexture(HandlePeakCaptured);
@@ -366,40 +401,51 @@ public class RunManager : MonoBehaviour {
 
     
     /// <summary>
-    /// Checks if ecosystem collapse has occurred (≥90% tiles critical).
-    /// Called after each action completes.
+    /// Pure detector: has ecosystem collapse occurred (≥90% tiles critical)? Detection
+    /// only — TRIGGERING the collapse ending is EvaluateGameOver's job, which also knows
+    /// not to end the run mid-action.
     /// </summary>
-    void CheckCollapseCondition()
+    bool IsCollapsed()
     {
-        if (isGameOver) return;
-    
         List<Tile> allTiles = tileManager.GetAllTiles();
-        if (allTiles.Count == 0) return;
-    
-        // Count tiles with health ≤33%
+        if (allTiles.Count == 0) return false;
+
         int criticalCount = 0;
         foreach (Tile tile in allTiles)
         {
             if (tile.CalculateHealth() <= criticalHealthThreshold)
-            {
                 criticalCount++;
-            }
         }
-    
-        // Calculate percentage
+
         float criticalPercent = ((float)criticalCount / allTiles.Count) * 100f;
-    
+
         if (showDebugInfo)
-        {
             Debug.Log($"Critical tiles: {criticalCount}/{allTiles.Count} ({criticalPercent:F1}%)");
-        }
-    
-        // Trigger collapse if threshold exceeded
-        if (criticalPercent >= collapseThreshold)
+
+        return criticalPercent >= collapseThreshold;
+    }
+
+    /// <summary>
+    /// The single game-over decision point (2026-07-08 run-end rework). Called at the end
+    /// of every resolved day AND from HandleActionCompleted. The run never ends mid-action:
+    /// whatever the player committed to plays out — even past the run-length cap — and the
+    /// verdict lands when no action is running. Collapse is checked FIRST: if the world is
+    /// collapsed when the action ends, the ending is Ecosystem Collapse even on/after the
+    /// final day (user decision 2026-07-08).
+    /// </summary>
+    void EvaluateGameOver()
+    {
+        if (isGameOver) return;
+        if (actionManager != null && actionManager.IsActionRunning) return;
+
+        if (IsCollapsed())
         {
-            int thrivingTiles = GetThrivingTileCount();
-            TriggerGameOver($"Ecosystem Collapse", thrivingTiles);
+            TriggerGameOver("Ecosystem Collapse", GetThrivingTileCount(), collapsed: true);
+            return;
         }
+
+        if (isPrototypeRun && resourceManager.TotalDays >= resourceManager.RunLengthDays)
+            TriggerGameOver("Field Season Complete", GetThrivingTileCount());
     }
 
     /// <summary>
@@ -429,18 +475,28 @@ public class RunManager : MonoBehaviour {
 
 
     /// <summary>
-    /// Triggers game over. Shows Azi speech bubble first (if wired), then run-end screen.
+    /// Triggers game over. Flow (2026-07-08 rework): (1) OnGameOverTriggered — pending
+    /// presentation stands down (TriggerManager clears its popup queue); (2) End
+    /// Conversation — the scripted Azi/Bob wrap-up via CheckInPanelUI's conversation-only
+    /// mode; (3) End Report — EndGameScreenUI. Falls back to the legacy Azi speech bubble
+    /// chain when the conversation path isn't wired/authored, so an unwired scene still
+    /// reaches the end report.
     /// </summary>
-    void TriggerGameOver(string reason, int thrivingTiles)
+    void TriggerGameOver(string reason, int thrivingTiles, bool collapsed = false)
     {
         isGameOver = true;
         Debug.Log($"GAME OVER: {reason} | Peak Thriving: {peakThrivingCount}");
 
-        // Meta layer (XP / level-up / persistence / Azi line) is owned by RunEndCoordinator.
+        // Game over trumps queued events — TriggerManager dismisses/clears on this signal.
+        OnGameOverTriggered?.Invoke();
+
+        // Meta layer (XP / level-up / persistence / Azi line / grade) is owned by RunEndCoordinator.
+        // collapsed forces SeasonGrade.Collapse regardless of the tile mix — RunManager is the one
+        // that knows WHY the run ended (Ecosystem Collapse vs Field Season Complete).
         ComputeTileCounts(out int thriving, out int degraded, out int critical);
         Habitales.Meta.RunEndCoordinator.RunEndSummary summary = default;
         if (runEndCoordinator != null)
-            summary = runEndCoordinator.ProcessRunEnd(thriving, degraded, critical, peakThrivingCount);
+            summary = runEndCoordinator.ProcessRunEnd(thriving, degraded, critical, peakThrivingCount, collapsed);
         else
             Debug.LogError("[RunManager] runEndCoordinator is NOT wired — XP/level-up/persistence will not run and the Azi line will be blank. Wire it in the Inspector.");
 
@@ -450,20 +506,57 @@ public class RunManager : MonoBehaviour {
         if (endGameScreenUI == null)
             Debug.LogError("[RunManager] endGameScreenUI is NOT wired in the inspector — end-game UI will not appear. Drag the EndGameScreenUI GameObject into RunManager's serialized field.");
 
+        if (TryShowEndConversation(collapsed, data))
+            return; // End Report shows on the conversation's [Continue]
+
+        // ── Legacy fallback: Azi speech bubble → End Report ──
         if (aziSpeechBubbleUI != null)
         {
             Debug.Log("[RunManager] Showing Azi speech bubble → EndGameScreen on dismiss.");
-            aziSpeechBubbleUI.Show(data.aziSummaryLine, () =>
-            {
-                if (endGameScreenUI != null) endGameScreenUI.Show(data);
-                else Debug.LogError("[RunManager] Azi dismissed but endGameScreenUI is null — stuck. Wire the reference.");
-            });
+            aziSpeechBubbleUI.Show(data.aziSummaryLine, () => ShowEndReport(data));
         }
         else
         {
             Debug.LogWarning("[RunManager] aziSpeechBubbleUI not wired — skipping speech bubble, showing EndGameScreen directly.");
-            if (endGameScreenUI != null) endGameScreenUI.Show(data);
+            ShowEndReport(data);
         }
+    }
+
+    /// <summary>
+    /// Step 2 of the end flow: the End Conversation. Returns false (with a loud warn) on any
+    /// missing piece so TriggerGameOver can fall back — the end flow must never dead-end.
+    /// Variant selection reuses the check-in comparators with end-of-run semantics:
+    /// 'improved' = final thriving count, 'decayed' = final critical count.
+    /// </summary>
+    bool TryShowEndConversation(bool collapsed, EndGameData data)
+    {
+        CheckInConversationSO source = collapsed ? collapseConversation : seasonEndConversation;
+        if (source == null)
+        {
+            Debug.LogWarning($"[RunManager] {(collapsed ? "collapseConversation" : "seasonEndConversation")} is not wired — falling back to the Azi speech bubble for the end flow.");
+            return false;
+        }
+
+        var panel = Habitales.UI.CheckInPanelUI.Instance;
+        if (panel == null)
+        {
+            Debug.LogWarning("[RunManager] CheckInPanelUI is not in the scene — falling back to the Azi speech bubble for the end flow.");
+            return false;
+        }
+
+        int daysLeft = resourceManager != null ? resourceManager.DaysRemaining : 0;
+        ConversationSO conversation = source.Select(data.thrivingCount, data.criticalCount, daysLeft);
+        if (conversation == null)
+            return false; // Select() already logged the authoring error
+
+        return panel.ShowConversationOnly(conversation, data.endReason, () => ShowEndReport(data));
+    }
+
+    /// <summary>Step 3 of the end flow: the End Report.</summary>
+    void ShowEndReport(EndGameData data)
+    {
+        if (endGameScreenUI != null) endGameScreenUI.Show(data);
+        else Debug.LogError("[RunManager] endGameScreenUI is null — end report cannot show. Wire the reference.");
     }
 
     
@@ -472,8 +565,9 @@ public class RunManager : MonoBehaviour {
     // already advanced the clock + rolled weather before firing this. Cascade now lives here
     // (was per-action) so a multi-day action diffuses each day — see FinishAction, which
     // applies that day's effects BEFORE advancing so the cascade sees them.
-    // NOTE: EventManager.DrainQueue (arch step 5) runs via EventManager's own OnTimeAdvanced
-    // subscription, a separate subscriber — strict step-5 ordering awaits the control-inversion.
+    // Popup drain is now a strict ordered step (2026-07-08 control-inversion): fires raised
+    // during the day (entity sink, hooks) are COLLECTED by TriggerManager and drained here
+    // as the last step, after visuals + OnDayResolved + the game-over check.
     void HandleTimeAdvanced(int days)
     {
         if (isGameOver) return;
@@ -483,6 +577,10 @@ public class RunManager : MonoBehaviour {
         for (int d = 0; d < days; d++)
         {
             if (isGameOver) break;
+
+            // 1. Open the trigger-collection window: Fire() calls made while the day resolves
+            // (kaingin, entity deaths, …) enqueue silently instead of popping mid-tick.
+            Habitales.Triggers.TriggerManager.Instance?.BeginDayResolution();
 
             // 2. Entities tick (fire spread, kaingin, tree growth, …). Assemble the per-day
             // TickContext ONCE here (reading weather via Law 1) and thread it down — entities
@@ -520,23 +618,25 @@ public class RunManager : MonoBehaviour {
 
             // 4. Threshold crossings (meaning-events) + world-state checks.
             EvaluateThresholds();
-            CheckCollapseCondition();
             TryFlagRegionUnlock(regionManager.GetTotalAverageHealth());
             EvaluateThrivingPeak();
             healthHistory.Add(regionManager.GetTotalAverageHealth());
 
-            // Prototype field-season cutoff — defers to the canonical run length.
-            if (isPrototypeRun && resourceManager.TotalDays >= resourceManager.RunLengthDays)
-            {
-                TriggerGameOver("Field Season Complete", GetThrivingTileCount());
-                return;
-            }
-
-            // 6. Visuals refresh LAST, after all data has settled.
+            // 5. Visuals refresh after all data has settled.
             tileManager.RefreshAllVisuals();
 
-            // 7. The universal push everyone subscribes to.
+            // 6. The universal push everyone subscribes to.
             OnDayResolved?.Invoke(resourceManager.TotalDays);
+
+            // 7. Game-over evaluation — BEFORE the popup drain, so a run that ends today
+            // clears the queue (game over trumps queued events) and the end flow owns the
+            // screen. No-ops while an action is mid-flight (verdict waits for completion).
+            EvaluateGameOver();
+
+            // 8. Drain the popups collected during the day — the player sees them over a
+            // fully-updated world. Mid-action this is where an event interrupt lands
+            // (FirePopup aborts the running action at this day boundary).
+            Habitales.Triggers.TriggerManager.Instance?.DrainDeferredFires();
         }
     }
     
@@ -552,11 +652,23 @@ public class RunManager : MonoBehaviour {
         if (showDebugInfo) Debug.Log("GameManager: Resumed from event.");
     }
 
-    // Stub — flesh out in Step 4 when action interruption is implemented
+    /// <summary>
+    /// Aborts the in-flight multi-day action. Days already resolved keep their applied effects;
+    /// the remaining days are cancelled. Intended for event interrupts that must reclaim the
+    /// workforce mid-action. Thin delegation — ActionManager owns the coroutine handle and the
+    /// finalize/cleanup path (see ActionManager.AbortCurrentAction for the full contract,
+    /// including why this is safe to call mid-day-cycle).
+    /// </summary>
     public void AbortCurrentAction()
     {
+        if (ActionManager.Instance == null)
+        {
+            Debug.LogWarning("[RunManager] AbortCurrentAction: ActionManager.Instance is null — cannot abort.");
+            return;
+        }
+
         if (showDebugInfo) Debug.Log("GameManager: Action aborted by event.");
-        // TODO: apply partial tile progress here
+        ActionManager.Instance.AbortCurrentAction();
     }
 
     void HandlePeopleFatigued(int count, int returnDay)
@@ -569,11 +681,6 @@ public class RunManager : MonoBehaviour {
     {
         if (showDebugInfo)
             Debug.Log($"{count} worker(s) recovered! Available: {resourceManager.AvailablePeople}/{resourceManager.TotalPeople}");
-    }
-
-    void HandleGameOver()
-    {
-        TriggerGameOver("Field Season Complete", GetThrivingTileCount());
     }
 
     private EndGameData BuildEndGameData(string reason, Habitales.Meta.RunEndCoordinator.RunEndSummary summary)
@@ -592,9 +699,11 @@ public class RunManager : MonoBehaviour {
         ComputeTileCounts(out data.thrivingCount, out data.degradedCount, out data.criticalCount);
         data.peakThrivingCount = peakThrivingCount;
         data.peakScreenshot    = peakScreenshot;
+        data.peakAtDay         = peakAtDay;
         data.aziSummaryLine = summary.aziLine;
         data.xpEarned       = summary.xpEarned;
         data.xpBefore       = summary.xpBefore;
+        data.seasonGrade    = summary.grade;
 
         // Top worker by actions participated
         var allWorkers = resourceManager.AllWorkers;
@@ -606,7 +715,7 @@ public class RunManager : MonoBehaviour {
         var counts = actionManager.actionUsageCounts;
         if (counts.Count > 0)
         {
-            data.favouriteAction   = counts.OrderByDescending(kvp => kvp.Value).First().Key;
+            data.favouriteAction   = GetFavouriteActionName();
             data.mostAvoidedAction = counts.OrderBy(kvp => kvp.Value).First().Key;
         }
 
@@ -642,7 +751,45 @@ public class RunManager : MonoBehaviour {
         }
     }
 
-    
+    // Shared by BuildEndGameData (favouriteAction) and BuildSeasonReportData (topActionName) so
+    // the two reports can never disagree on "most-used action" (S2 — one concept, one place).
+    // Null when no actions have been used yet.
+    private string GetFavouriteActionName()
+    {
+        var counts = actionManager.actionUsageCounts;
+        if (counts == null || counts.Count == 0) return null;
+        return counts.OrderByDescending(kvp => kvp.Value).First().Key;
+    }
+
+    /// <summary>
+    /// Mid-run trajectory snapshot for the Azi check-in panel (CheckInPanelUI; originally the
+    /// archived Season Report Lite, arch ENDGAME_BUILD_PLAN §4). Law-1 read-only assembly —
+    /// every field is a subset read of state this class already accumulates for
+    /// BuildEndGameData, taken mid-run instead of at end.
+    /// </summary>
+    public Habitales.Meta.SeasonReportData BuildSeasonReportData()
+    {
+        if (runEndCoordinator == null)
+        {
+            Debug.LogError("[RunManager] BuildSeasonReportData: runEndCoordinator is NOT wired — cannot project a season grade. Wire it in the Inspector.");
+            return null;
+        }
+
+        ComputeTileCounts(out int thriving, out int degraded, out int critical);
+
+        return new Habitales.Meta.SeasonReportData(
+            currentDay:      resourceManager.TotalDays,
+            runLengthDays:   resourceManager.RunLengthDays,
+            healthHistory:   new List<float>(healthHistory),
+            worldHealthTrend: WorldHealthTrend,
+            thrivingCount:   thriving,
+            degradedCount:   degraded,
+            criticalCount:   critical,
+            projectedGrade:  runEndCoordinator.ComputeGrade(thriving, degraded, critical),
+            topActionName:   GetFavouriteActionName());
+    }
+
+
 
     
     
@@ -760,7 +907,7 @@ public class RunManager : MonoBehaviour {
             tileManager.UpdateTileVisual(allTiles[i]);
         }
         Debug.Log($"Set {targetCount}/{allTiles.Count} tiles to critical");
-        CheckCollapseCondition();
+        EvaluateGameOver();
     }
     
     [ContextMenu("Test Year Complete")]
@@ -822,7 +969,6 @@ public class RunManager : MonoBehaviour {
             resourceManager.OnTimeAdvanced -= HandleTimeAdvanced;
             resourceManager.OnPeopleFatigued -= HandlePeopleFatigued;
             resourceManager.OnPeopleRecovered -= HandlePeopleRecovered;
-            resourceManager.OnGameOver -= HandleGameOver;
         }
 
         if (peakScreenshot != null)

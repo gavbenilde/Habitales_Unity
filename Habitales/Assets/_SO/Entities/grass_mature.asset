@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
   m_Name: grass_mature
   m_EditorClassIdentifier: 
-  entityId: grass_mature
   displayName: Mature Grass
   category: 0
   tileSprite: {fileID: 0}

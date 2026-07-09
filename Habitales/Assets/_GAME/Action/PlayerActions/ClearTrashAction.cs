@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Habitales.Entities;
 
 public class ClearTrashAction : PlayerAction
 {
@@ -14,14 +15,14 @@ public class ClearTrashAction : PlayerAction
 
     public override bool CanExecute(List<Tile> tiles)
     {
-        return AnyTileHasEntityId(tiles, "trash_bio")
-               || AnyTileHasEntityId(tiles, "trash_nonbio");
+        return AnyTileHasEntityId(tiles, EntityIds.TrashBio)
+               || AnyTileHasEntityId(tiles, EntityIds.TrashNonBio);
     }
 
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
     {
         if (tile.entity != null &&
-            (tile.entity.entityId == "trash_bio" || tile.entity.entityId == "trash_nonbio"))
+            (tile.entity.entityId == EntityIds.TrashBio || tile.entity.entityId == EntityIds.TrashNonBio))
             tileManager.RemoveEntity(tile);
     }
 }

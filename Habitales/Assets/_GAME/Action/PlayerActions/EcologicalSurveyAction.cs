@@ -19,7 +19,7 @@ public class EcologicalSurveyAction : PlayerAction
 
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
     {
-        tile.issuesRevealed = true;
+        tileManager.RevealTileIssues(tile); // Law 1: reveal flag written by the owner, not the action
         // No OverflowTip by design — IssueMarker disappearing is the confirmation.
         // UpdateOverlays() is called by ActionManager automatically after this.
     }

@@ -7,7 +7,7 @@ namespace Habitales.Triggers
     // ─────────────────────────────────────────────────────────────────────────
     // PopupCatalogSO.cs — registry of all PopupSO assets keyed by eventName.
     //
-    // Mirrors the lazy-cache pattern used by GameEventRegistry + DialogueRegistry.
+    // Mirrors the lazy-cache pattern used by DialogueRegistry.
     // TriggerManager holds a reference to this asset and calls GetById(id) to
     // look up a popup before firing it.
     //

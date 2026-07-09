@@ -48,5 +48,5 @@ MonoBehaviour:
   forceSpecificEntities: 1
   forcedEntities:
   - offset: {x: 0, y: 0}
-    entityType: stump
-  aziCalloutKey: 
+    displayName: Stump
+  aziCalloutKey:

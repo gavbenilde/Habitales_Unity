@@ -29,8 +29,8 @@ namespace Habitales.Core
     public struct EntityEvent
     {
         // Convention for the catch-all path: a hook that wants to trigger a scripted
-        // GameEventSO sets kind = ScriptedEvent and puts the event ID in `cause`. The real
-        // sink translates it to EventManager.FireEventByID. This keeps the interface frozen
+        // popup sets kind = ScriptedEvent and puts the catalog id in `cause`. The real
+        // sink translates it to TriggerManager.Fire. This keeps the interface frozen
         // (no per-event methods) while still letting hooks fire scripted events decoupled (S1).
         public const string ScriptedEvent = "scripted_event";
 
@@ -41,7 +41,7 @@ namespace Habitales.Core
     }
 
     // No-op sink so TickContext always carries a non-null sink (no null-checks at call sites).
-    // The real sink (an EventManager adapter) is wired during the heartbeat port (Phase 3).
+    // The real sink (TriggerManagerEntitySink below) is built by RunManager per TickContext.
     public sealed class NullEntityEventSink : IEntityEventSink
     {
         public static readonly NullEntityEventSink Instance = new NullEntityEventSink();
@@ -54,11 +54,12 @@ namespace Habitales.Core
     // grab a singleton mid-tick (S1). RunManager builds one and threads it into every TickContext.
     //
     // Today it only translates the catch-all scripted-event path (kind == ScriptedEvent → fire the
-    // GameEventSO whose ID is in `cause`); EntitySpawned/EntityDied are no-ops because TileManager
+    // popup whose catalog id is in `cause`); EntitySpawned/EntityDied are no-ops because TileManager
     // already fires its own OnEntitySpawned/OnEntityDied at the mutation site (§6.1) and the rich
     // vocabulary is deferred (§6.2). It is the single place to grow that routing when the
     // event-vocabulary thread lands — keep the routing here, never back in the entities.
-    public sealed class EventManagerEntitySink : IEntityEventSink
+    // (Renamed from EventManagerEntitySink 2026-07-08 — EventManager is gone; it routes to TriggerManager.)
+    public sealed class TriggerManagerEntitySink : IEntityEventSink
     {
         public void Raise(EntityEvent e)
         {
@@ -66,7 +67,7 @@ namespace Habitales.Core
             {
                 case EntityEvent.ScriptedEvent:
                     if (!string.IsNullOrEmpty(e.cause))
-                        EventManager.Instance?.FireEventByID(e.cause);
+                        Habitales.Triggers.TriggerManager.Instance?.Fire(e.cause);
                     break;
                 // Other kinds: no live consumer yet — vocabulary deferred (§6.2).
             }

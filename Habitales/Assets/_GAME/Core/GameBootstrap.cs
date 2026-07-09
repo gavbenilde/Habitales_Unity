@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Habitales.Dialogue;   // DialogueManager (namespaced)
 using Habitales.Entities;   // EntityRegistry
@@ -14,15 +15,34 @@ using Habitales.UI;         // UIManager
 //   ANY Start, so by our Start (still the first Start to run, thanks to -1000) every Instance
 //   is populated and we are the first to confirm the world. Hence: presence-validate in Start.
 //
-// PHASE 0c (now): presence validation + loud-fail (Law 3). Catches the #1 boot bug — a manager
+// PHASE 0c (done): presence validation + loud-fail (Law 3). Catches the #1 boot bug — a manager
 //   missing from the scene or an unwired reference — and surfaces it as red console text that
 //   highlights this object, instead of a silent NullReference three systems away.
 //
-// PHASE 3 (later): turn this from a presence-validator into the ordered INITIALIZER (drive each
-//   manager's init in the documented sequence) once TileManager/ActionManager are promoted to
-//   singletons and the managers expose explicit init entry points.
+// PHASE 3 (this pass): the validation pass is now explicitly ORDERED to match the live
+//   [DefaultExecutionOrder] pins (arch §4 init order: −200 ResourceManager/WeatherManager/
+//   TileManager → −150 RegionManager → −100 ActionManager/TriggerManager/DialogueManager/
+//   RunManager → UIManager), and reports as ONE consolidated ordered block instead of scattered
+//   per-system lines. After validation passes, GameBootstrap invokes the optional
+//   IBootstrapInit seam (below) on every present singleton, in that same order. This is
+//   ADDITIVE ONLY: no [DefaultExecutionOrder] attribute and no manager's own Awake/Start init
+//   were touched, and zero managers implement IBootstrapInit yet — the seam is the Phase-3
+//   deliverable, not a retrofit. The game behaves identically with or without a GameBootstrap
+//   in the scene, exactly as before.
 namespace Habitales.Core
 {
+    /// <summary>
+    /// Optional ordered-init seam (arch §4 Phase 3). A manager MAY implement this to receive an
+    /// explicit "the whole boot-order singleton set is present" callback, invoked by GameBootstrap
+    /// after validation succeeds, in the same dependency order the report below uses. Purely
+    /// additive — nothing implements it yet, and nothing is required to. A manager that never
+    /// implements it keeps initializing itself in its own Awake/Start exactly as today.
+    /// </summary>
+    public interface IBootstrapInit
+    {
+        void OnBootstrapInit();
+    }
+
     [DefaultExecutionOrder(-1000)]
     public class GameBootstrap : MonoBehaviour
     {
@@ -34,24 +54,57 @@ namespace Habitales.Core
         /// <summary>True once boot validation passed with zero failures. Future systems may gate on this.</summary>
         public static bool BootSucceeded { get; private set; }
 
+        // One row per required singleton, in dependency order (arch §4 init order — matches the
+        // live [DefaultExecutionOrder] pins: −200 group, then −150, then −100 group, then UI).
+        // MonoBehaviour is the common base every Instance is checked against; ordering is a plain
+        // list (not a dictionary) because order IS the point.
+        private struct BootEntry
+        {
+            public string Name;
+            public MonoBehaviour Instance; // null if missing
+        }
+
         void Start()
         {
             if (GameLog.Core)
                 Debug.Log("[GameBootstrap] Validating core systems…", this);
 
-            int failures = 0;
+            var entries = new List<BootEntry>
+            {
+                // ── −200: base data/service singletons ──────────────────────────────────
+                new BootEntry { Name = "ResourceManager", Instance = ResourceManager.Instance },
+                new BootEntry { Name = "WeatherManager",  Instance = WeatherManager.Instance },
+                new BootEntry { Name = "TileManager",     Instance = TileManager.Instance },
+                // ── −150: depends on the −200 group ─────────────────────────────────────
+                new BootEntry { Name = "RegionManager",   Instance = RegionManager.Instance },
+                // ── −100: orchestration layer, depends on everything above ──────────────
+                new BootEntry { Name = "ActionManager",   Instance = ActionManager.Instance },
+                new BootEntry { Name = "TriggerManager",  Instance = Habitales.Triggers.TriggerManager.Instance },
+                new BootEntry { Name = "DialogueManager", Instance = DialogueManager.Instance },
+                new BootEntry { Name = "RunManager",      Instance = RunManager.Instance },
+                // ── default order: UI hub, depends on the whole sim being present ───────
+                new BootEntry { Name = "UIManager",       Instance = UIManager.Instance },
+            };
 
-            // ── Core singletons — uniform .Instance checks (Law 1 / S4: one reference model). ──
-            failures += Require(ResourceManager.Instance != null, "ResourceManager");
-            failures += Require(WeatherManager.Instance  != null, "WeatherManager");
-            failures += Require(RegionManager.Instance   != null, "RegionManager");
-            failures += Require(TileManager.Instance     != null, "TileManager");
-            failures += Require(ActionManager.Instance   != null, "ActionManager");
-            failures += Require(EventManager.Instance    != null, "EventManager");
-            failures += Require(Habitales.Triggers.TriggerManager.Instance != null, "TriggerManager");
-            failures += Require(DialogueManager.Instance != null, "DialogueManager");
-            failures += Require(RunManager.Instance      != null, "RunManager");
-            failures += Require(UIManager.Instance      != null, "UIManager");
+            // ── One consolidated, ordered report (replaces the old scattered per-line checks). ──
+            int failures = 0;
+            var report = new System.Text.StringBuilder();
+            report.AppendLine("[GameBootstrap] Ordered boot report (dependency order):");
+            foreach (var entry in entries)
+            {
+                bool present = entry.Instance != null;
+                report.AppendLine($"  [{(present ? "OK  " : "MISSING")}] {entry.Name}");
+                if (!present) failures++;
+            }
+            if (GameLog.Core || failures > 0)
+                Debug.Log(report.ToString(), this);
+
+            foreach (var entry in entries)
+            {
+                if (entry.Instance == null)
+                    Debug.LogError($"[GameBootstrap] Missing core system: {entry.Name}. " +
+                                   "No live instance found in the scene — add/wire it before play.", this);
+            }
 
             // ── Project-asset references. Only validated when assigned: the SO-entity system is
             //    not wired into the live scene until Phase 4, so an empty field warns (expected),
@@ -72,20 +125,33 @@ namespace Habitales.Core
             BootSucceeded = failures == 0;
 
             if (!BootSucceeded)
+            {
                 Debug.LogError($"[GameBootstrap] BOOT FAILED — {failures} core system(s) missing or invalid. " +
                                "Fix the errors above before playing; gameplay will behave unpredictably otherwise.", this);
-            else if (GameLog.Core)
+                return; // Do not run ordered init on top of an incomplete boot.
+            }
+
+            if (GameLog.Core)
                 Debug.Log("[GameBootstrap] Boot OK — all core systems present.", this);
+
+            RunOrderedInit(entries);
         }
 
-        // Loud-fail one requirement (Law 3). The `this` context makes the console error highlight
-        // this GameObject on click. Returns 1 on failure so the caller can tally.
-        private int Require(bool present, string systemName)
+        // Phase-3 ordered-init pass (arch §4): invokes the optional IBootstrapInit seam on every
+        // present singleton, in the same dependency order validation just confirmed. No-op today
+        // — zero managers implement IBootstrapInit — but the seam is now live for any manager that
+        // wants an explicit "everything is present" hook instead of relying on Awake/Start order.
+        private void RunOrderedInit(List<BootEntry> entries)
         {
-            if (present) return 0;
-            Debug.LogError($"[GameBootstrap] Missing core system: {systemName}. " +
-                           "No live instance found in the scene — add/wire it before play.", this);
-            return 1;
+            foreach (var entry in entries)
+            {
+                if (entry.Instance is IBootstrapInit initable)
+                {
+                    if (GameLog.Core)
+                        Debug.Log($"[GameBootstrap] Ordered init → {entry.Name}.OnBootstrapInit()", this);
+                    initable.OnBootstrapInit();
+                }
+            }
         }
     }
 }

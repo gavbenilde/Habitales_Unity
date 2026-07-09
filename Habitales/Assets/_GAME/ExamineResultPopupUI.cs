@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using System.Text;
+using Habitales.Entities;
 
 /// <summary>
 /// Blocking overlay popup shown after an Examine action completes.
@@ -149,8 +150,8 @@ public class ExamineResultPopupUI : MonoBehaviour
 
         foreach (var tile in tiles)
         {
-            if (tile.entity != null && tile.entity.entityId == "trash_bio")    bio++;
-            if (tile.entity != null && tile.entity.entityId == "trash_nonbio") nonBio++;
+            if (tile.entity != null && tile.entity.entityId == EntityIds.TrashBio)    bio++;
+            if (tile.entity != null && tile.entity.entityId == EntityIds.TrashNonBio) nonBio++;
         }
 
         if (bio == 0 && nonBio == 0)

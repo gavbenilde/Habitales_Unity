@@ -59,7 +59,7 @@ namespace Habitales.Entities
                 if (neighbor.tv.Contains(TileOverlayType.Firebreak)) continue;
                 if (neighbor.entity != null) continue;
                 if (Random.value < spreadChance)
-                    ctx.Tiles.SpawnById(neighbor, "fire");
+                    ctx.Tiles.SpawnById(neighbor, EntityIds.Fire);
             }
         }
     }

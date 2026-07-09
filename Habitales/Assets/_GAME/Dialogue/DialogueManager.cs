@@ -36,6 +36,13 @@ namespace Habitales.Dialogue
             = new Dictionary<string, int>();
         public Dictionary<string, int> chatOpenCounts = new Dictionary<string, int>();
 
+        // Conversation asset names (ConversationSO.name) whose interactive walk has reached its
+        // terminal node at least once — i.e. "read to the end", not merely delivered/opened.
+        // General-purpose completion tracking (Law 2: fired on meaning, not on mutation) — any
+        // consumer gating on "has the player finished reading X" uses this, not chatOpenCounts
+        // (which only counts tab opens, not completion).
+        private HashSet<string> _completedConversations = new HashSet<string>();
+
         // Pending sticker response — stored for Invoke delay
         private string   _pendingStickerTabID;
         private StickerSO _pendingStickerResponse;
@@ -48,10 +55,32 @@ namespace Habitales.Dialogue
         /// <summary>Total count of tabs with at least one unread message.</summary>
         public int UnreadCount => _unreadTabs.Count;
 
+        /// <summary>
+        /// True once <paramref name="conversationName"/> (a ConversationSO's asset name) has been
+        /// walked to its terminal node at least once, during an actual player read (GetChatLines)
+        /// — every node visited, every choice (if any) answered. Delivering/appending a
+        /// conversation does NOT satisfy this; merely opening its tab without reaching the end
+        /// does NOT satisfy this either. Only reaching the end of the thread while the player is
+        /// looking at it does (Law 2: meaning, not mutation). Backed by
+        /// <see cref="_completedConversations"/>, populated by MarkConversationCompletedIfNeeded.
+        /// </summary>
+        public bool HasCompletedConversation(string conversationName)
+            => !string.IsNullOrEmpty(conversationName) && _completedConversations.Contains(conversationName);
+
         // ─── Events ───────────────────────────────────────────────────────────
 
         public event Action<string> OnMessagesUpdated;
         public event Action<string> OnUnreadChanged;
+
+        /// <summary>
+        /// Fires once, the first time a delivered conversation's thread is walked to its terminal
+        /// node (arg: the ConversationSO's asset name). This is a MEANING event (Law 2) — it does
+        /// NOT fire on delivery (AppendConversation/DeliverConversation), tab-open, or intermediate
+        /// choice answers; only on "the player has now read this conversation to its end". General
+        /// on purpose — any beat/system gating on "conversation finished" subscribes here rather
+        /// than inventing its own completion tracking.
+        /// </summary>
+        public event Action<string> OnConversationCompleted;
 
         // ─── Lifecycle ────────────────────────────────────────────────────────
 
@@ -185,6 +214,23 @@ namespace Habitales.Dialogue
         }
 
         /// <summary>
+        /// General-purpose runtime injection point: any system that needs to push a scheduled or
+        /// system-sent conversation into the chat at an arbitrary moment (not the daily-roll
+        /// randomizer, not a player action) calls this. Routes by <see cref="ConversationSO.channel"/>
+        /// exactly like <see cref="AppendConversation(ConversationSO)"/> — GroupChat/Azi/Bob land in
+        /// their fixed tab and fire <see cref="OnMessagesUpdated"/> (badge/shake/ribbon already
+        /// subscribe, so callers get that FX for free). Worker-channel conversations still need an
+        /// explicit worker via <see cref="AppendWorkerConversation"/> (delivering to "a" worker tab
+        /// requires choosing which worker — that decision belongs to the caller, not this method).
+        /// Name is deliberately generic — this is the seam a scheduled sender (e.g. a mid-run report
+        /// notifier) reuses; it is not onboarding-specific despite the first caller being one.
+        /// </summary>
+        public void DeliverConversation(ConversationSO conversation) => AppendConversation(conversation);
+
+        /// <summary>Overload of <see cref="DeliverConversation(ConversationSO)"/> — looks up by registry asset name.</summary>
+        public void DeliverConversation(string assetName) => AppendConversation(assetName);
+
+        /// <summary>
         /// Appends a worker conversation to that worker's personal DM tab.
         /// Records the conversation asset name in lastSentTemplateIDs for no-repeat logic.
         /// </summary>
@@ -232,7 +278,7 @@ namespace Habitales.Dialogue
         /// thread following the player's recorded choices and pauses (emits nothing
         /// further) at the first unanswered ChoicePayload. See ResolveTab.
         /// </summary>
-        public List<ResolvedLine> GetChatLines(string tabID) => ResolveTab(tabID).lines;
+        public List<ResolvedLine> GetChatLines(string tabID) => ResolveTab(tabID, isPlayerRead: true).lines;
 
         /// <summary>
         /// If the tab is currently paused on an unanswered choice, returns the
@@ -569,6 +615,24 @@ namespace Habitales.Dialogue
             return result;
         }
 
+        /// <summary>
+        /// Resolves ONE authored node into a display-ready line, for surfaces that walk a
+        /// conversation themselves (e.g. CheckInPanelUI's tap-to-advance playback). Same
+        /// pipeline as chat — profiles, expressions, EventContext tokens (S2: one resolution
+        /// path). Returns null for ChoicePayload nodes; interactive callers handle choices
+        /// via <see cref="ResolveChoiceReplyLine"/> / <see cref="BuildChoiceOptionView"/>.
+        /// </summary>
+        public ResolvedLine ResolveNodeLine(MessageNode node, string workerName = null)
+            => ResolveContentOrSticker(node, workerName);
+
+        /// <summary>Resolves a chosen option's label into the player's reply bubble line.</summary>
+        public ResolvedLine ResolveChoiceReplyLine(MessagePayload label)
+            => ResolveChoiceLabel(label);
+
+        /// <summary>Resolves an option's label into button-display data for a choice row.</summary>
+        public ChoiceOptionView BuildChoiceOptionView(MessagePayload label)
+            => BuildOptionView(label);
+
         // ─── Interactive Choice Walker (Phase 2) ──────────────────────────────
 
         // Result of walking one tab interactively: the visible lines, plus the first
@@ -588,7 +652,15 @@ namespace Habitales.Dialogue
         /// player selects an option, so the transcript ends exactly where the choice
         /// buttons appear.
         /// </summary>
-        private TabResolution ResolveTab(string tabID)
+        /// <param name="tabID">Tab to resolve.</param>
+        /// <param name="isPlayerRead">
+        /// True when this resolution represents the player actually viewing the tab
+        /// (GetChatLines) — only then do fully-walked Thread entries fire
+        /// OnConversationCompleted. False for internal/background resolutions (e.g. the
+        /// seal-probe in EntryHasUnansweredChoice), which must not credit the player with
+        /// reading a thread they never opened.
+        /// </param>
+        private TabResolution ResolveTab(string tabID, bool isPlayerRead = false)
         {
             var res     = new TabResolution();
             var entries = GetEntriesForTab(tabID);
@@ -601,7 +673,9 @@ namespace Habitales.Dialogue
                 switch (entry.entryType)
                 {
                     case ChatEntryType.Thread:
-                        ResolveThreadEntry(entry, res);
+                        bool reachedEnd = ResolveThreadEntry(entry, res);
+                        if (isPlayerRead && reachedEnd)
+                            MarkConversationCompletedIfNeeded(entry.conversation?.name);
                         break;
 
                     case ChatEntryType.Inline:
@@ -641,11 +715,16 @@ namespace Habitales.Dialogue
             return res;
         }
 
-        // Resolves a Thread entry, following the player's recorded choice path.
-        private void ResolveThreadEntry(RuntimeChatEntry entry, TabResolution res)
+        // Resolves a Thread entry, following the player's recorded choice path. Returns true
+        // when the walk ran off the end of conversation.thread without halting on an
+        // unanswered/expired choice (i.e. every node visited, every choice answered) — "read to
+        // the end". Callers that represent an actual player read (GetChatLines) use this to fire
+        // OnConversationCompleted; the background seal-probe (EntryHasUnansweredChoice) discards
+        // it deliberately — reaching the end of a walk the player never opened is not a read.
+        private bool ResolveThreadEntry(RuntimeChatEntry entry, TabResolution res)
         {
             var conversation = entry.conversation;
-            if (conversation == null) return;
+            if (conversation == null) return false;
 
             if (!string.IsNullOrEmpty(entry.resolvedWorkerName))
             {
@@ -654,7 +733,19 @@ namespace Habitales.Dialogue
             }
 
             int choiceCounter = 0;
-            WalkNodes(conversation.thread, entry, res, ref choiceCounter);
+            return WalkNodes(conversation.thread, entry, res, ref choiceCounter);
+        }
+
+        // Marks a conversation as fully read (Law 2 meaning event) and fires
+        // OnConversationCompleted exactly once, the first time it happens. Called only from
+        // read paths that represent the player actually viewing the tab (GetChatLines) — never
+        // from the background seal-probe, which must not fire completion for unopened threads.
+        private void MarkConversationCompletedIfNeeded(string conversationName)
+        {
+            if (string.IsNullOrEmpty(conversationName)) return;
+            if (_completedConversations.Contains(conversationName)) return;
+            _completedConversations.Add(conversationName);
+            OnConversationCompleted?.Invoke(conversationName);
         }
 
         // DFS pre-order walk over a node list. choiceCounter is the encounter index of

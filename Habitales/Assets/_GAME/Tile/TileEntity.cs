@@ -8,7 +8,7 @@ public abstract class TileEntity
     public float        health = 100f;
 
     // Identity + data (arch §5.1). Set on construction from the TileEntitySO.
-    public string       entityId;   // stable id + save key (mirrors def.entityId)
+    public string       entityId;   // stable id + save key (mirrors def.EntityId, derived from displayName)
     public TileEntitySO def;        // shared, immutable definition/data
 
     // Per-day tick (arch §5.2). RunManager assembles one TickContext per day and threads it via

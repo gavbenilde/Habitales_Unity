@@ -2,6 +2,8 @@ using System;
 using UnityEngine;
 using Habitales.UI;
 using Habitales.UI.Actions;
+using Habitales.Dialogue;
+using Habitales.Triggers;
 
 namespace Habitales.Onboarding
 {
@@ -61,13 +63,24 @@ namespace Habitales.Onboarding
         // ─────────────────────────────────────────────────────────────────────
 
         [Header("Content")]
-        [Tooltip("The Priority-Zero GameEventSO wired to OnboardingBootstrap (beat 0). " +
+        [Tooltip("Catalog id of the Priority-Zero PopupSO (beat 0), resolved via TriggerManager.Fire. " +
                  "The Director fires it here instead of waiting for OnboardingBootstrap — " +
-                 "leave OnboardingBootstrap in the scene but assign the same SO here.")]
-        [SerializeField] private GameEventSO priorityZeroEvent;
+                 "leave OnboardingBootstrap in the scene with the same id.")]
+        [SerializeField] private string priorityZeroEventId = "priority_zero";
 
         [Tooltip("Azi portrait Sprite. Every Say() call passes this.")]
         [SerializeField] private Sprite aziPortrait;
+
+        [Tooltip("Beat 2.0's forced group-chat kickoff (Azi & Bob, 2-3 choice points, under ~8 " +
+                 "messages, channel = GroupChat). Delivered via DialogueManager.DeliverConversation " +
+                 "on beat entry — badge/shake/ribbon fire for free off OnMessagesUpdated. Beat 2.0 " +
+                 "completes when DialogueManager reports this conversation read to its end.")]
+        [SerializeField] private ConversationSO groupChatKickoffConversation;
+
+        [Tooltip("Screen-space RectTransform of the messaging app icon (the same object " +
+                 "MessagingAppIconUI sits on / shakes). The FidgetArrow coach-mark for beat 2.0 " +
+                 "points here. Assign explicitly — MessagingAppIconUI has no public accessor.")]
+        [SerializeField] private RectTransform messagingIconCueTarget;
 
         [Header("Stall Detector")]
         [Tooltip("Seconds of input idle before the explicit stall-fallback text is shown.")]
@@ -76,6 +89,10 @@ namespace Habitales.Onboarding
         [Header("References (optional — auto-found if null)")]
         [Tooltip("The ActionBarUI in the scene. Auto-found if null; assign explicitly for determinism.")]
         [SerializeField] private ActionBarUI actionBarUI;
+
+        [Tooltip("The ObjectiveBannerUI in the scene. Auto-found if null. Its PlayLandingReveal() " +
+                 "is called at graduation (Beat_3_4) — the \"text lands in front of the player\" tween.")]
+        [SerializeField] private ObjectiveBannerUI objectiveBannerUI;
 
         [Header("Skip / Debug")]
         [Tooltip("If true, skip Priority Zero (beat 0) — useful when the scene already fires it via OnboardingBootstrap.")]
@@ -103,7 +120,7 @@ namespace Habitales.Onboarding
             new BeatDef
             {
                 id           = OnboardingBeatId.Beat_0_PriorityZero,
-                cueLine      = null,   // Priority Zero = a GameEventSO full-screen headline, not a Say()
+                cueLine      = null,   // Priority Zero = a PopupSO full-screen headline (via TriggerManager), not a Say()
                 stallFallback = null,
                 coachMark    = CoachMarkKind.None,
             },
@@ -136,6 +153,15 @@ namespace Habitales.Onboarding
                 cueLine       = OnboardingContent.Beat_1_4_PassDay,
                 stallFallback = null,
                 coachMark     = CoachMarkKind.None,          // no coach-mark; cue text is enough
+            },
+
+            // ── Forced group-chat kickoff (Azi & Bob) — slots before the drag cycle ──
+            new BeatDef
+            {
+                id            = OnboardingBeatId.Beat_2_0_GroupChat,
+                cueLine       = OnboardingContent.Beat_2_0_OpenChat,
+                stallFallback = OnboardingContent.Beat_2_0_StallText,
+                coachMark     = CoachMarkKind.FidgetArrow,   // arrow → messaging app icon
             },
 
             // ── Drag-teaching cycle (repeats 3×; cue spoken on the 1st cycle only) ──
@@ -217,6 +243,7 @@ namespace Habitales.Onboarding
         private bool _seedClickedThisBeat      = false; // event: TileSelector.OnTileSelected (click phase)
         private bool _confirmedThisBeat        = false; // event: ActionBarUI.OnActionConfirmed
         private bool _passDayDoneThisBeat      = false; // event: RunManager.OnDayResolved (beat 1.4)
+        private bool _groupChatReadThisBeat    = false; // event: DialogueManager.OnConversationCompleted (beat 2.0)
         private bool _dragDoneThisBeat         = false; // polled: SelectedTileCount >= 3
         private bool _tileInspected            = false; // event: TileSelector.OnTileSelected (after drag phase)
         private bool _regionUnlocked           = false; // event: RunManager.OnRegionUnlocked
@@ -249,21 +276,40 @@ namespace Habitales.Onboarding
                 ok = false;
             }
 
-            if (priorityZeroEvent == null && !skipBeat0)
+            if (string.IsNullOrWhiteSpace(priorityZeroEventId) && !skipBeat0)
             {
-                Debug.LogError($"{name}: priorityZeroEvent is not assigned — Beat 0 (Priority Zero) will not fire. " +
-                               "Assign the Priority-Zero GameEventSO in the Inspector, or enable skipBeat0.", this);
+                Debug.LogError($"{name}: priorityZeroEventId is blank — Beat 0 (Priority Zero) will not fire. " +
+                               "Set the Priority-Zero catalog id in the Inspector, or enable skipBeat0.", this);
                 // Non-fatal: we advance past beat 0 automatically.
             }
 
             if (aziPortrait == null)
                 Debug.LogWarning($"{name}: aziPortrait is not assigned — Azi cues will show without a portrait. Wire it in the Inspector.", this);
 
+            if (groupChatKickoffConversation == null)
+                Debug.LogError($"{name}: groupChatKickoffConversation is not assigned — beat 2.0 will deliver nothing " +
+                               "and its completion gate can never be satisfied (the player will stall forever). " +
+                               "Author the Azi & Bob kickoff ConversationSO and assign it in the Inspector.", this);
+
+            if (messagingIconCueTarget == null)
+                Debug.LogWarning($"{name}: messagingIconCueTarget is not assigned — beat 2.0's FidgetArrow will have " +
+                                 "no target. Assign the messaging icon's RectTransform in the Inspector.", this);
+
+            if (DialogueManager.Instance == null)
+                Debug.LogError($"{name}: DialogueManager.Instance is null — beat 2.0 cannot deliver the kickoff " +
+                               "conversation or detect when it's been read. Ensure a DialogueManager is in the scene.", this);
+
             // Auto-find ActionBarUI if not assigned.
             if (actionBarUI == null)
                 actionBarUI = FindObjectOfType<ActionBarUI>();
             if (actionBarUI == null)
                 Debug.LogWarning($"{name}: ActionBarUI not found — beat 1.1 (Pick Action) polling will not work. Assign it in the Inspector.", this);
+
+            // Auto-find ObjectiveBannerUI if not assigned.
+            if (objectiveBannerUI == null)
+                objectiveBannerUI = FindObjectOfType<ObjectiveBannerUI>();
+            if (objectiveBannerUI == null)
+                Debug.LogWarning($"{name}: ObjectiveBannerUI not found — graduation's landing-reveal tween will not play. Assign it in the Inspector.", this);
 
             if (!ok) { enabled = false; return; }
 
@@ -275,6 +321,10 @@ namespace Habitales.Onboarding
             }
             else
                 Debug.LogError($"{name}: RunManager.Instance is null — region-unlock and day-resolved beats will not trigger. Ensure RunManager is in the scene.", this);
+
+            if (DialogueManager.Instance != null)
+                DialogueManager.Instance.OnConversationCompleted += HandleConversationCompleted;
+            // else already loud-failed above.
 
             // Subscribe to ActionBarUI events (replaces polling of CurrentArmedAction).
             if (actionBarUI != null)
@@ -311,6 +361,9 @@ namespace Habitales.Onboarding
                 RunManager.Instance.OnRegionUnlocked -= HandleRegionUnlocked;
                 RunManager.Instance.OnDayResolved    -= HandleDayResolved;
             }
+
+            if (DialogueManager.Instance != null)
+                DialogueManager.Instance.OnConversationCompleted -= HandleConversationCompleted;
 
             if (actionBarUI != null)
             {
@@ -396,6 +449,13 @@ namespace Habitales.Onboarding
                     if (_passDayDoneThisBeat) CompleteBeat();
                     break;
 
+                case OnboardingBeatId.Beat_2_0_GroupChat:
+                    // Event-driven: HandleConversationCompleted sets _groupChatReadThisBeat when
+                    // DialogueManager reports the kickoff conversation read to its END (not merely
+                    // opened — see DialogueManager.OnConversationCompleted).
+                    if (_groupChatReadThisBeat) CompleteBeat();
+                    break;
+
                 case OnboardingBeatId.Beat_Click_Place:
                     // Event-driven (HandleTileSelected sets _seedClickedThisBeat). Using the click
                     // event — not a GetSelectedTile() poll — so a stale selection from a prior cycle
@@ -474,6 +534,7 @@ namespace Habitales.Onboarding
             _seedClickedThisBeat    = false;
             _confirmedThisBeat      = false;
             _passDayDoneThisBeat    = false;
+            _groupChatReadThisBeat  = false;
             _dragDoneThisBeat       = false;
             _tileInspected          = false;
             _regionUnlocked         = false;
@@ -521,6 +582,52 @@ namespace Habitales.Onboarding
                 ShowAziLine(def.cueLine);
             }
             // Beat 2.2 has no cue — it's discovered naturally.
+
+            if (def.id == OnboardingBeatId.Beat_2_0_GroupChat)
+                DeliverGroupChatKickoff();
+
+            // Graduation — the objective banner's "text lands in front of the player" reveal
+            // (arch ENDGAME_BUILD_PLAN §6.3). Fire-and-forget: PlayLandingReveal is cancel-safe
+            // and self-contained, the Director doesn't track its lifetime.
+            if (def.id == OnboardingBeatId.Beat_3_4_Graduation)
+            {
+                if (objectiveBannerUI != null)
+                    objectiveBannerUI.PlayLandingReveal();
+                else
+                    Debug.LogWarning($"{name}: objectiveBannerUI is not wired — skipping the graduation landing-reveal tween.", this);
+            }
+        }
+
+        // Delivers the forced group-chat kickoff the same way any other message arrives —
+        // through DialogueManager, so MessagingAppIconUI's badge/shake and RibbonUI's preview
+        // fire for free off OnMessagesUpdated (they already subscribe; no onboarding-specific FX
+        // needed here). Beat 2.0's completion gate (Update's Beat_2_0_GroupChat case) is driven
+        // separately by DialogueManager.OnConversationCompleted / HasCompletedConversation.
+        void DeliverGroupChatKickoff()
+        {
+            if (groupChatKickoffConversation == null)
+            {
+                Debug.LogError($"{name}: groupChatKickoffConversation is not assigned — beat 2.0 cannot deliver " +
+                               "the kickoff conversation. Assign the Azi & Bob ConversationSO in the Inspector.", this);
+                return;
+            }
+
+            if (DialogueManager.Instance == null)
+            {
+                Debug.LogError($"{name}: DialogueManager.Instance is null — cannot deliver the beat 2.0 kickoff conversation.", this);
+                return;
+            }
+
+            // Already read in a prior session/graduation-skip edge case (debugStartBeat, etc.) —
+            // don't re-deliver a duplicate copy into the chat; just let Update's already-satisfied
+            // check complete the beat next frame.
+            if (DialogueManager.Instance.HasCompletedConversation(groupChatKickoffConversation.name))
+            {
+                _groupChatReadThisBeat = true;
+                return;
+            }
+
+            DialogueManager.Instance.DeliverConversation(groupChatKickoffConversation);
         }
 
         void CompleteBeat()
@@ -565,12 +672,16 @@ namespace Habitales.Onboarding
                         return OnboardingBeatId.Beat_1_4_PassDay;
                     return _clickCyclesDone < ClickCyclesTarget
                         ? OnboardingBeatId.Beat_Click_Arm
-                        : OnboardingBeatId.Beat_Drag_Arm;
+                        : OnboardingBeatId.Beat_2_0_GroupChat;
 
                 case OnboardingBeatId.Beat_1_4_PassDay:
                     return _clickCyclesDone < ClickCyclesTarget
                         ? OnboardingBeatId.Beat_Click_Arm
-                        : OnboardingBeatId.Beat_Drag_Arm;
+                        : OnboardingBeatId.Beat_2_0_GroupChat;
+
+                // Forced group-chat kickoff — slots after the click-teaching cycle finishes,
+                // before the drag-teaching cycle starts (arch ENDGAME_BUILD_PLAN §6.2).
+                case OnboardingBeatId.Beat_2_0_GroupChat:     return OnboardingBeatId.Beat_Drag_Arm;
 
                 case OnboardingBeatId.Beat_Drag_Arm:          return OnboardingBeatId.Beat_Drag_Select;
                 case OnboardingBeatId.Beat_Drag_Select:       return OnboardingBeatId.Beat_Drag_Confirm;
@@ -669,21 +780,21 @@ namespace Habitales.Onboarding
 
         void FirePriorityZero()
         {
-            if (priorityZeroEvent == null)
+            if (string.IsNullOrWhiteSpace(priorityZeroEventId))
             {
-                Debug.LogError($"{name}: priorityZeroEvent is null — Priority Zero will not fire. Assign the SO in the Inspector.", this);
+                Debug.LogError($"{name}: priorityZeroEventId is blank — Priority Zero will not fire. Set the catalog id in the Inspector.", this);
                 _beat0Fired = true; // still advance
                 return;
             }
 
-            if (EventManager.Instance == null)
+            if (TriggerManager.Instance == null)
             {
-                Debug.LogError($"{name}: EventManager.Instance is null — cannot fire Priority Zero.", this);
+                Debug.LogError($"{name}: TriggerManager.Instance is null — cannot fire Priority Zero.", this);
                 _beat0Fired = true;
                 return;
             }
 
-            EventManager.Instance.FireEventByID(priorityZeroEvent.eventID);
+            TriggerManager.Instance.Fire(priorityZeroEventId);
             _beat0Fired = true;
         }
 
@@ -729,6 +840,17 @@ namespace Habitales.Onboarding
         {
             if (CurrentBeat == OnboardingBeatId.Beat_3_1_FirstRibbon)
                 _regionUnlocked = true;
+        }
+
+        void HandleConversationCompleted(string conversationName)
+        {
+            // Fired by DialogueManager.OnConversationCompleted when a thread is walked to its
+            // terminal node during an actual player read — not on delivery, not on tab-open.
+            if (CurrentBeat != OnboardingBeatId.Beat_2_0_GroupChat) return;
+            if (groupChatKickoffConversation == null) return;
+            if (conversationName != groupChatKickoffConversation.name) return;
+
+            _groupChatReadThisBeat = true;
         }
 
         void HandleTileSelected(Tile tile, Vector3 worldPos)
@@ -798,6 +920,14 @@ namespace Habitales.Onboarding
 
                 case OnboardingBeatId.Beat_2_2_TileInspector: // CornerReminder
                     req.labelText = "Select a tile to inspect it";
+                    break;
+
+                case OnboardingBeatId.Beat_2_0_GroupChat:
+                    // FidgetArrow → the messaging app icon (UI, screen-space). No auto-resolve
+                    // path exists (MessagingAppIconUI has no public rect accessor) — this is a
+                    // dedicated serialized ref the human wires directly.
+                    req.trackTarget       = messagingIconCueTarget;
+                    req.screenSpaceTarget = true;
                     break;
             }
 

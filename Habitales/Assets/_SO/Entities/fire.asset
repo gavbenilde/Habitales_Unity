@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
   m_Name: fire
   m_EditorClassIdentifier: 
-  entityId: fire
   displayName: Fire
   category: 2
   tileSprite: {fileID: 21300000, guid: f6f8daca1d0d83a45a67103d8925a8b1, type: 3}

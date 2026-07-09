@@ -295,6 +295,27 @@ namespace Habitales.UI
         }
 
         /// <summary>
+        /// Restarts the current run in place (same scene, from the top). Mirrors
+        /// <see cref="ExitToMainMenu"/>'s teardown — closes the pause overlay and any sub-panels
+        /// so nothing from this menu survives into the reloaded scene — then hands off to
+        /// <see cref="Habitales.Core.RunRestart.RestartCurrentRun"/>, which resets the handful of
+        /// cross-scene-surviving statics, restores <c>Time.timeScale</c>, cancels all LeanTween
+        /// tweens, and reloads the active scene. Wireable to a future "Restart" button; nothing
+        /// calls this yet.
+        /// </summary>
+        public void RestartRun()
+        {
+            // Tear down the overlay the same way Resume() does, minus the timescale restore —
+            // RunRestart.RestartCurrentRun() sets Time.timeScale = 1f itself, and the scene
+            // reload is about to destroy this GameObject anyway.
+            HideSubPanels();
+            if (_overlayRoot != null)
+                _overlayRoot.gameObject.SetActive(false);
+
+            Habitales.Core.RunRestart.RestartCurrentRun();
+        }
+
+        /// <summary>
         /// Quits the application. No-op inside the Unity Editor (by design).
         /// </summary>
         public void ExitToDesktop()

@@ -19,7 +19,7 @@ public class AnalyzeSoilSampleAction : PlayerAction
 
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
     {
-        tile.isAnalyzed = true;
+        tileManager.MarkTileAnalyzed(tile); // Law 1: reveal flag written by the owner, not the action
         // OverflowTipSpawner.Instance.SpawnAtCursor(BuildReport(tile));
     }
 

@@ -16,13 +16,16 @@ namespace Habitales.Onboarding
     {
         None            = -1,
 
-        Beat_0_PriorityZero     = 0,    // Captain premise — full-screen GameEventSO headline
+        Beat_0_PriorityZero     = 0,    // Captain premise — full-screen PopupSO headline (via TriggerManager)
 
         // ── Click-teaching cycle (repeats 3×) ──────────────────────────────────
         Beat_Click_Arm          = 11,   // Arm the Plant Trees action from the bar
         Beat_Click_Place        = 12,   // Click a tile to select one seed
         Beat_Click_Confirm      = 13,   // Arrow → Confirm; press it to commit
         Beat_1_4_PassDay        = 14,   // "Pass a day" nudge — fires after first action confirms
+
+        Beat_2_0_GroupChat      = 20,   // Forced Azi & Bob kickoff — slots after Beat_1_4_PassDay,
+                                         // before the drag cycle (arch ENDGAME_BUILD_PLAN §6.2)
 
         // ── Drag-teaching cycle (repeats 3×) ───────────────────────────────────
         Beat_Drag_Arm           = 23,   // Arm the Plant Trees action again

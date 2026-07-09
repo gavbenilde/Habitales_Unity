@@ -19,9 +19,10 @@ namespace Habitales.Onboarding
         [SerializeField] private Transform poolParent;   // optional; defaults to this transform
 
         [Header("Filter")]
-        [Tooltip("When on, only spawn a bubble if the spawned entityId contains one of these " +
-                 "substrings (case-insensitive). Keeps bubbles to plants — no fire/trash/building " +
-                 "bubbles, and no flood during a region-gen burst of non-plant entities.")]
+        [Tooltip("When on, only spawn a bubble for Plant-category entities — no fire/trash/building " +
+                 "bubbles, and no flood during a region-gen burst of non-plant entities. The primary " +
+                 "check is the entity def's category; the substrings below are only a fallback for " +
+                 "the rare case the def is missing (ids are displayName-derived, don't match on them).")]
         [SerializeField] private bool filterToPlants = true;
         [SerializeField] private string[] plantIdSubstrings = { "tree", "narra", "seedling", "sapling", "mature", "cover" };
 
@@ -73,7 +74,7 @@ namespace Habitales.Onboarding
         private void HandleEntitySpawned(Tile tile, string entityId)
         {
             if (!_ok || tile == null) return;
-            if (filterToPlants && !MatchesPlant(entityId)) return;
+            if (filterToPlants && !MatchesPlant(tile, entityId)) return;
 
             Vector3 worldPos = TileManager.Instance != null
                 ? TileManager.Instance.GridToWorldPosition(tile.gridPosition)
@@ -84,7 +85,7 @@ namespace Habitales.Onboarding
         private void HandleEntityEvolved(Tile tile, string entityId)
         {
             if (!_ok || tile == null) return;
-            if (filterToPlants && !MatchesPlant(entityId)) return;
+            if (filterToPlants && !MatchesPlant(tile, entityId)) return;
 
             Vector3 worldPos = TileManager.Instance != null
                 ? TileManager.Instance.GridToWorldPosition(tile.gridPosition)
@@ -113,8 +114,14 @@ namespace Habitales.Onboarding
             if (b != null) _idle.Enqueue(b);
         }
 
-        private bool MatchesPlant(string entityId)
+        private bool MatchesPlant(Tile tile, string entityId)
         {
+            // Authoritative check: the def's category. Ids are displayName-derived (2026-07-07),
+            // so substring matching against them is fragile — it survives only as a fallback
+            // for the rare case the entity/def is missing at event time.
+            var def = tile != null && tile.entity != null ? tile.entity.def : null;
+            if (def != null) return def.category == Habitales.Entities.EntityCategory.Plant;
+
             if (string.IsNullOrEmpty(entityId) || plantIdSubstrings == null) return false;
             for (int i = 0; i < plantIdSubstrings.Length; i++)
             {

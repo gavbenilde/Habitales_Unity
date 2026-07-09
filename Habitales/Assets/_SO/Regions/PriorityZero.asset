@@ -48,7 +48,7 @@ MonoBehaviour:
   forceSpecificEntities: 1
   forcedEntities:
   - offset: {x: 0, y: 0}
-    entityType: trash_bio
+    displayName: Biodegradeable Trash
   - offset: {x: 1, y: 1}
-    entityType: trash_nonbio
-  aziCalloutKey: 
+    displayName: Non-Biodegradeable Trash
+  aziCalloutKey:

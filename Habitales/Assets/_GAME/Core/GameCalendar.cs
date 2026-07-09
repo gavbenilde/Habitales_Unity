@@ -13,6 +13,11 @@ public static class GameCalendar
 {
     public const int DaysPerYear = 360;
 
+    /// <summary>One season is exactly half the stylized year (180 days). THE season-length
+    /// constant — the season picker (RunConfig / SeasonSelectPanelUI) derives run length
+    /// from this so calendar math and run-length math can never drift apart.</summary>
+    public const int DaysPerSeason = DaysPerYear / 2;
+
     /// <summary>Stylized month lengths, Jan..Dec — a uniform 30 keeps all date/season math trivial.</summary>
     private static readonly int[] MonthLengths =
     {

@@ -15,8 +15,30 @@ namespace Habitales.UI
     /// Assign this to the root ChatApp GameObject inside the Phone panel.
     /// The phone HUD button calls ToggleChatApp().
     /// </summary>
-    public class ChatAppUI : MonoBehaviour
+    public class ChatAppUI : MonoBehaviour, IUISubsystem
     {
+        // ── IUISubsystem ──────────────────────────────────────────────
+        //
+        // Root toggle choice: chatPanel (the same GameObject ToggleChatApp/_isOpen
+        // already drive), NOT a bypass of _conversationLocked. SetVisible is the
+        // hub's passive hide-ALL-UI path (screenshot hide-all) — it directly
+        // SetActive()s chatPanel without touching _isOpen/_conversationLocked
+        // state or firing the close affordances. This is safe specifically
+        // because hide-all is a transient snapshot/restore pair (UIManager.
+        // SetAllUIVisible -> RestoreUIVisibility): IsVisible reports chatPanel's
+        // actual activeSelf, so if the app was closed (or locked-open) when hidden,
+        // restore re-applies that same state — it can never leave a locked
+        // conversation open when it wasn't, nor silently closed when it was open.
+        // A real close still must go through ToggleChatApp(), which still refuses
+        // while _conversationLocked is true.
+
+        public string SubsystemId => "chatApp";
+        public bool   IsVisible   => chatPanel != null && chatPanel.activeSelf;
+        public void   SetVisible(bool visible)
+        {
+            if (chatPanel != null) chatPanel.SetActive(visible);
+        }
+
         // ── Inspector ──────────────────────────────────────────────────
 
         [Header("Panel")]

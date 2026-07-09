@@ -26,7 +26,7 @@ namespace Habitales.Actions
             if (entitiesToRemove == null || entitiesToRemove.Count == 0) return;
             foreach (var e in entitiesToRemove)
             {
-                if (e.entityId == tile.entity.entityId)
+                if (e.EntityId == tile.entity.entityId)
                 {
                     tileManager.RemoveEntity(tile, false, "Removed...");
                     break;

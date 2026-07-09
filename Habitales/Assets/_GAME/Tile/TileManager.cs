@@ -24,6 +24,15 @@ public class TileManager : MonoBehaviour
              "Assign the EntityRegistry asset in the Inspector.")]
     [SerializeField] private EntityRegistry entityRegistry;
 
+    [Header("Entity Spawn Pop-In (cosmetic only — arch S3)")]
+    [Tooltip("Duration of the scale-up pop when an entity visual first appears (fresh spawn) or " +
+             "is promoted to its next stage (reads as new growth). Purely presentational.")]
+    [SerializeField] private float entitySpawnPopDuration = 0.35f;
+    [Tooltip("Ease-out-back overshoot amount — how far past the final scale it bounces before " +
+             "settling. Keep low for a single clean overshoot-and-settle with no wobble " +
+             "(unlike easeOutElastic, back-ease only overshoots once by construction).")]
+    [SerializeField] private float entitySpawnPopOvershoot = 1f;
+
     [Header("Weather Streak Stress")]
     [Tooltip("Per resolved day of an active drought, how much WaterDynamics a fully-vulnerable " +
              "(0 VegetationCover) tile loses, before the severity ramp.")]
@@ -542,6 +551,28 @@ public class TileManager : MonoBehaviour
         UpdateTileVisual(tile);
     }
 
+    /// <summary>
+    /// Owner-side write path for the examine reveal flags (Law 1): actions reveal a tile's
+    /// substat analysis through here instead of writing <c>tile.isAnalyzed</c> themselves.
+    /// </summary>
+    public void MarkTileAnalyzed(Tile tile)
+    {
+        if (tile == null) return;
+        tile.isAnalyzed = true;
+        UpdateTileVisual(tile);
+    }
+
+    /// <summary>
+    /// Owner-side write path for the examine reveal flags (Law 1): actions reveal a tile's
+    /// issue list through here instead of writing <c>tile.issuesRevealed</c> themselves.
+    /// </summary>
+    public void RevealTileIssues(Tile tile)
+    {
+        if (tile == null) return;
+        tile.issuesRevealed = true;
+        UpdateTileVisual(tile);
+    }
+
     private static void ApplyStatChangeInternal(Tile tile, StatChange c)
     {
         var s = tile.stats;
@@ -569,7 +600,8 @@ public class TileManager : MonoBehaviour
     /// <summary>
     /// Data-driven spawn (new entity system): resolves an entityId through the registry and
     /// spawns a GenericTileEntity from its TileEntitySO. The canonical spawn path post-Phase-4 —
-    /// callers pass the entityId string (e.g. "tree_seedling", "fire") instead of a C# type.
+    /// callers pass an EntityIds constant (ids are derived from the SO's displayName, 2026-07-07)
+    /// instead of a C# type; the registry also accepts a raw display name (it slugs its input).
     /// </summary>
     public void SpawnById(Tile tile, string entityId)
     {
@@ -623,7 +655,16 @@ public class TileManager : MonoBehaviour
             GameObject tileObj = tileGameObjects[tile];
             EntityVisualizer visualizer = tileObj.GetComponentInChildren<EntityVisualizer>();
             if (visualizer != null)
+            {
                 visualizer.SetEntity(tile.entity);
+
+                // Promotion pop (cosmetic only, arch S3) — an in-place stage transform reads as
+                // new growth, so it gets the same pop-in as a fresh spawn. Final scale respects
+                // the NEW stage's billboardScale (species/stage can resize on promote).
+                float billboardScale = def.billboardScale;
+                Vector3 finalScale = Vector3.one * billboardScale;
+                EntitySpawnTween.PopIn(visualizer.gameObject, finalScale, entitySpawnPopDuration, entitySpawnPopOvershoot);
+            }
             // Refresh VFX regardless of visualizer presence — InitializeEntityVFX tears down the
             // outgoing entity's VFX before spawning the new one, so the missing-visualizer path
             // no longer leaks the old effect.
@@ -674,15 +715,25 @@ public class TileManager : MonoBehaviour
     /// </summary>
     private void InstantiateEntityVisual(Tile tile, GameObject parentTileObj) {
         if (tile.entity == null) return;
-    
+
         // Instantiate from prefab instead of creating new GameObject
         GameObject entityObj = Instantiate(entityVisualizerPrefab, parentTileObj.transform);
         entityObj.name = $"Entity_{tile.entity.entityId}";
         entityObj.transform.localPosition = Vector3.zero;
-    
+
+        // Final scale respects the SO's billboardScale (arch §5.1 — data-driven per-entity size).
+        float billboardScale = tile.entity.def != null ? tile.entity.def.billboardScale : 1f;
+        Vector3 finalScale = Vector3.one * billboardScale;
+        entityObj.transform.localScale = finalScale;
+
         // Get existing visualizer component
         EntityVisualizer visualizer = entityObj.GetComponent<EntityVisualizer>();
         visualizer.Initialize(tile.entity, tile);
+
+        // Fresh-spawn pop-in (cosmetic only, arch S3) — genuine new growth appearing on the tile.
+        // Never fires from RefreshAllVisuals: that path only touches TileVisualizer, it never
+        // reaches EntityVisualizer or this GameObject's scale (see UpdateTileVisual).
+        EntitySpawnTween.PopIn(entityObj, finalScale, entitySpawnPopDuration, entitySpawnPopOvershoot);
     }
 
     private void InitializeEntityVFX(Tile tile, GameObject parent)

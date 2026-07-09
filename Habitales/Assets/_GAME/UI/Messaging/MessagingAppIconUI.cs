@@ -16,8 +16,18 @@ namespace Habitales.UI
     /// Subscribes to DialogueManager.OnUnreadChanged  → refresh badge.
     ///             DialogueManager.OnMessagesUpdated   → play shake + refresh badge.
     /// </summary>
-    public class MessagingAppIconUI : MonoBehaviour
+    public class MessagingAppIconUI : MonoBehaviour, IUISubsystem
     {
+        // ── IUISubsystem ──────────────────────────────────────────────
+        //
+        // Simple case: toggles this component's own GameObject (the icon root).
+        // No internal show/hide state machine to fight — badge/shake logic just
+        // stops mattering while the icon GameObject is inactive.
+
+        public string SubsystemId => "messagingIcon";
+        public bool   IsVisible   => gameObject.activeSelf;
+        public void   SetVisible(bool visible) => gameObject.SetActive(visible);
+
         [Header("Badge")]
         [SerializeField] private GameObject          badgeRoot;
         [SerializeField] private TextMeshProUGUI     badgeCountText;

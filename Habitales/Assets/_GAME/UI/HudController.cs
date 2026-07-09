@@ -51,6 +51,23 @@ namespace Habitales.UI
         [Tooltip("Optional — the tiered trend arrow beside the world health bar.")]
         [SerializeField] private TrendIndicatorUI        _worldTrend;
 
+        // ─── Final Stretch (ENDGAME §5 item 2) ─────────────────────────────────
+
+        [Header("Final Stretch (ENDGAME §5 item 2)")]
+        [Tooltip("When days remaining <= this, the day counter tints amber and pulses once per " +
+                 "day-tick. Denominator is ResourceManager.RunLengthDays.")]
+        [SerializeField] private int _finalStretchDays = 10;
+        [Tooltip("When days remaining <= this, the day counter tints red instead of amber.")]
+        [SerializeField] private int _criticalStretchDays = 3;
+
+        // ─── Progressive health-bar mapping ────────────────────────────────────
+        // The bar is normalized: 0 = _barFloor, 1 = RunManager.ZoneUnlockThreshold.
+        // The floor resets to the current world health whenever a region generates
+        // (initial spawn AND each unlock), and ratchets DOWN to any new low-point
+        // so the bar never reads negative — a deep collapse just means slower fill.
+        // Purely presentational; RunManager's threshold mechanics are untouched.
+        private float _barFloor = float.NaN; // NaN until the first region generates
+
         // ─── Lifecycle ────────────────────────────────────────────────────────
 
         void Awake()
@@ -65,7 +82,18 @@ namespace Habitales.UI
         {
             // Subscribe to the universal heartbeat — data has settled, visuals refreshed (arch §2.1).
             if (RunManager.Instance != null)
-                RunManager.Instance.OnDayResolved += HandleDayResolved;
+            {
+                RunManager.Instance.OnDayResolved       += HandleDayResolved;
+                RunManager.Instance.OnRegionUnlockReady += HandleRegionUnlockReady;
+                RunManager.Instance.OnRegionUnlocked    += HandleRegionUnlocked;
+            }
+
+            // Region generation is the load-time fix AND the bar-floor reset point:
+            // OnEnable runs before RunManager.Start() spawns Zone 1, so the initial
+            // push below sees zero tiles. When the zone lands (and on every unlock),
+            // this event re-pushes with real data.
+            if (RegionManager.Instance != null)
+                RegionManager.Instance.OnRegionGenerated += HandleRegionGenerated;
 
             // Initial push so the views show correct values on scene load.
             PushHealthToBar();
@@ -76,7 +104,14 @@ namespace Habitales.UI
         void OnDisable()
         {
             if (RunManager.Instance != null)
-                RunManager.Instance.OnDayResolved -= HandleDayResolved;
+            {
+                RunManager.Instance.OnDayResolved       -= HandleDayResolved;
+                RunManager.Instance.OnRegionUnlockReady -= HandleRegionUnlockReady;
+                RunManager.Instance.OnRegionUnlocked    -= HandleRegionUnlocked;
+            }
+
+            if (RegionManager.Instance != null)
+                RegionManager.Instance.OnRegionGenerated -= HandleRegionGenerated;
         }
 
         // ─── Event handler ────────────────────────────────────────────────────
@@ -93,6 +128,25 @@ namespace Habitales.UI
             PushWorldTrend();
         }
 
+        /// <summary>
+        /// A region just generated — initial Zone 1 spawn or a player unlock. Either way
+        /// the world health that INCLUDES the new tiles becomes the bar's new 0%, so an
+        /// unlock visibly drops the bar to empty and the climb toward the threshold restarts.
+        /// </summary>
+        private void HandleRegionGenerated(RegionGenerationResult result)
+        {
+            if (RegionManager.Instance != null)
+                _barFloor = RegionManager.Instance.GetTotalAverageHealth();
+
+            PushHealthToBar();
+        }
+
+        // Re-push on the unlock lifecycle so the bar latches full the moment the
+        // threshold is earned and empties the moment the button is pressed —
+        // without waiting for the next day to resolve.
+        private void HandleRegionUnlockReady() => PushHealthToBar();
+        private void HandleRegionUnlocked()    => PushHealthToBar();
+
         // ─── Push helpers ─────────────────────────────────────────────────────
 
         private void PushHealthToBar()
@@ -101,7 +155,39 @@ namespace Habitales.UI
             if (RegionManager.Instance == null) return;
 
             float health = RegionManager.Instance.GetTotalAverageHealth();
-            _healthBar.Render(health);
+            _healthBar.Render(ComputeBarFraction(health), IsUnlockPending());
+        }
+
+        /// <summary>
+        /// Maps raw world health onto the progressive bar: 0 at the current floor,
+        /// 1 at the unlock threshold. New low-points ratchet the floor down; an
+        /// earned-but-unclaimed unlock latches the bar at 1 regardless of decay.
+        /// </summary>
+        private float ComputeBarFraction(float health)
+        {
+            if (float.IsNaN(_barFloor))
+                _barFloor = health; // no region has generated yet — anchor to whatever we see first
+
+            if (health < _barFloor)
+                _barFloor = health; // new low-point becomes the bar's 0%
+
+            if (IsUnlockPending())
+                return 1f; // earned: stay full until the player presses the button
+
+            float threshold = RunManager.Instance != null
+                ? RunManager.Instance.ZoneUnlockThreshold
+                : 80f;
+
+            float span = threshold - _barFloor;
+            if (span <= 0.001f)
+                return 1f; // floor at/above threshold — already there
+
+            return Mathf.Clamp01((health - _barFloor) / span);
+        }
+
+        private bool IsUnlockPending()
+        {
+            return RunManager.Instance != null && RunManager.Instance.RegionUnlockPending;
         }
 
         private void PushTimeToHud()
@@ -112,6 +198,11 @@ namespace Habitales.UI
             _timeRemaining.Render(
                 ResourceManager.Instance.TotalDays,
                 ResourceManager.Instance.RunLengthDays);
+
+            _timeRemaining.RenderFinalStretch(
+                ResourceManager.Instance.DaysRemaining,
+                _finalStretchDays,
+                _criticalStretchDays);
         }
 
         private void PushWorldTrend()
@@ -119,7 +210,7 @@ namespace Habitales.UI
             if (_worldTrend == null) return;
             if (RunManager.Instance == null) return;
 
-            _worldTrend.SetDelta(RunManager.Instance.WorldHealthDelta);
+            _worldTrend.SetTrend(RunManager.Instance.WorldHealthTrend);
         }
 
         // ─── Validation (Law 3) ───────────────────────────────────────────────

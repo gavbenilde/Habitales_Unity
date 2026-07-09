@@ -19,11 +19,27 @@ public class DayNightCycleHandler : MonoBehaviour
     // Fixed: was never set false, so the WaitUntil resolved immediately.
     public static bool IsIdle { get; private set; } = true;
 
+    // Force the gate back to idle. Used by RunRestart: if a restart lands mid-cycle (an action
+    // running, an event interrupt, etc.) IsIdle could be latched false with the coroutine that
+    // would have flipped it back destroyed by the scene reload — the next run's first
+    // AdvanceTimeStepped would then hang forever on WaitUntil(IsIdle). Not used mid-run.
+    public static void ForceIdle() => IsIdle = true;
+
+    // Scene-singleton convenience (one handler per scene) — not a manager, no init-order
+    // pin. Lets ActionManager resolve it without FindObjectOfType.
+    public static DayNightCycleHandler Instance { get; private set; }
+
     public event Action<int> OnCycleEnd;
-    
+
     void Awake()
     {
+        Instance = this;
         _dayStartRotation = directionalLight.transform.rotation;
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
     }
 
     void OnEnable()
@@ -36,6 +52,8 @@ public class DayNightCycleHandler : MonoBehaviour
     {
         if (ResourceManager.Instance != null)
             ResourceManager.Instance.OnTimeAdvanced -= StartCycle;
+
+        TimeFlowSignal.SpeedFactor = 1f; // a disabled handler kills its coroutine — never leave the factor stuck high
     }
 
     // Called by ActionManager once before the first day of a new action.
@@ -63,6 +81,9 @@ public class DayNightCycleHandler : MonoBehaviour
                 minDuration
             );
 
+            // Publish the effective time-lapse factor (1..16) — atmosphere FX scroll faster with it.
+            TimeFlowSignal.SpeedFactor = dayDuration / currentDuration;
+
             float elapsed = 0f;
             float rotationSpeed = 360f / currentDuration;
 
@@ -83,6 +104,7 @@ public class DayNightCycleHandler : MonoBehaviour
         }
 
         currentCycle = null;
+        TimeFlowSignal.SpeedFactor = 1f; // time-lapse over — atmosphere FX ease back to real time
         IsIdle = true;
     }
 }

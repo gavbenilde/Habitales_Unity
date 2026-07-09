@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
   m_Name: buckwheat_sapling
   m_EditorClassIdentifier: 
-  entityId: buckwheat_sapling
   displayName: Buckwheat Sapling
   category: 0
   tileSprite: {fileID: 21300000, guid: 9f6bd81e39ae11b429b98507acb84864, type: 3}

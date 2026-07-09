@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
   m_Name: buckwheat_seedling
   m_EditorClassIdentifier: 
-  entityId: buckwheat_seedling
   displayName: Buckwheat Seedling
   category: 0
   tileSprite: {fileID: 21300000, guid: 8f8e8ef0f3cda61489047d8e69332307, type: 3}

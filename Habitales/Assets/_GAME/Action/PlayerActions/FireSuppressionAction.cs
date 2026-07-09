@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Habitales.Entities;
 
 public class FireSuppressionAction : PlayerAction
 {
@@ -16,12 +17,12 @@ public class FireSuppressionAction : PlayerAction
     // Spending time on a burned-out tile is intentional design pressure.
     public override bool Execute(List<Tile> tiles, TileManager tileManager) => true;
 
-    public override bool CanExecute(List<Tile> tiles) => AnyTileHasEntityId(tiles, "fire");
+    public override bool CanExecute(List<Tile> tiles) => AnyTileHasEntityId(tiles, EntityIds.Fire);
 
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
     {
         if (tile == null) return;
-        if (tile.entity != null && tile.entity.entityId == "fire")
+        if (tile.entity != null && tile.entity.entityId == EntityIds.Fire)
         {
             tileManager.RemoveEntity(tile);
             Debug.Log($"Fire suppressed at {tile.gridPosition}.");

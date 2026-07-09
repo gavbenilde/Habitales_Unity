@@ -45,12 +45,12 @@ public class RegionHealthUI : MonoBehaviour
 
     /// <summary>
     /// Shows the panel and populates it with region data.
-    /// avgHealth is 0–100; delta is the per-day change in health-points (drives the trend arrow).
+    /// avgHealth is 0–100; trend is the per-day change in health-points (drives the trend arrow).
     /// </summary>
-    public void Show(int regionID, float avgHealth, float delta)
+    public void Show(int regionID, float avgHealth, float trend)
     {
         if (trendIndicator != null)
-            trendIndicator.SetDelta(delta);
+            trendIndicator.SetTrend(trend);
 
         if (regionLabel != null)
             regionLabel.text = $"Zone {regionID}";

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Habitales.Entities;
 
 public class StumpDeadTreeRemovalAction : PlayerAction
 {
@@ -13,8 +14,8 @@ public class StumpDeadTreeRemovalAction : PlayerAction
 
     public override bool CanExecute(List<Tile> tiles)
     {
-        return AnyTileHasEntityId(tiles, "stump")
-               || AnyTileHasEntityId(tiles, "deadtree");
+        return AnyTileHasEntityId(tiles, EntityIds.Stump)
+               || AnyTileHasEntityId(tiles, EntityIds.DeadTree);
     }
 
     public override void ExecuteOnTile(Tile tile, TileManager tileManager)
@@ -22,7 +23,7 @@ public class StumpDeadTreeRemovalAction : PlayerAction
         // Both stumps and dead trees are cleared the same way.
         // Stump passive (+0.05 organicMatter/day) simply stops ticking once the entity is removed.
         if (tile.entity != null &&
-            (tile.entity.entityId == "stump" || tile.entity.entityId == "deadtree"))
+            (tile.entity.entityId == EntityIds.Stump || tile.entity.entityId == EntityIds.DeadTree))
             tileManager.RemoveEntity(tile);
     }
 }

@@ -52,7 +52,7 @@ public class EntityVisualizer : MonoBehaviour
         if (entityData.def == null)
             Debug.LogWarning("EntityVisualizer: entity has no def — cannot resolve a sprite.");
         else if (entityData.def.tileSprite == null)
-            Debug.LogWarning($"EntityVisualizer: entity '{entityData.def.entityId}' has no tileSprite assigned.", entityData.def);
+            Debug.LogWarning($"EntityVisualizer: entity '{entityData.def.EntityId}' has no tileSprite assigned.", entityData.def);
 
         spriteRenderer.shadowCastingMode = ShadowCastingMode.On;
         spriteRenderer.receiveShadows = true;

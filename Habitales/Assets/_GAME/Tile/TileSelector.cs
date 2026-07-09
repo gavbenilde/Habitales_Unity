@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using Habitales.Triggers;
 
 /// <summary>
 /// Handles tile selection in single-select, Adjacent, NonAdjacent, and FloodFill modes.
@@ -368,7 +369,7 @@ public class TileSelector : MonoBehaviour
         if (!floodFillMode) return;
         if (Input.GetMouseButtonDown(0)) return; // down-frame is owned by HandleMouseInput (re-seed)
         if (!Input.GetMouseButton(0)) return;
-        if (EventManager.Instance != null && EventManager.Instance.IsShowingEvent) return;
+        if (TriggerManager.Instance != null && TriggerManager.Instance.IsBusy) return;
         if (IsPointerOverUI()) return;
         if (hoveredTile == null) return; // off-grid → pause, keep selection intact
 
@@ -379,8 +380,8 @@ public class TileSelector : MonoBehaviour
 
     void HandleMouseInput()
     {
-        if (EventManager.Instance != null && EventManager.Instance.IsShowingEvent) return;
-        
+        if (TriggerManager.Instance != null && TriggerManager.Instance.IsBusy) return;
+
         if (Input.GetMouseButtonDown(0))
         {
             if (IsPointerOverUI()) return;
@@ -729,7 +730,7 @@ public class TileSelector : MonoBehaviour
 
     void HandleDeselectInput()
     {
-        if (EventManager.Instance != null && EventManager.Instance.IsShowingEvent) return;
+        if (TriggerManager.Instance != null && TriggerManager.Instance.IsBusy) return;
 
         if (Input.GetKeyDown(deselectKey))
         {

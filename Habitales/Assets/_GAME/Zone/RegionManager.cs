@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Habitales.Entities;
 
 /// <summary>
 /// Manages region health, generation, and metadata.
@@ -29,6 +30,12 @@ public class RegionManager : MonoBehaviour
 
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = true;
+
+    [Header("Region Progress History")]
+    [Tooltip("Max daily health samples kept per region in the FIFO progress-history queue. Default " +
+             "360 covers a full calendar year — comfortably longer than the 100-day run — so the " +
+             "history never truncates mid-run under normal play.")]
+    [SerializeField] private int regionHistoryCap = 360;
 
     // Starts at 2 — Zone 1 is always spawned by GameManager.SpawnInitialZone()
     private int nextRegionID = 2;
@@ -64,12 +71,24 @@ public class RegionManager : MonoBehaviour
             resourceManager = ResourceManager.Instance;
     }
 
-    // Per-region rolling health history (last TrendWindowDays + 1 samples) + the resulting
-    // smoothed per-day delta, for the trend arrow. Averaging the daily deltas over the window
+    // Per-region SHORT rolling window (last TrendWindowDays + 1 daily average-health samples)
+    // used ONLY to derive the trend arrow's smoothed per-day change — NOT a run-progress record.
+    // It holds just enough days for the arrow and rolls old samples off; the future per-region
+    // progress history is a separate concern. Averaging the daily deltas over the window
     // telescopes to (newest − oldest) / span, so the queue is all we need. Captured once per
-    // resolved day; UI reads GetRegionHealthDelta (Law 1).
+    // resolved day; UI reads GetRegionHealthTrend (Law 1).
+    private readonly Dictionary<int, Queue<float>> _regionTrendWindow = new Dictionary<int, Queue<float>>();
+    private readonly Dictionary<int, float>        _regionHealthTrend = new Dictionary<int, float>();
+
+    // ---------------------------------------------------------------------
+    // PROGRESS RECORD (added 2026-07-07) — distinct from the trend-only short window above.
+    // Per-region FIFO history of daily average health, capped at regionHistoryCap samples.
+    // This is a simple run-progress record (how has this region moved over the whole run),
+    // NOT the trend arrow's smoothing signal — do not reuse or merge with _regionTrendWindow.
+    // Pushed once per resolved day in the same HandleDayResolved handler. No UI/sparkline yet;
+    // read via GetRegionHealthHistory / GetRegionProgress (Law 1).
+    // ---------------------------------------------------------------------
     private readonly Dictionary<int, Queue<float>> _regionHealthHistory = new Dictionary<int, Queue<float>>();
-    private readonly Dictionary<int, float>        _regionHealthDelta   = new Dictionary<int, float>();
 
     private void Start()
     {
@@ -113,17 +132,27 @@ public class RegionManager : MonoBehaviour
             int   id      = kv.Key;
             float current = kv.Value / count[id];
 
+            if (!_regionTrendWindow.TryGetValue(id, out Queue<float> window))
+                _regionTrendWindow[id] = window = new Queue<float>();
+
+            window.Enqueue(current);
+            // Window + 1 samples span exactly TrendWindowDays daily deltas.
+            while (window.Count > RunManager.TrendWindowDays + 1)
+                window.Dequeue();
+
+            // Average daily change over the window == (newest − oldest) / span.
+            int span = window.Count - 1;
+            _regionHealthTrend[id] = span > 0 ? (current - window.Peek()) / span : 0f;
+
+            // Progress record (2026-07-07) — separate FIFO queue, capped at regionHistoryCap.
+            // Same "current" sample as above, just recorded into the long-lived history instead
+            // of the short trend window.
             if (!_regionHealthHistory.TryGetValue(id, out Queue<float> history))
                 _regionHealthHistory[id] = history = new Queue<float>();
 
             history.Enqueue(current);
-            // Window + 1 samples span exactly TrendWindowDays daily deltas.
-            while (history.Count > RunManager.TrendWindowDays + 1)
+            while (history.Count > regionHistoryCap)
                 history.Dequeue();
-
-            // Average daily delta over the window == (newest − oldest) / span.
-            int span = history.Count - 1;
-            _regionHealthDelta[id] = span > 0 ? (current - history.Peek()) / span : 0f;
         }
     }
 
@@ -259,12 +288,39 @@ public class RegionManager : MonoBehaviour
 
     /// <summary>
     /// Smoothed per-day change in this region's average health, in health-points — the
-    /// average daily delta over the last RunManager.TrendWindowDays days (fewer early on).
-    /// 0 until two days have resolved or if the region is unknown. Read-only (Law 1) —
-    /// drives the region trend arrow.
+    /// average daily change over the last RunManager.TrendWindowDays days (fewer early on).
+    /// 0 until two days have resolved or if the region is unknown. Read-only (Law 1) — drives
+    /// the region trend arrow. A short recent-trend signal, NOT a run-progress history.
     /// </summary>
-    public float GetRegionHealthDelta(int regionID)
-        => _regionHealthDelta.TryGetValue(regionID, out float d) ? d : 0f;
+    public float GetRegionHealthTrend(int regionID)
+        => _regionHealthTrend.TryGetValue(regionID, out float d) ? d : 0f;
+
+    // --- Progress record accessors (2026-07-07) — read the long-lived FIFO history, NOT the
+    // short trend window above. No UI/sparkline consumes these yet. ---
+
+    /// <summary>
+    /// Read-only (Law 1) copy of this region's daily-health progress history — oldest first,
+    /// newest last — capped at regionHistoryCap samples (default 360). Empty (never null) for
+    /// an unknown region. Distinct from GetRegionHealthTrend's short smoothing window.
+    /// </summary>
+    public IReadOnlyList<float> GetRegionHealthHistory(int regionID)
+        => _regionHealthHistory.TryGetValue(regionID, out Queue<float> history)
+            ? history.ToArray()
+            : System.Array.Empty<float>();
+
+    /// <summary>
+    /// Net change across this region's whole recorded progress history: newest sample minus
+    /// oldest sample. 0 when fewer than two samples exist yet (or the region is unknown).
+    /// </summary>
+    public float GetRegionProgress(int regionID)
+    {
+        if (!_regionHealthHistory.TryGetValue(regionID, out Queue<float> history) || history.Count < 2)
+            return 0f;
+
+        float oldest = history.Peek();
+        float newest = history.Last();
+        return newest - oldest;
+    }
 
     // =====================================================================
     // STEP 1 — SEED TILE
@@ -359,52 +415,12 @@ public class RegionManager : MonoBehaviour
         }
     }
 
-    private void AddNeighborsToCandidates(Vector2Int pos,
-        HashSet<Vector2Int> chosen, Dictionary<Vector2Int, int> candidates)
-    {
-        foreach (Vector2Int dir in Directions)
-        {
-            Vector2Int neighbor = pos + dir;
-            if (chosen.Contains(neighbor)) continue;
-            if (candidates.ContainsKey(neighbor)) continue;
-            if (tileManager.GetTile(neighbor.x, neighbor.y) != null) continue;
-            candidates[neighbor] = 1;
-        }
-    }
-
     private int CountChosenNeighbors(Vector2Int pos, HashSet<Vector2Int> chosen)
     {
         int count = 0;
         foreach (Vector2Int dir in Directions)
             if (chosen.Contains(pos + dir)) count++;
         return count;
-    }
-
-    private Vector2Int WeightedPick(Dictionary<Vector2Int, int> candidates, Vector2Int seed, float flowFalloff, float enclosureBonus)
-    {
-        float totalWeight = 0f;
-        foreach (var kvp in candidates)
-        {
-            float dist = Vector2Int.Distance(kvp.Key, seed);
-            float distWeight = 1f / Mathf.Pow(dist + 1f, flowFalloff);
-            float encWeight = enclosureBonus * Mathf.Max(1, kvp.Value);
-            totalWeight += distWeight + encWeight;
-        }
-
-        float roll = Random.Range(0f, totalWeight);
-        float cumulative = 0f;
-
-        foreach (var kvp in candidates)
-        {
-            float dist = Vector2Int.Distance(kvp.Key, seed);
-            float distWeight = 1f / Mathf.Pow(dist + 1f, flowFalloff);
-            float encWeight = enclosureBonus * Mathf.Max(1, kvp.Value);
-            cumulative += distWeight + encWeight;
-            if (cumulative >= roll) return kvp.Key;
-        }
-
-        foreach (var kvp in candidates) return kvp.Key;
-        return Vector2Int.zero;
     }
 
 
@@ -554,12 +570,12 @@ public class RegionManager : MonoBehaviour
 
             if (!villagesDone && Random.value <= profile.villageSpawnChance)
             {
-                tileManager.SpawnById(tile, "village");
+                tileManager.SpawnById(tile, EntityIds.Village);
                 villagesPlaced++;
             }
             else if (!factoriesDone && Random.value <= profile.factorySpawnChance)
             {
-                tileManager.SpawnById(tile, "factory");
+                tileManager.SpawnById(tile, EntityIds.Factory);
                 factoriesPlaced++;
             }
         }
@@ -581,26 +597,19 @@ public class RegionManager : MonoBehaviour
                 continue;
             }
 
-            // Data-driven spawn (arch §5.4). The profile's entityType strings are the legacy
-            // display names; map them to entityIds so existing RegionProfile assets keep working
-            // without re-keying. (If you re-author profiles to store entityIds directly, this
-            // mapping can collapse to a single SpawnById(tile, placement.entityType).)
-            switch (placement.entityType)
+            // Code-owned entity id plumbing (2026-07-07): designers author the exact displayName
+            // they see on the TileEntitySO; code derives the machine id at resolve time via
+            // TileEntitySO.GenerateId — never a hand-authored id string. Loud-warn and skip on a
+            // blank name or an unresolvable one (Law 3); SpawnById/EntityRegistry.Get already
+            // loud-fails a registry miss, so a blank check here just short-circuits the common typo.
+            if (string.IsNullOrWhiteSpace(placement.displayName))
             {
-                case "Seedling":     tileManager.SpawnById(tile, "tree_seedling"); break;
-                case "Sapling":      tileManager.SpawnById(tile, "tree_sapling");  break;
-                case "Mature Tree":  tileManager.SpawnById(tile, "tree_mature");   break;
-                case "DeadTree":     tileManager.SpawnById(tile, "deadtree");      break;
-                case "Stump":        tileManager.SpawnById(tile, "stump");         break;
-                case "Fire":         tileManager.SpawnById(tile, "fire");          break;
-                case "Village":      tileManager.SpawnById(tile, "village");       break;
-                case "Factory":      tileManager.SpawnById(tile, "factory");       break;
-                case "TrashBio":     tileManager.SpawnById(tile, "trash_bio");     break;
-                default:
-                    Debug.LogWarning($"RegionManager: Unknown forced entity type '{placement.entityType}'. " +
-                                     $"Valid types: Seedling, Sapling, Mature Tree, DeadTree, Stump, Fire, Village, Factory, TrashBio");
-                    break;
+                Debug.LogWarning($"RegionManager: ForcedEntityPlacement at {targetPos} has no displayName assigned — skipping.");
+                continue;
             }
+
+            string entityId = TileEntitySO.GenerateId(placement.displayName);
+            tileManager.SpawnById(tile, entityId);
         }
     }
 
@@ -621,17 +630,17 @@ public class RegionManager : MonoBehaviour
             if (tile.entity != null) continue; // already has a Village, Factory, etc.
 
             if (profile.matureTreeSpawnChance > 0f && Random.value < profile.matureTreeSpawnChance)
-            { tileManager.SpawnById(tile, "tree_mature"); placed++; }
+            { tileManager.SpawnById(tile, EntityIds.TreeMature); placed++; }
             else if (profile.saplingSpawnChance > 0f && Random.value < profile.saplingSpawnChance)
-            { tileManager.SpawnById(tile, "tree_sapling"); placed++; }
+            { tileManager.SpawnById(tile, EntityIds.TreeSapling); placed++; }
             else if (profile.seedlingSpawnChance > 0f && Random.value < profile.seedlingSpawnChance)
-            { tileManager.SpawnById(tile, "tree_seedling"); placed++; }
+            { tileManager.SpawnById(tile, EntityIds.TreeSeedling); placed++; }
             else if (profile.deadTreeSpawnChance > 0f && Random.value < profile.deadTreeSpawnChance)
-            { tileManager.SpawnById(tile, "deadtree"); placed++; }
+            { tileManager.SpawnById(tile, EntityIds.DeadTree); placed++; }
             else if (profile.stumpSpawnChance > 0f && Random.value < profile.stumpSpawnChance)
-            { tileManager.SpawnById(tile, "stump"); placed++; }
+            { tileManager.SpawnById(tile, EntityIds.Stump); placed++; }
             else if (profile.bioTrashSpawnChance > 0f && Random.value < profile.bioTrashSpawnChance)
-            { tileManager.SpawnById(tile, "trash_bio"); placed++; }
+            { tileManager.SpawnById(tile, EntityIds.TrashBio); placed++; }
         }
 
         if (showDebugInfo)

@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
   m_Name: trash_nonbio
   m_EditorClassIdentifier: 
-  entityId: trash_nonbio
   displayName: Non-Biodegradeable Trash
   category: 3
   tileSprite: {fileID: 21300000, guid: d5ebaa77aec4ed5489809a50fd402ac6, type: 3}

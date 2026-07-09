@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
   m_Name: sunflower_sapling
   m_EditorClassIdentifier: 
-  entityId: sunflower_sapling
   displayName: Sunflower Stem
   category: 0
   tileSprite: {fileID: 21300000, guid: 31462ff8dc8167f49beb82bdfbe9f05b, type: 3}

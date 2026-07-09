@@ -19,24 +19,28 @@ namespace Habitales.Entities
 
         private Dictionary<string, TileEntitySO> _byId;
 
+        // Keyed by each entity's derived EntityId (TileEntitySO.GenerateId(displayName)) —
+        // ids are never hand-authored (design decision 2026-07-07).
         public void Build()
         {
             _byId = new Dictionary<string, TileEntitySO>();
             foreach (var e in entities)
             {
-                if (e == null || string.IsNullOrEmpty(e.entityId)) continue;
-                _byId[e.entityId] = e;
+                if (e == null || string.IsNullOrEmpty(e.EntityId)) continue;
+                _byId[e.EntityId] = e;
             }
         }
 
-        // Lookup. A miss is a LOUD error (Law 3) — saved tiles referencing a missing id
-        // cannot rehydrate; never a silent skip.
-        public TileEntitySO Get(string entityId)
+        // Lookup. Accepts either a raw id OR a display name — both resolve through the same
+        // GenerateId slug, so callers can pass whichever they have. A miss is a LOUD error
+        // (Law 3) — saved tiles referencing a missing id cannot rehydrate; never a silent skip.
+        public TileEntitySO Get(string idOrDisplayName)
         {
             if (_byId == null) Build();
-            if (_byId.TryGetValue(entityId, out var so)) return so;
-            Debug.LogError($"EntityRegistry: no entity with id '{entityId}'. " +
-                           "Saved tiles referencing it cannot load — was the id renamed?", this);
+            string id = TileEntitySO.GenerateId(idOrDisplayName);
+            if (_byId.TryGetValue(id, out var so)) return so;
+            Debug.LogError($"EntityRegistry: no entity with id '{id}' (looked up from '{idOrDisplayName}'). " +
+                           "Saved tiles referencing it cannot load — was the display name renamed?", this);
             return null;
         }
 
@@ -45,7 +49,7 @@ namespace Habitales.Entities
         public bool ValidateAll()
         {
             bool ok = true;
-            var seen = new HashSet<string>();
+            var seen = new Dictionary<string, TileEntitySO>();
             foreach (var e in entities)
             {
                 if (e == null)
@@ -54,18 +58,22 @@ namespace Habitales.Entities
                     ok = false;
                     continue;
                 }
-                if (string.IsNullOrEmpty(e.entityId))
+                if (string.IsNullOrWhiteSpace(e.displayName))
                 {
-                    Debug.LogError($"EntityRegistry: '{e.name}' has a blank entityId.", e);
+                    Debug.LogError($"EntityRegistry: '{e.name}' has a blank displayName.", e);
                     ok = false;
                     continue;
                 }
-                if (!seen.Add(e.entityId))
+                string id = e.EntityId;
+                if (seen.TryGetValue(id, out var existing))
                 {
-                    Debug.LogError($"EntityRegistry: duplicate entityId '{e.entityId}' " +
-                                   $"(on '{e.name}'). entityIds must be project-unique.", e);
+                    Debug.LogError($"EntityRegistry: displayNames '{existing.displayName}' (on '{existing.name}') and " +
+                                   $"'{e.displayName}' (on '{e.name}') both derive the id '{id}' — display names must " +
+                                   "be unique enough that their slugs don't collide.", e);
                     ok = false;
+                    continue;
                 }
+                seen[id] = e;
             }
             Build();
             return ok;

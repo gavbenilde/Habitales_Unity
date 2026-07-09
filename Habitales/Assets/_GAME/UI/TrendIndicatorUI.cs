@@ -4,8 +4,8 @@ using UnityEngine.UI;
 namespace Habitales.UI
 {
     /// <summary>
-    /// Passive tiered trend arrow. The owner pushes a signed per-day delta via
-    /// <see cref="SetDelta"/>; this view buckets the magnitude into three tiers and swaps a
+    /// Passive tiered trend arrow. The owner pushes a signed per-day trend via
+    /// <see cref="SetTrend"/>; this view buckets the magnitude into three tiers and swaps a
     /// single <see cref="Image"/> to the matching sprite — six interchangeable slots
     /// (rising 1/2/3 + falling 1/2/3). It hides itself when the change is below tier 1
     /// (flat → no noise).
@@ -55,12 +55,12 @@ namespace Habitales.UI
         }
 
         /// <summary>
-        /// Pushes the current per-day delta. Positive = rising, negative = falling,
+        /// Pushes the current per-day trend. Positive = rising, negative = falling,
         /// |Δ| &lt; tier 1 = flat (hidden). Safe to call while the visuals root is inactive.
         /// </summary>
-        public void SetDelta(float delta)
+        public void SetTrend(float trend)
         {
-            float mag = Mathf.Abs(delta);
+            float mag = Mathf.Abs(trend);
 
             if (mag < _tier1Threshold)
             {
@@ -68,7 +68,7 @@ namespace Habitales.UI
                 return;
             }
 
-            bool rising = delta > 0f;
+            bool rising = trend > 0f;
             int  tier   = mag >= _tier3Threshold ? 3 : mag >= _tier2Threshold ? 2 : 1;
 
             if (_icon != null)
@@ -78,7 +78,7 @@ namespace Habitales.UI
             {
                 string dir  = rising ? "Improving" : "Declining";
                 string rate = tier == 3 ? " fast" : tier == 1 ? " slowly" : "";
-                _tooltip.SetText($"{dir}{rate} ({(rising ? "+" : "")}{delta:F1}/day)");
+                _tooltip.SetText($"{dir}{rate} ({(rising ? "+" : "")}{trend:F1}/day)");
             }
 
             SetVisible(true);

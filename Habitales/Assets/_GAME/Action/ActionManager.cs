@@ -91,6 +91,16 @@ public class ActionManager : MonoBehaviour
     }
 
     public bool IsActionRunning { get; private set; } = false;
+
+    // Handle + bookkeeping for the in-flight FinishAction coroutine — needed so
+    // AbortCurrentAction can both StopCoroutine it and run the same finalize path
+    // FinishAction would have run on a clean finish (fields captured at ExecuteAction time).
+    private Coroutine currentActionCoroutine;
+    private PlayerAction currentAction;
+    private List<Tile> currentTargetTiles;
+    private int currentAssignedPeople;
+    private int currentDaysPassed; // updated as each day resolves; read by an in-flight abort
+
     public List<PlayerAction> GetAvailableActions() => availableActions;
 
     public void ExecuteAction(PlayerAction action, List<Tile> targetTiles)
@@ -138,11 +148,18 @@ public class ActionManager : MonoBehaviour
             Debug.Log($"ACTION: {action.ActionName} | Tiles: {targetTiles.Count} | People: {availablePeople} | Days: {baseDays} → {days}");
 
         IsActionRunning = true;
-        DayNightCycleHandler dayNight = FindObjectOfType<DayNightCycleHandler>();
+        DayNightCycleHandler dayNight = DayNightCycleHandler.Instance;
         dayNight?.ResetForNewAction();
 
+        // Captured so an abort (which enters via a separate public method, not the coroutine
+        // itself) can run the same finalize path FinishAction uses on a clean finish.
+        currentAction         = action;
+        currentTargetTiles    = targetTiles;
+        currentAssignedPeople = availablePeople;
+        currentDaysPassed     = 0;
+
         // Pass assigned people into the Coroutine
-        StartCoroutine(FinishAction(rm, action, targetTiles, days, availablePeople));
+        currentActionCoroutine = StartCoroutine(FinishAction(rm, action, targetTiles, days, availablePeople));
     }
 
     private IEnumerator FinishAction(ResourceManager rm, PlayerAction action, List<Tile> targetTiles, int days, int assignedPeople)
@@ -151,7 +168,6 @@ public class ActionManager : MonoBehaviour
         int baseTilesPerDay  = totalTiles / days;
         int remainder        = totalTiles % days;
         int processedTiles   = 0;
-        int actualDaysPassed = 0; // Track days actually elapsed
 
         for (int day = 0; day < days; day++)
         {
@@ -175,18 +191,29 @@ public class ActionManager : MonoBehaviour
             // Then advance one day → heartbeat runs: entities tick, cascade (which now sees
             // the effects applied above), thresholds, visuals refresh, OnDayResolved (arch §2.1).
             yield return StartCoroutine(rm.AdvanceTimeStepped(1));
-            actualDaysPassed++;
+            currentDaysPassed++; // also read by AbortCurrentAction if it fires between days
         }
-        
-        int minRequiredTotal = targetTiles.Count * action.MinPeoplePerTile;
-        float exertion = (float)minRequiredTotal / assignedPeople;
-        
+
+        FinalizeAction(action, targetTiles, days, assignedPeople, currentDaysPassed, processedTiles, totalTiles, aborted: false);
+    }
+
+    /// <summary>
+    /// Shared tail of a clean finish and an abort: fatigue application, usage-count bookkeeping,
+    /// state reset, and the OnActionCompleted notification. Examine-result popups are
+    /// finish-only (see call sites) — showing "results" for tiles the action never touched
+    /// mid-abort would be misleading, so that block only runs from the clean-finish path.
+    /// </summary>
+    private void FinalizeAction(PlayerAction action, List<Tile> targetTiles, int days, int assignedPeople,
+        int actualDaysPassed, int processedTiles, int totalTiles, bool aborted)
+    {
         if (actualDaysPassed > 0)
         {
-            rm.ApplyFatigue(assignedPeople, actualDaysPassed, action.FatigueMultiplierPerTile, exertion);
+            int minRequiredTotal = targetTiles.Count * action.MinPeoplePerTile;
+            float exertion = (float)minRequiredTotal / assignedPeople;
+            ResourceManager.Instance?.ApplyFatigue(assignedPeople, actualDaysPassed, action.FatigueMultiplierPerTile, exertion);
         }
-        
-        if (ExamineResultPopupUI.Instance != null)
+
+        if (!aborted && ExamineResultPopupUI.Instance != null)
         {
             if (action is EcologicalSurveyAction)
                 ExamineResultPopupUI.Instance.ShowExamineResult(targetTiles, ExamineActionType.EcologicalSurvey);
@@ -195,15 +222,63 @@ public class ActionManager : MonoBehaviour
             else if (action is InspectTrashAction)
                 ExamineResultPopupUI.Instance.ShowExamineResult(targetTiles, ExamineActionType.InspectTrash);
         }
-        
+
         if (!actionUsageCounts.ContainsKey(action.ActionName))
             actionUsageCounts[action.ActionName] = 0;
         actionUsageCounts[action.ActionName]++;
 
-        IsActionRunning = false;
+        IsActionRunning         = false;
+        currentActionCoroutine  = null;
+        currentAction           = null;
+        currentTargetTiles      = null;
+        // Fired on abort too: every current subscriber tolerates it (RunManager's handler is a
+        // documented no-op; GameplayHudGate drives off IsActionRunning, not this event;
+        // DragGhostInset just decrements an onboarding replay counter — treating an aborted
+        // demo action as "completed" there is harmless). Firing it keeps UI/selection unblocked
+        // via the exact same path as a clean finish instead of a second bespoke one.
         OnActionCompleted?.Invoke(targetTiles[0], days);
 
         if (showDebugInfo)
-            Debug.Log($"✓ {action.ActionName} complete — {processedTiles}/{totalTiles} tiles processed.");
+        {
+            string tag = aborted ? "aborted" : "complete";
+            Debug.Log($"✓ {action.ActionName} {tag} — {processedTiles}/{totalTiles} tiles processed, {actualDaysPassed} day(s) resolved.");
+        }
+    }
+
+    /// <summary>
+    /// Aborts the in-flight multi-day action. Days already resolved keep their applied effects
+    /// (fatigue included, via the same FinalizeAction tail a clean finish uses); the remaining
+    /// days are cancelled. Intended for event interrupts that must reclaim the workforce
+    /// mid-action.
+    ///
+    /// Safety note: FinishAction only ever yields inside ResourceManager.AdvanceTimeStepped's
+    /// WaitUntil(DayNightCycleHandler.IsIdle) — a wait on a coroutine owned by
+    /// DayNightCycleHandler, not by this one. StopCoroutine here only stops OUR coroutine;
+    /// DayNightCycleHandler's own RunCycles keeps running independently and still flips IsIdle
+    /// back to true on its own, so nothing is left waiting forever and the day/night visuals
+    /// don't get stuck. Because FinishAction never yields mid-tile-processing (only between
+    /// days), stopping it can only ever land on a day boundary — exactly matching the
+    /// "days already resolved keep their effects" contract; there is no partial-day state to
+    /// unwind, so abort takes effect immediately rather than deferring to the next day boundary.
+    /// </summary>
+    public void AbortCurrentAction()
+    {
+        if (!IsActionRunning || currentActionCoroutine == null)
+        {
+            Debug.LogWarning("ActionManager.AbortCurrentAction: no action is currently running — nothing to abort.");
+            return;
+        }
+
+        StopCoroutine(currentActionCoroutine);
+
+        PlayerAction abortedAction = currentAction;
+        List<Tile> abortedTiles    = currentTargetTiles;
+        int assignedPeople         = currentAssignedPeople;
+        int daysPassed             = currentDaysPassed;
+
+        currentActionCoroutine = null;
+
+        FinalizeAction(abortedAction, abortedTiles, daysPassed, assignedPeople, daysPassed,
+            processedTiles: 0, totalTiles: abortedTiles.Count, aborted: true);
     }
 }

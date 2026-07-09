@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
   m_Name: legume_sapling
   m_EditorClassIdentifier: 
-  entityId: legume_sapling
   displayName: Legume Sapling
   category: 0
   tileSprite: {fileID: 21300000, guid: 706006a3692cd124f9f9d88ed22c40f1, type: 3}

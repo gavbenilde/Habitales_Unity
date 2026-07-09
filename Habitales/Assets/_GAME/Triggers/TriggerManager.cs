@@ -51,6 +51,14 @@ namespace Habitales.Triggers
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = true;
 
+        [Header("Action Interrupt")]
+        [Tooltip("When a popup batch starts while an action is mid-flight (e.g. the 'first_kaingin' " +
+                 "village-fire event raised during day resolution), abort the running action at the " +
+                 "day boundary before pausing for the event. Days already resolved keep their effects " +
+                 "(see ActionManager.AbortCurrentAction). Uncheck to let the action keep running " +
+                 "underneath the popup instead.")]
+        [SerializeField] private bool abortRunningActionOnPopup = true;
+
         // ─── Runtime state ────────────────────────────────────────────────────
 
         /// <summary>
@@ -64,6 +72,11 @@ namespace Habitales.Triggers
 
         // Pending popups that have not yet been presented.
         private readonly Queue<PopupSO> _queue = new Queue<PopupSO>();
+
+        // True while RunManager is resolving a day (2026-07-08 control-inversion): Fire()
+        // calls collect into _queue instead of presenting mid-tick; RunManager drains them
+        // as an explicit ordered heartbeat step (after visuals + the game-over check).
+        private bool _deferFires = false;
 
         // Track whether we panned the camera during this batch so we can return.
         private bool _pannedThisBatch = false;
@@ -97,14 +110,16 @@ namespace Habitales.Triggers
             // and game-over cleanup (HandleGameOver).
             ResourceManager rm = ResourceManager.Instance;
             if (rm != null)
-            {
                 rm.OnTimeAdvanced += RefreshGlobalContext;
-                rm.OnGameOver     += HandleGameOver;
-            }
             else
-            {
-                Debug.LogError("TriggerManager: ResourceManager.Instance is null in Start — context tokens won't refresh and HandleGameOver won't fire.", this);
-            }
+                Debug.LogError("TriggerManager: ResourceManager.Instance is null in Start — context tokens won't refresh.", this);
+
+            // Game-over signal moved to RunManager (2026-07-08 run-end rework) — RunManager
+            // is now the sole authority on when a run ends; ResourceManager.OnGameOver is gone.
+            if (RunManager.Instance != null)
+                RunManager.Instance.OnGameOverTriggered += HandleGameOver;
+            else
+                Debug.LogError("TriggerManager: RunManager.Instance is null in Start — the popup queue won't clear on game over.", this);
 
             // HOOK: OnRegionGenerated — subscribe for future reactive triggers tied
             // to region unlock events. No auto-fire logic here; author triggers in code.
@@ -121,10 +136,10 @@ namespace Habitales.Triggers
         void OnDestroy()
         {
             if (ResourceManager.Instance != null)
-            {
                 ResourceManager.Instance.OnTimeAdvanced -= RefreshGlobalContext;
-                ResourceManager.Instance.OnGameOver     -= HandleGameOver;
-            }
+
+            if (RunManager.Instance != null)
+                RunManager.Instance.OnGameOverTriggered -= HandleGameOver;
 
             if (RegionManager.Instance != null)
                 RegionManager.Instance.OnRegionGenerated -= HandleRegionGenerated;
@@ -159,9 +174,34 @@ namespace Habitales.Triggers
 
             _queue.Enqueue(popup);
 
-            if (!IsBusy)
+            // While a day is resolving, fires only COLLECT — RunManager drains the queue as
+            // an explicit heartbeat step once the day has settled (visuals refreshed,
+            // game-over checked). Outside that window, present immediately as before.
+            if (!IsBusy && !_deferFires)
                 ShowNextInQueue();
             // If IsBusy, the new entry sits in the queue and will play after the current one.
+        }
+
+        /// <summary>
+        /// Opens the per-day collection window (called by RunManager at the top of each
+        /// resolved day). Until <see cref="DrainDeferredFires"/>, Fire() enqueues silently.
+        /// </summary>
+        public void BeginDayResolution()
+        {
+            _deferFires = true;
+        }
+
+        /// <summary>
+        /// Closes the collection window and presents whatever the day queued (called by
+        /// RunManager as the last heartbeat step). No-ops when the queue is empty or a
+        /// batch is already on screen — and naturally no-ops after a game over, because
+        /// HandleGameOver has already cleared the queue.
+        /// </summary>
+        public void DrainDeferredFires()
+        {
+            _deferFires = false;
+            if (!IsBusy && _queue.Count > 0)
+                ShowNextInQueue();
         }
 
         /// <summary>
@@ -173,6 +213,7 @@ namespace Habitales.Triggers
             _firedIds.Clear();
             _queue.Clear();
             _pannedThisBatch = false;
+            _deferFires = false;
         }
 
         // ─── Queue management ─────────────────────────────────────────────────
@@ -215,7 +256,37 @@ namespace Habitales.Triggers
 
             // Batch pause — one pause for the whole queue, not per-popup.
             if (!IsBusy)
-                RunManager.Instance?.PauseForEvent();
+            {
+                // Mid-action interrupt: a popup batch starting while an action is running (e.g. the
+                // "first_kaingin" village fire event raised during day resolution) must reclaim the
+                // workforce before the pause takes hold, or ActionManager's entry-gate just blocks the
+                // NEXT action while this one keeps ticking underneath the popup. Abort at the day
+                // boundary — days already resolved keep their applied effects (see
+                // ActionManager.AbortCurrentAction for the full contract).
+                if (abortRunningActionOnPopup && ActionManager.Instance != null && ActionManager.Instance.IsActionRunning)
+                {
+                    Debug.Log("TriggerManager: event popup interrupted the running action — aborted at the day boundary.");
+                    if (RunManager.Instance != null)
+                        RunManager.Instance.AbortCurrentAction();
+                    else
+                        Debug.LogError("TriggerManager: RunManager.Instance is null — cannot abort the running action before this popup pauses the sim.", this);
+
+                    // The abort fires OnActionCompleted → RunManager.EvaluateGameOver — which can
+                    // end the run RIGHT HERE (an aborted final-day/collapsed-world action). Game
+                    // over trumps this popup: HandleGameOver (via OnGameOverTriggered) has already
+                    // cleared the queue; drop the dequeued popup and let the end flow own the screen.
+                    if (RunManager.Instance != null && RunManager.Instance.IsGameOver)
+                    {
+                        Debug.Log($"TriggerManager: '{p.eventName}' dropped — the aborted action ended the run; the end flow takes over.");
+                        return;
+                    }
+                }
+
+                if (RunManager.Instance != null)
+                    RunManager.Instance.PauseForEvent();
+                else
+                    Debug.LogError("TriggerManager: RunManager.Instance is null — cannot pause the simulation for this popup batch.", this);
+            }
             IsBusy = true;
 
             // Resolve lines and apply EventContext token substitution.

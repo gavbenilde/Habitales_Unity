@@ -1,32 +1,32 @@
 using System.Collections;
 using UnityEngine;
+using Habitales.Triggers;
 
 namespace Habitales.Onboarding
 {
     /// <summary>
     /// Fires the opening "Priority Zero" beat at run start. This is the seam that answers
-    /// "how does Priority Zero get on screen": the façade does NOT fire it — EventManager does,
-    /// and EventManager routes the presentation through the façade (NarrativePopupManager).
+    /// "how does Priority Zero get on screen": the façade does NOT fire it — TriggerManager does,
+    /// and TriggerManager routes the presentation through the popup pipeline.
     ///
     /// Flow:
     ///   OnboardingBootstrap.Start (run start)
-    ///     → EventManager.FireEventByID("priority_zero")        // the trigger
-    ///       → EventManager queues + pauses + resolves tokens
-    ///         → NarrativePopupManager.ShowHeadline(...)        // the presentation (façade)
-    ///           → EventPopupUI (the existing full-screen one-shot)
+    ///     → TriggerManager.Fire("priority_zero")                // the trigger
+    ///       → PopupCatalogSO.GetById("priority_zero") → PopupSO
+    ///         → UIManager.ShowPopup → PopupController           // the presentation
     ///
     /// Wiring (3 steps):
-    ///   1. On the Priority-Zero GameEventSO set: eventID = "priority_zero",
-    ///      triggerType = Manual, fireOnce = true (+ headline / bodyText / speaker / portrait).
-    ///   2. Add that SO to the GameEventRegistry that EventManager references.
-    ///   3. Put this component in the scene and assign the same SO to `openingEvent`.
+    ///   1. Author the Priority-Zero PopupSO with eventName = "priority_zero"
+    ///      (copy source: OnboardingContent's Beat-0 contract lines).
+    ///   2. Add that SO to the PopupCatalogSO that TriggerManager references.
+    ///   3. Put this component in the scene — openingEventId already defaults to "priority_zero".
     ///
     /// The OnboardingDirector (swarm work) will absorb this as its beat-0 step.
     /// </summary>
     public class OnboardingBootstrap : MonoBehaviour
     {
-        [Tooltip("The Priority-Zero GameEventSO. Must also be in EventManager's GameEventRegistry, triggerType = Manual.")]
-        [SerializeField] private GameEventSO openingEvent;
+        [Tooltip("Catalog id of the Priority-Zero PopupSO. Must exist in TriggerManager's PopupCatalogSO.")]
+        [SerializeField] private string openingEventId = "priority_zero";
 
         [Tooltip("Frames to wait before firing, so all managers + UI have initialized.")]
         [SerializeField] private int warmupFrames = 1;
@@ -38,9 +38,9 @@ namespace Habitales.Onboarding
 
         private void Start()
         {
-            if (openingEvent == null)
+            if (string.IsNullOrWhiteSpace(openingEventId))
             {
-                Debug.LogError($"{name}: OnboardingBootstrap has no openingEvent assigned — Priority Zero will not fire. Assign the Priority-Zero GameEventSO in the Inspector.", this);
+                Debug.LogError($"{name}: OnboardingBootstrap has no openingEventId set — Priority Zero will not fire. Set the catalog id in the Inspector.", this);
                 return;
             }
             StartCoroutine(FireAfterWarmup());
@@ -53,20 +53,20 @@ namespace Habitales.Onboarding
 
             if (fireOnce && s_fired) yield break;
 
-            if (EventManager.Instance == null)
+            if (TriggerManager.Instance == null)
             {
-                Debug.LogError($"{name}: EventManager.Instance is null — cannot fire '{openingEvent.eventID}'. Ensure an EventManager is in the scene.", this);
+                Debug.LogError($"{name}: TriggerManager.Instance is null — cannot fire '{openingEventId}'. Ensure a TriggerManager is in the scene.", this);
                 yield break;
             }
 
             s_fired = true;
-            EventManager.Instance.FireEventByID(openingEvent.eventID);
+            TriggerManager.Instance.Fire(openingEventId);
         }
 
         /// <summary>Test hook: re-fire Priority Zero (e.g. from a debug key).</summary>
         public void FireNow()
         {
-            if (openingEvent != null) EventManager.Instance?.FireEventByID(openingEvent.eventID);
+            if (!string.IsNullOrWhiteSpace(openingEventId)) TriggerManager.Instance?.Fire(openingEventId);
         }
     }
 }

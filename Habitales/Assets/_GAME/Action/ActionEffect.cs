@@ -49,7 +49,7 @@ namespace Habitales.Actions
                     // Mirror the dominant existing pattern (PlantTreesAction): never overwrite
                     // an occupied tile. Authors wanting replacement use a CustomBehavior hook.
                     if (entityToPlace != null && tile.entity == null)
-                        tileManager.SpawnById(tile, entityToPlace.entityId);
+                        tileManager.SpawnById(tile, entityToPlace.EntityId);
                     break;
 
                 case ActionEffectType.CustomBehavior:

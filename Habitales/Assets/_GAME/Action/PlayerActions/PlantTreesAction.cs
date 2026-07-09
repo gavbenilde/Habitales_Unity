@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Habitales.Entities;
 
 public class PlantTreesAction : PlayerAction
 {
@@ -15,7 +16,7 @@ public class PlantTreesAction : PlayerAction
     public override bool CanExecute(List<Tile> tiles)
     {
         foreach (Tile tile in tiles)
-            if (tile.entity != null && tile.entity.entityId == "factory")
+            if (tile.entity != null && tile.entity.entityId == EntityIds.Factory)
                 return false;
         return base.CanExecute(tiles);
     }
@@ -24,7 +25,7 @@ public class PlantTreesAction : PlayerAction
     {
         if (tile == null) return;
         if (tile.entity == null)
-            tileManager.SpawnById(tile, "tree_seedling");
+            tileManager.SpawnById(tile, EntityIds.TreeSeedling);
         Debug.Log($"Planted at {tile.gridPosition}.");
     }
 }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using ArtificeToolkit.Attributes;
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -13,7 +14,15 @@ using UnityEngine.Events;
 /// Wire-up (Law 3): drop this on a "WeatherVFX" GameObject, add one binding per WeatherState,
 /// drag the particle systems / godray volumes / storm-cloud objects into <c>enableObjects</c>,
 /// and (optionally) wire <c>onWeatherEntered</c> to a bespoke effect in the Inspector — no code.
+///
+/// <para><b>[ArtificeIgnore]</b> forces Unity's stock inspector for this component. ArtificeToolkit's
+/// custom list drawer assumes every list element is a <c>Component</c> and calls
+/// <c>GetComponent(elementType)</c> on anything dropped onto the list — dropping a GameObject onto the
+/// <c>bindings</c> list (whose element <see cref="WeatherVFXBinding"/> is a plain [Serializable] class,
+/// not a Component) throws <c>ArgumentException: GetComponent requires … derives from Component</c>.
+/// The default inspector handles nested-class lists correctly, so we opt this one component out.</para>
 /// </summary>
+[ArtificeIgnore]
 public class WeatherVFXController : MonoBehaviour
 {
     [System.Serializable]

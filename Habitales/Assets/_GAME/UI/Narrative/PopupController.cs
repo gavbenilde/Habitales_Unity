@@ -38,9 +38,8 @@ namespace Habitales.UI
     // DOES NOT touch RunManager.PauseForEvent — UIManager owns the pause gate.
     // PopupController is pure presentation.
     //
-    // S2: popup-presentation logic lives ONLY here. NarrativePopupManager is the
-    // existing facade that routes EventManager calls into the legacy EventPopupUI
-    // path — do not duplicate logic between both.
+    // S2: popup-presentation logic lives ONLY here. NarrativePopupManager is a thin
+    // facade that routes into this controller — do not duplicate logic between both.
     //
     // Edited 2026-06-30 (WO-1): thread paging, PopupSO resolver, collapsed view.
     // ─────────────────────────────────────────────────────────────────────────

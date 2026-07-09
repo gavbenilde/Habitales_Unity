@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
   m_Name: phyto_sapling
   m_EditorClassIdentifier: 
-  entityId: phyto_sapling
   displayName: Rinorea Sapling
   category: 0
   tileSprite: {fileID: 21300000, guid: b06c63243921d7f42902f6bbf570a037, type: 3}

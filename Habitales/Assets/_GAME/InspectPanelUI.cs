@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Text;
+using Habitales.UI;   // IUISubsystem
 
 /// <summary>
 /// Always-on side panel. Listens to TileSelector and populates from the
@@ -11,8 +12,25 @@ using System.Text;
 /// Hide() is intentionally a no-op so external callers can't deactivate it.
 /// Each substat row has a pre-built Image that lerps green → red via LerpHSV.
 /// </summary>
-public class InspectPanelUI : MonoBehaviour
+public class InspectPanelUI : MonoBehaviour, IUISubsystem
 {
+    // ── IUISubsystem ─────────────────────────────────────────────────────────
+    //
+    // Hide() (below) is deliberately a no-op — a prototype decision that the panel
+    // is always on for gameplay callers (InspectModeManager, legacy ActionUI).
+    // SetVisible, by contrast, is the hub's hide-ALL-UI path for clean end-report
+    // screenshots — it must genuinely toggle panelRoot even though Hide() won't,
+    // otherwise the panel would be stuck on-screen during a screenshot. The two
+    // are separate concerns: Hide() is a gameplay no-op, SetVisible is the hub's
+    // master-visibility switch.
+
+    public string SubsystemId => "inspectPanel";
+    public bool   IsVisible   => panelRoot != null && panelRoot.activeSelf;
+    public void   SetVisible(bool visible)
+    {
+        if (panelRoot != null) panelRoot.SetActive(visible);
+    }
+
     [Header("Panel Root")]
     [SerializeField] private GameObject panelRoot;
 
@@ -26,6 +44,10 @@ public class InspectPanelUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI healthValueText;
     [SerializeField] private TextMeshProUGUI healthStatusText;
     [SerializeField] private Image healthBarFill; // optional, can be null
+
+    [Header("Entity")]
+    [Tooltip("Optional: shows the selected tile's entity display name (TileEntitySO.displayName). Blank when the tile is empty.")]
+    [SerializeField] private TextMeshProUGUI entityNameText; // optional, can be null
 
     [Header("Issues Section")]
     [SerializeField] private GameObject issuesSectionRoot;
@@ -105,6 +127,7 @@ public class InspectPanelUI : MonoBehaviour
         healthValueText.text  = "—";
         healthStatusText.text = "";
         if (healthBarFill != null) healthBarFill.fillAmount = 0f;
+        if (entityNameText != null) entityNameText.text = "";
     }
 
     // ── Main populate ────────────────────────────────────────────────────────
@@ -116,6 +139,7 @@ public class InspectPanelUI : MonoBehaviour
         emptyStateRoot.SetActive(false);
 
         PopulateHealth(tile);
+        PopulateEntity(tile);
         PopulateIssues(tile);
         PopulateSubstats(tile);
     }
@@ -145,6 +169,17 @@ public class InspectPanelUI : MonoBehaviour
 
         if (healthBarFill != null)
             healthBarFill.fillAmount = Mathf.Clamp01(health / 100f);
+    }
+
+    // The designated runtime consumer of TileEntitySO.displayName: the panel names
+    // whatever occupies the tile, or clears the label when the tile is empty.
+    private void PopulateEntity(Tile tile)
+    {
+        if (entityNameText == null) return;
+
+        entityNameText.text = (tile.entity != null && tile.entity.def != null)
+            ? tile.entity.def.displayName
+            : "";
     }
 
     private void PopulateIssues(Tile tile)

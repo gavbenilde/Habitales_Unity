@@ -1,17 +1,42 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
 using Habitales.Dialogue;
+using Habitales.Meta;
+using Habitales.UI;   // IUISubsystem
 
 /// <summary>
 /// Full-screen end-game panel. Add to your existing Canvas at a high Sort Order.
-/// Mirrors EventPopupUI in structure: singleton, Show(data) / Hide().
+/// Structure: singleton, Show(data) / Hide().
 /// Has a minimize button so the player can peek at the map without closing.
 /// </summary>
-public class EndGameScreenUI : MonoBehaviour
+public class EndGameScreenUI : MonoBehaviour, IUISubsystem
 {
+    // ── IUISubsystem ─────────────────────────────────────────────────────────
+    //
+    // Maps straight onto the existing overlayPanel root toggle that Show()/Hide()
+    // already drive — SetVisible(true) does NOT call Show(data) (no data to show,
+    // and re-triggering the staged reveal ceremony from a screenshot restore
+    // would be wrong), it only reactivates whatever was already populated and
+    // on-screen. SetVisible(false) does not go through Hide() either, because
+    // Hide() also calls StopReveal() (cancels the in-flight reveal coroutine +
+    // tweens) — a mid-ceremony hide-all-for-screenshot should not kill the
+    // reveal, it should resume exactly where it left off once restored. So
+    // SetVisible is a passive SetActive on overlayPanel only, leaving the reveal
+    // coroutine (which mutates its own elements regardless of overlayPanel's
+    // active state) running untouched underneath.
+
+    public string SubsystemId => "endGameScreen";
+    public bool   IsVisible   => overlayPanel != null && overlayPanel.activeSelf;
+    public void   SetVisible(bool visible)
+    {
+        if (overlayPanel != null) overlayPanel.SetActive(visible);
+    }
+
     public static EndGameScreenUI Instance { get; private set; }
 
     [Header("Panel Roots")]
@@ -22,6 +47,26 @@ public class EndGameScreenUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI endReasonText;
     [SerializeField] private TextMeshProUGUI worldHealthText;
     [SerializeField] private TextMeshProUGUI yearDayText;
+
+    [Header("Grade Stamp (OPTIONAL — screen still works unwired, see Show())")]
+    [Tooltip("Root of the grade-stamp element. Placeholder = TMP text in a bordered box; final art swaps into this slot.")]
+    [SerializeField] private GameObject      gradeStampRoot;
+    [SerializeField] private TextMeshProUGUI gradeStampText;
+    [SerializeField] private string          gradeStampTemplate = "HQ rates this expedition: {0}";
+
+    [Header("Season Sparkline (OPTIONAL — screen still works unwired, see Show())")]
+    [Tooltip("Renders data.healthHistory with a peak-day marker at data.peakAtDay. Reveals right before the grade stamp.")]
+    [SerializeField] private HealthSparklineUI seasonSparkline;
+
+    [Header("Presentation Variants")]
+    [Tooltip("Applied when data.seasonGrade == SeasonGrade.Collapse.")]
+    [SerializeField] private EndScreenStyle collapseStyle = new EndScreenStyle();
+    [Tooltip("Applied for every non-Collapse grade (Season Complete).")]
+    [SerializeField] private EndScreenStyle seasonCompleteStyle = new EndScreenStyle();
+    [Tooltip("Optional — tinted by the active style's headerTint. Leave null to skip.")]
+    [SerializeField] private Image headerBackground;
+    [Tooltip("Optional — swapped to the active style's aziMood sprite. Leave null to skip.")]
+    [SerializeField] private Image aziMoodImage;
 
     [Header("Zone Pills")]
     [SerializeField] private Transform  zonePillContainer;
@@ -66,8 +111,37 @@ public class EndGameScreenUI : MonoBehaviour
     [SerializeField] private LevelUpScreenUI     levelUpScreen;
     [SerializeField] private PlayerProgressionSO playerProgression;
 
+    [Header("Staged Reveal Ceremony")]
+    [Tooltip("When true, Show() plays the staged reveal coroutine. When false, everything lands instantly (skip state).")]
+    [SerializeField] private bool playStagedReveal = true;
+    [Tooltip("Optional — an invisible full-rect Button over the panel that skips the reveal on click. Leave null to disable click-to-skip.")]
+    [SerializeField] private Button skipCatcherButton;
+    [SerializeField] private float zonePillStaggerSeconds = 0.15f;
+    [SerializeField] private float tileCountCountUpSeconds = 0.5f;
+    [SerializeField] private float snapshotFadeSeconds = 0.4f;
+    [SerializeField] private float employeeSlideSeconds = 0.45f;
+    [SerializeField] private float sillyStatsFadeSeconds = 0.3f;
+    [SerializeField] private float sparklineFadeSeconds = 0.3f;
+    [SerializeField] private float gradeStampPunchSeconds = 0.5f;
+
     private bool isMinimized;
     private EndGameData _lastData;
+    private Coroutine _revealRoutine;
+    private bool _revealInProgress;
+    private bool _gradeStampWarned;
+    private bool _sparklineWarned;
+
+    // -------------------------------------------------------------------------
+    // Presentation style block
+    // -------------------------------------------------------------------------
+
+    [Serializable]
+    public class EndScreenStyle
+    {
+        public Color  headerTint       = Color.white;
+        public Sprite aziMood;
+        public bool   showCelebration  = true;
+    }
 
     // -------------------------------------------------------------------------
     // Lifecycle
@@ -85,6 +159,7 @@ public class EndGameScreenUI : MonoBehaviour
         if (minimizeButton       != null) minimizeButton.onClick.AddListener(ToggleMinimize);
         if (playAgainButton      != null) playAgainButton.onClick.AddListener(OnPlayAgain);
         if (exitToMainMenuButton != null) exitToMainMenuButton.onClick.AddListener(OnExitToMainMenu);
+        if (skipCatcherButton    != null) skipCatcherButton.onClick.AddListener(SkipReveal);
     }
 
     private void OnDisable()
@@ -92,6 +167,7 @@ public class EndGameScreenUI : MonoBehaviour
         if (minimizeButton       != null) minimizeButton.onClick.RemoveListener(ToggleMinimize);
         if (playAgainButton      != null) playAgainButton.onClick.RemoveListener(OnPlayAgain);
         if (exitToMainMenuButton != null) exitToMainMenuButton.onClick.RemoveListener(OnExitToMainMenu);
+        if (skipCatcherButton    != null) skipCatcherButton.onClick.RemoveListener(SkipReveal);
     }
 
     // -------------------------------------------------------------------------
@@ -117,15 +193,30 @@ public class EndGameScreenUI : MonoBehaviour
             return;
         }
 
+        StopReveal();
+
         _lastData = data;
         Populate(data);
+        ApplyPresentationStyle(data);
         isMinimized = false;
         fullContent.SetActive(true);
         overlayPanel.SetActive(true);
+
+        if (skipCatcherButton != null) skipCatcherButton.gameObject.SetActive(playStagedReveal);
+
+        if (playStagedReveal)
+        {
+            _revealRoutine = StartCoroutine(PlayRevealCeremony(data));
+        }
+        else
+        {
+            FinishReveal(data);
+        }
     }
 
     public void Hide()
     {
+        StopReveal();
         overlayPanel.SetActive(false);
     }
 
@@ -135,7 +226,7 @@ public class EndGameScreenUI : MonoBehaviour
 
     private void ToggleMinimize()
     {
-        bool showing = !fullContent.activeSelf; 
+        bool showing = !fullContent.activeSelf;
         fullContent.SetActive(showing);
         minimizeButton.GetComponentInChildren<TextMeshProUGUI>().text = showing ? "−" : "+";
     }
@@ -203,6 +294,30 @@ public class EndGameScreenUI : MonoBehaviour
 
         // Footer
         researchPointsText.text = $"{data.researchPoints} RP";
+
+        // Season sparkline — OPTIONAL-with-warning (Law 3 exception): this screen is already
+        // live in-scene, so a missing sparkline ref must degrade gracefully, not brick Show().
+        if (seasonSparkline != null)
+        {
+            seasonSparkline.SetHistory(data.healthHistory ?? new List<float>(), data.peakAtDay);
+        }
+        else if (!_sparklineWarned)
+        {
+            _sparklineWarned = true;
+            Debug.LogWarning("[EndGameScreenUI] seasonSparkline is not wired — the season sparkline will not display. Drag a HealthSparklineUI into the Season Sparkline section (screen will otherwise still function).", this);
+        }
+
+        // Grade stamp — OPTIONAL-with-warning (Law 3 exception): this screen is already
+        // live in-scene, so a missing stamp ref must degrade gracefully, not brick Show().
+        if (gradeStampText != null)
+        {
+            gradeStampText.text = string.Format(gradeStampTemplate, data.seasonGrade);
+        }
+        else if (!_gradeStampWarned)
+        {
+            _gradeStampWarned = true;
+            Debug.LogWarning("[EndGameScreenUI] gradeStampText is not wired — the season grade will not display. Drag a TMP_Text into the Grade Stamp section (screen will otherwise still function).", this);
+        }
     }
 
     private void PopulateWorker(Worker worker)
@@ -240,4 +355,357 @@ public class EndGameScreenUI : MonoBehaviour
 
     private static string Coalesce(string value) =>
         string.IsNullOrEmpty(value) ? "—" : value;
+
+    // -------------------------------------------------------------------------
+    // Presentation variants — Collapse vs Season Complete
+    // -------------------------------------------------------------------------
+
+    private EndScreenStyle ActiveStyle(EndGameData data) =>
+        data.seasonGrade == SeasonGrade.Collapse ? collapseStyle : seasonCompleteStyle;
+
+    private void ApplyPresentationStyle(EndGameData data)
+    {
+        var style = ActiveStyle(data);
+
+        if (headerBackground != null)
+            headerBackground.color = style.headerTint;
+
+        if (aziMoodImage != null)
+        {
+            if (style.aziMood != null)
+            {
+                aziMoodImage.sprite = style.aziMood;
+                aziMoodImage.gameObject.SetActive(true);
+            }
+            else
+            {
+                aziMoodImage.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Staged reveal ceremony — zone pills stagger in, tile counts count up, snapshot
+    // fades, Employee of the Year slides in, silly stats fade in, season sparkline
+    // fades in, grade stamp lands last with a scale-punch. Click-to-skip jumps straight
+    // to FinishReveal(), which the coroutine itself also calls at the end — every
+    // element must land on identical final values whichever path runs. Sim is paused
+    // during this screen, so every tween/wait uses unscaled time.
+    // -------------------------------------------------------------------------
+
+    private void StopReveal()
+    {
+        if (_revealRoutine != null)
+        {
+            StopCoroutine(_revealRoutine);
+            _revealRoutine = null;
+        }
+        _revealInProgress = false;
+
+        // Cancel any in-flight tweens on everything the ceremony touches so a re-Show
+        // starts clean.
+        if (zonePillContainer != null) LeanTween.cancel(zonePillContainer.gameObject, true);
+        if (snapshotImage     != null) LeanTween.cancel(snapshotImage.gameObject);
+        if (workerNameText    != null) LeanTween.cancel(workerNameText.gameObject);
+        if (favouriteActionText != null) LeanTween.cancel(favouriteActionText.gameObject);
+        if (seasonSparkline   != null) LeanTween.cancel(seasonSparkline.gameObject);
+        if (gradeStampRoot    != null) LeanTween.cancel(gradeStampRoot);
+    }
+
+    private void SkipReveal()
+    {
+        if (!_revealInProgress || _lastData == null) return;
+        StopReveal();
+        FinishReveal(_lastData);
+    }
+
+    private IEnumerator PlayRevealCeremony(EndGameData data)
+    {
+        _revealInProgress = true;
+        bool celebrate = ActiveStyle(data).showCelebration;
+
+        // Start everything hidden/zeroed; FinishReveal (skip path) sets these same
+        // elements directly to final values, so the "start" state below must be the
+        // only place pre-reveal values are set.
+        SetZonePillsVisible(false);
+        SetTileCountsTo(0, 0, 0);
+        SetSnapshotAlpha(0f);
+        SetEmployeeAlpha(0f);
+        SetSillyStatsAlpha(0f);
+        SetSparklineAlpha(0f);
+        SetGradeStampHidden(celebrate);
+
+        // Zone pills — sequential stagger.
+        var pills = GetZonePills();
+        foreach (var pill in pills)
+        {
+            if (pill == null) continue;
+            pill.gameObject.SetActive(true);
+            yield return WaitUnscaled(zonePillStaggerSeconds);
+        }
+
+        // Tile-tier counts — unscaled count-up.
+        yield return CountUpTileCounts(data);
+
+        // Peak snapshot fade-in.
+        yield return FadeUnscaled(snapshotImage != null ? snapshotImage.gameObject : null, snapshotFadeSeconds, SetSnapshotAlpha);
+
+        // Employee of the Year — slide + fade.
+        yield return SlideInEmployee();
+
+        // Silly stats.
+        yield return FadeUnscaled(favouriteActionText != null ? favouriteActionText.gameObject : null, sillyStatsFadeSeconds, SetSillyStatsAlpha);
+
+        // Season sparkline — fades in right before the grade stamp.
+        yield return FadeUnscaled(seasonSparkline != null ? seasonSparkline.gameObject : null, sparklineFadeSeconds, SetSparklineAlpha);
+
+        // Grade stamp lands last.
+        if (celebrate)
+            yield return PunchInGradeStamp();
+        else
+            yield return FadeInGradeStampSomber();
+
+        _revealInProgress = false;
+        _revealRoutine = null;
+    }
+
+    /// <summary>
+    /// Idempotent — jumps every element the coroutine touches straight to its final,
+    /// fully-revealed value. Called both by SkipReveal() and at the natural end of a
+    /// non-staged Show() (playStagedReveal == false).
+    /// </summary>
+    private void FinishReveal(EndGameData data)
+    {
+        SetZonePillsVisible(true);
+        SetTileCountsTo(data.thrivingCount, data.degradedCount, data.criticalCount);
+        SetSnapshotAlpha(1f);
+        SetEmployeeAlpha(1f);
+        SetEmployeeOffset(0f);
+        SetSillyStatsAlpha(1f);
+        SetSparklineAlpha(1f);
+        SetGradeStampFinal();
+        _revealInProgress = false;
+    }
+
+    // ── Zone pills ─────────────────────────────────────────────────────
+
+    private List<Transform> GetZonePills()
+    {
+        var list = new List<Transform>();
+        if (zonePillContainer == null) return list;
+        foreach (Transform child in zonePillContainer)
+            list.Add(child);
+        return list;
+    }
+
+    private void SetZonePillsVisible(bool visible)
+    {
+        foreach (var pill in GetZonePills())
+            if (pill != null) pill.gameObject.SetActive(visible);
+    }
+
+    // ── Tile counts ────────────────────────────────────────────────────
+
+    private void SetTileCountsTo(int thriving, int degraded, int critical)
+    {
+        if (thrivingCountText != null) thrivingCountText.text = thriving.ToString();
+        if (degradedCountText != null) degradedCountText.text = degraded.ToString();
+        if (criticalCountText != null) criticalCountText.text = critical.ToString();
+    }
+
+    private IEnumerator CountUpTileCounts(EndGameData data)
+    {
+        float elapsed = 0f;
+        while (elapsed < tileCountCountUpSeconds)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / tileCountCountUpSeconds);
+            SetTileCountsTo(
+                Mathf.RoundToInt(Mathf.Lerp(0, data.thrivingCount, t)),
+                Mathf.RoundToInt(Mathf.Lerp(0, data.degradedCount, t)),
+                Mathf.RoundToInt(Mathf.Lerp(0, data.criticalCount, t)));
+            yield return null;
+        }
+        SetTileCountsTo(data.thrivingCount, data.degradedCount, data.criticalCount);
+    }
+
+    // ── Snapshot ───────────────────────────────────────────────────────
+
+    private void SetSnapshotAlpha(float a)
+    {
+        if (snapshotImage == null) return;
+        var c = snapshotImage.color;
+        c.a = a;
+        snapshotImage.color = c;
+    }
+
+    // ── Employee of the Year ──────────────────────────────────────────
+
+    private void SetEmployeeAlpha(float a)
+    {
+        SetTextAlpha(workerNameText, a);
+        SetTextAlpha(workerTraitText, a);
+        SetTextAlpha(workerActionsText, a);
+        if (workerPortraitImage != null) SetImageAlpha(workerPortraitImage, a);
+        if (workerInitialBg     != null) SetImageAlpha(workerInitialBg, a);
+        SetTextAlpha(workerInitialText, a);
+    }
+
+    private void SetEmployeeOffset(float xOffset)
+    {
+        if (workerNameText == null) return;
+        var rt = workerNameText.rectTransform.parent as RectTransform;
+        if (rt == null) return;
+        var pos = rt.anchoredPosition;
+        pos.x = xOffset;
+        rt.anchoredPosition = pos;
+    }
+
+    private IEnumerator SlideInEmployee()
+    {
+        if (workerNameText == null)
+        {
+            SetEmployeeAlpha(1f);
+            yield break;
+        }
+
+        var rt = workerNameText.rectTransform.parent as RectTransform;
+        float startX = rt != null ? -60f : 0f;
+        SetEmployeeOffset(startX);
+
+        float elapsed = 0f;
+        while (elapsed < employeeSlideSeconds)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / employeeSlideSeconds);
+            float eased = 1f - Mathf.Pow(1f - t, 3f); // easeOutCubic, unscaled-manual
+            SetEmployeeAlpha(eased);
+            SetEmployeeOffset(Mathf.Lerp(startX, 0f, eased));
+            yield return null;
+        }
+        SetEmployeeAlpha(1f);
+        SetEmployeeOffset(0f);
+    }
+
+    // ── Silly stats ────────────────────────────────────────────────────
+
+    private void SetSillyStatsAlpha(float a)
+    {
+        SetTextAlpha(favouriteActionText, a);
+        SetTextAlpha(mostAvoidedText, a);
+        SetTextAlpha(mostChattedText, a);
+    }
+
+    // ── Season sparkline ───────────────────────────────────────────────
+
+    private void SetSparklineAlpha(float a)
+    {
+        if (seasonSparkline == null) return;
+        var cg = GetOrAddCanvasGroup(seasonSparkline.gameObject);
+        cg.alpha = a;
+    }
+
+    // ── Grade stamp ────────────────────────────────────────────────────
+
+    private void SetGradeStampHidden(bool willPunch)
+    {
+        if (gradeStampRoot == null) return;
+        gradeStampRoot.SetActive(true);
+        var cg = GetOrAddCanvasGroup(gradeStampRoot);
+        cg.alpha = 0f;
+        gradeStampRoot.transform.localScale = willPunch ? Vector3.one * 1.6f : Vector3.one;
+    }
+
+    private void SetGradeStampFinal()
+    {
+        if (gradeStampRoot == null) return;
+        gradeStampRoot.SetActive(true);
+        var cg = GetOrAddCanvasGroup(gradeStampRoot);
+        cg.alpha = 1f;
+        gradeStampRoot.transform.localScale = Vector3.one;
+    }
+
+    private IEnumerator PunchInGradeStamp()
+    {
+        if (gradeStampRoot == null) yield break;
+
+        var cg = GetOrAddCanvasGroup(gradeStampRoot);
+        LeanTween.value(gradeStampRoot, 0f, 1f, gradeStampPunchSeconds)
+            .setOnUpdate(v => cg.alpha = v)
+            .setEase(LeanTweenType.easeOutQuad)
+            .setIgnoreTimeScale(true);
+
+        bool done = false;
+        LeanTween.scale(gradeStampRoot, Vector3.one, gradeStampPunchSeconds)
+            .setEase(LeanTweenType.easeOutBack)
+            .setIgnoreTimeScale(true)
+            .setOnComplete(() => done = true);
+
+        while (!done) yield return null;
+        SetGradeStampFinal();
+    }
+
+    private IEnumerator FadeInGradeStampSomber()
+    {
+        if (gradeStampRoot == null) yield break;
+
+        var cg = GetOrAddCanvasGroup(gradeStampRoot);
+        bool done = false;
+        LeanTween.value(gradeStampRoot, 0f, 1f, gradeStampPunchSeconds)
+            .setOnUpdate(v => cg.alpha = v)
+            .setEase(LeanTweenType.easeInOutQuad)
+            .setIgnoreTimeScale(true)
+            .setOnComplete(() => done = true);
+
+        while (!done) yield return null;
+        SetGradeStampFinal();
+    }
+
+    private static CanvasGroup GetOrAddCanvasGroup(GameObject go)
+    {
+        var cg = go.GetComponent<CanvasGroup>();
+        if (cg == null) cg = go.AddComponent<CanvasGroup>();
+        return cg;
+    }
+
+    // ── Small shared helpers ───────────────────────────────────────────
+
+    private static void SetTextAlpha(TextMeshProUGUI text, float a)
+    {
+        if (text == null) return;
+        var c = text.color;
+        c.a = a;
+        text.color = c;
+    }
+
+    private static void SetImageAlpha(Image image, float a)
+    {
+        var c = image.color;
+        c.a = a;
+        image.color = c;
+    }
+
+    private IEnumerator FadeUnscaled(GameObject target, float seconds, Action<float> setAlpha)
+    {
+        if (target == null) { setAlpha(1f); yield break; }
+
+        float elapsed = 0f;
+        while (elapsed < seconds)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            setAlpha(Mathf.Clamp01(elapsed / seconds));
+            yield return null;
+        }
+        setAlpha(1f);
+    }
+
+    private IEnumerator WaitUnscaled(float seconds)
+    {
+        float elapsed = 0f;
+        while (elapsed < seconds)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+    }
 }

@@ -45,6 +45,29 @@ public class RegionOutlineRenderer : MonoBehaviour
         BuildRenderObjects();
     }
 
+    void OnEnable()
+    {
+        // Mirror the World Trend cadence: RegionManager recomputes each region's health
+        // and trend on OnDayResolved, but this panel is only pushed on selection. Subscribe
+        // so the *currently-selected* region's bar + trend arrow refresh every resolved day
+        // instead of freezing at their select-time value (Law 2 — push on meaning).
+        if (RunManager.Instance != null)
+            RunManager.Instance.OnDayResolved += HandleDayResolved;
+    }
+
+    void OnDisable()
+    {
+        if (RunManager.Instance != null)
+            RunManager.Instance.OnDayResolved -= HandleDayResolved;
+    }
+
+    private void HandleDayResolved(int day)
+    {
+        // Only the selected region has a visible panel to refresh.
+        if (isActive && currentRegionID >= 0)
+            RefreshRegionUI(currentRegionID);
+    }
+
     void BuildRenderObjects()
     {
         outlineGO = new GameObject("RegionOutlineMesh");
@@ -96,29 +119,35 @@ public class RegionOutlineRenderer : MonoBehaviour
         Mesh mesh = RegionBoundaryMeshBuilder.Build(regionTiles, tileManager, outlineWidth, yOffset);
         meshFilter.mesh = mesh;
 
-        // Determine health and dynamically shift outline color from Black (0) to White (100)
-        float avgHealth = 0f;
-        if (regionManager != null)
-        {
-            avgHealth = regionManager.GetRegionHealth(regionID);
-            
-            float t = avgHealth / 100f;
-            if (outlineMaterial != null)
-            {
-                // Health scale in Habitales is 0 to 100, so we divide by 100f for Lerp
-                t = Mathf.Pow(t, 2f); // try 2, 2.5, or 3
-
-                Color dynamicHealthColor = Color.Lerp(Color.red, Color.green, t);
-                outlineMaterial.color = dynamicHealthColor;
-            }
-        }
-
         outlineGO.SetActive(true);
 
-        if (regionHealthUI != null && regionManager != null)
+        RefreshRegionUI(regionID);
+    }
+
+    /// <summary>
+    /// Recomputes the region's current health + trend and pushes them to the outline
+    /// color and the RegionHealthUI panel (bar + trend arrow). Called on selection and
+    /// on every resolved day while the region stays selected, so the panel tracks live
+    /// values instead of freezing at its select-time snapshot.
+    /// </summary>
+    private void RefreshRegionUI(int regionID)
+    {
+        if (regionManager == null) return;
+
+        float avgHealth = regionManager.GetRegionHealth(regionID);
+
+        // Dynamically shift the outline color from red (0) to green (100).
+        if (outlineMaterial != null)
         {
-            float delta = regionManager.GetRegionHealthDelta(regionID);
-            regionHealthUI.Show(regionID, avgHealth, delta);
+            // Health scale in Habitales is 0 to 100, so we divide by 100f for Lerp
+            float t = Mathf.Pow(avgHealth / 100f, 2f); // try 2, 2.5, or 3
+            outlineMaterial.color = Color.Lerp(Color.red, Color.green, t);
+        }
+
+        if (regionHealthUI != null)
+        {
+            float trend = regionManager.GetRegionHealthTrend(regionID);
+            regionHealthUI.Show(regionID, avgHealth, trend);
         }
     }
 

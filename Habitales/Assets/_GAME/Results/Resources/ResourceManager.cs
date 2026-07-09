@@ -12,10 +12,14 @@ public class ResourceManager : MonoBehaviour
     // ── Time ─────────────────────────────────────────────────────────────────
     [Header("Time")]
     [SerializeField] private int totalDays = 0;
-    [SerializeField] private int maxYears = 5;
 
     // Canonical run length — the single source of truth for when a run ends.
-    // A future season-picker UI sets this one field (seasons × 180 days).
+    // When the player picked a season count in the main menu (RunConfig.SelectedSeasons),
+    // Awake() overwrites this with seasons × GameCalendar.DaysPerSeason; otherwise the
+    // serialized value is the scene's default (direct scene loads / tests).
+    // NOTE: reaching runLengthDays no longer stops the clock — an in-flight action always
+    // plays out its remaining days, and RunManager evaluates game-over once no action is
+    // running ("the actions dictate the length of the season at the end").
     [SerializeField] private int runLengthDays = 100;
 
     [Header("Calendar")]
@@ -64,10 +68,13 @@ public class ResourceManager : MonoBehaviour
     public int ResearchPoints => researchPoints;
 
     // ── Events ────────────────────────────────────────────────────────────────
+    // OnGameOver was DELETED (2026-07-08 run-end rework): the clock never declares game
+    // over any more. RunManager owns the decision (RunManager.OnGameOverTriggered) and
+    // evaluates it only when no action is running, so a multi-day action that crosses
+    // the final day always finishes first.
     public event Action<int>      OnTimeAdvanced;
     public event Action<int, int> OnPeopleFatigued;  // (count, latestReturnDay)
     public event Action<int>      OnPeopleRecovered;
-    public event Action           OnGameOver;
     public event Action<int>      OnRPChanged;
 
     // ── Worker meaning-event seams (arch §6.1 HOOK) ─────────────────────────────
@@ -94,6 +101,12 @@ public class ResourceManager : MonoBehaviour
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
+
+        // Apply the main-menu season selection (if any) before anything reads RunLengthDays.
+        // RunConfig is a cross-scene static: 0/unset means "no selection was made" (direct
+        // scene load, tests) and the serialized default above stands.
+        if (Habitales.Core.RunConfig.HasSelection)
+            runLengthDays = Habitales.Core.RunConfig.RunLengthDaysForSelection();
 
         // Pick the run's starting calendar day here (before any Start() runs) so every other
         // system's Start() can already read StartDayOfYear/DayOfYear (e.g. WeatherManager's
@@ -139,6 +152,8 @@ public class ResourceManager : MonoBehaviour
 
     // Original batch advance — used by debug tools (DebugAdvanceOneDay, TestYearComplete).
     // Does NOT wait for the day/night cycle; fires OnTimeAdvanced(days) once in bulk.
+    // The run-length cap is deliberately NOT checked here — RunManager's heartbeat evaluates
+    // game-over per resolved day and stops its own loop, so days past the cap simply resolve.
     public void AdvanceTime(int days)
     {
         totalDays += days;
@@ -147,18 +162,12 @@ public class ResourceManager : MonoBehaviour
         if (WeatherManager.Instance != null)
             WeatherManager.Instance.RollWeather(totalDays);
 
-        if (totalDays >= runLengthDays)
-        {
-            OnGameOver?.Invoke();
-            return;
-        }
-
         OnTimeAdvanced?.Invoke(days);
         Debug.Log($"Day {totalDays} ({GetFullTimeDisplay()}) | Available: {AvailablePeople}/{TotalPeople}");
     }
 
     // Single-day primitive — advances simulation state by exactly one day.
-    // Fires OnGameOver and OnTimeAdvanced(1) but does NOT wait for DayNightCycleHandler.
+    // Fires OnTimeAdvanced(1) but does NOT wait for DayNightCycleHandler.
     // The heartbeat system (and AdvanceTimeStepped below) call this directly.
     public void AdvanceOneDay()
     {
@@ -168,28 +177,20 @@ public class ResourceManager : MonoBehaviour
         if (WeatherManager.Instance != null)
             WeatherManager.Instance.RollWeather(totalDays);
 
-        if (totalDays >= runLengthDays)
-        {
-            OnGameOver?.Invoke();
-            return;
-        }
-
         OnTimeAdvanced?.Invoke(1); // triggers DayNightCycleHandler.StartCycle(1)
         Debug.Log($"Day {totalDays} ({GetFullTimeDisplay()}) | Available: {AvailablePeople}/{TotalPeople}");
     }
 
     // Stepped advance — used by ActionManager after real player actions.
     // Advances one day at a time and waits for DayNightCycleHandler to finish each cycle.
+    // No run-length peek here (2026-07-08 run-end rework): an action that crosses the final
+    // day plays ALL its remaining days — the season ends when the action does, evaluated by
+    // RunManager on OnActionCompleted.
     public IEnumerator AdvanceTimeStepped(int days)
     {
         for (int i = 0; i < days; i++)
         {
-            bool gameOver = totalDays + 1 >= runLengthDays;  // peek before advancing
             AdvanceOneDay();
-
-            if (gameOver)
-                yield break;
-
             yield return new WaitUntil(() => DayNightCycleHandler.IsIdle);
         }
     }

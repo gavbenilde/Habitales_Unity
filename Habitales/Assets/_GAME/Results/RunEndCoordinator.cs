@@ -19,12 +19,24 @@ namespace Habitales.Meta
         [SerializeField] private float xpPerDegradedTile = 0.6f;
         [SerializeField] private float xpPerThrivingTile = 2.4f;
 
+        [Header("Season grade thresholds (normalized weighted-health score, 0..1)")]
+        [Tooltip("Score at/above this → Exemplary.")]
+        [SerializeField] [Range(0f, 1f)] private float exemplaryAt = 0.85f;
+        [Tooltip("Score at/above this (and below Exemplary) → Commendable.")]
+        [SerializeField] [Range(0f, 1f)] private float commendableAt = 0.65f;
+        [Tooltip("Score at/above this (and below Commendable) → Adequate.")]
+        [SerializeField] [Range(0f, 1f)] private float adequateAt = 0.4f;
+        // Anything below adequateAt buckets to Concerning — SeasonGrade.Collapse is never reached
+        // by score alone, only forced by ProcessRunEnd's collapsed flag (arch ENDGAME_BUILD_PLAN §3:
+        // Collapse is the ≥90%-critical early exit, a distinct end-reason, not a score bucket).
+
         public struct RunEndSummary
         {
-            public int    xpEarned;
-            public int    xpBefore;
-            public int    levelUps;
-            public string aziLine;
+            public int         xpEarned;
+            public int         xpBefore;
+            public int         levelUps;
+            public string      aziLine;
+            public SeasonGrade grade;
         }
 
         private void Awake()
@@ -40,7 +52,9 @@ namespace Habitales.Meta
         }
 
         // Called by RunManager.TriggerGameOver. Pure meta: XP → progression → save → summary.
-        public RunEndSummary ProcessRunEnd(int thriving, int degraded, int critical, int peakThriving)
+        // collapsed forces the grade to SeasonGrade.Collapse regardless of the tile mix — RunManager
+        // knows why the run ended (Ecosystem Collapse vs Field Season Complete) and passes it through.
+        public RunEndSummary ProcessRunEnd(int thriving, int degraded, int critical, int peakThriving, bool collapsed = false)
         {
             float raw = critical * xpPerCriticalTile + degraded * xpPerDegradedTile + thriving * xpPerThrivingTile;
             int   xpEarned = Mathf.RoundToInt(raw);
@@ -55,26 +69,51 @@ namespace Habitales.Meta
                 ProgressionPersistence.Save(progression);
             }
 
-            Debug.Log($"[RunEnd] XP +{xpEarned} (thriving {thriving}×{xpPerThrivingTile}, degraded {degraded}×{xpPerDegradedTile}, critical {critical}×{xpPerCriticalTile}) | level-ups: {levelUps}");
+            SeasonGrade grade = collapsed ? SeasonGrade.Collapse : ComputeGrade(thriving, degraded, critical);
+
+            Debug.Log($"[RunEnd] XP +{xpEarned} (thriving {thriving}×{xpPerThrivingTile}, degraded {degraded}×{xpPerDegradedTile}, critical {critical}×{xpPerCriticalTile}) | level-ups: {levelUps} | grade: {grade}");
 
             return new RunEndSummary
             {
                 xpEarned = xpEarned,
                 xpBefore = xpBefore,
                 levelUps = levelUps,
-                aziLine  = GenerateAziLine(peakThriving),
+                aziLine  = GenerateAziLine(grade),
+                grade    = grade,
             };
         }
 
         // Debug (F10): reset progression to defaults.
         public void ResetProgression() => ProgressionPersistence.Reset(progression);
 
-        private static string GenerateAziLine(int peak)
+        // Same per-tile weights XP uses (arch ENDGAME_BUILD_PLAN §3), normalized to 0..1 by dividing
+        // by the score an all-thriving region would produce, then bucketed by the serialized
+        // thresholds. Instance method (not static) because the thresholds are serialized data.
+        public SeasonGrade ComputeGrade(int thrivingCount, int degradedCount, int criticalCount)
         {
-            if (peak == 0)  return "Tough run. We didn't quite get there. Next time?";
-            if (peak < 5)   return "We made a small dent. Felt like the start of something.";
-            if (peak < 12)  return "Solid run, Cap. The land remembers what we did.";
-            return "Look at what we built. I'm proud of us.";
+            int totalTiles = thrivingCount + degradedCount + criticalCount;
+            if (totalTiles <= 0) return SeasonGrade.Concerning;
+
+            float weightedScore = criticalCount * xpPerCriticalTile + degradedCount * xpPerDegradedTile + thrivingCount * xpPerThrivingTile;
+            float normalized    = weightedScore / (totalTiles * xpPerThrivingTile);
+
+            if (normalized >= exemplaryAt)   return SeasonGrade.Exemplary;
+            if (normalized >= commendableAt) return SeasonGrade.Commendable;
+            if (normalized >= adequateAt)    return SeasonGrade.Adequate;
+            return SeasonGrade.Concerning;
+        }
+
+        private static string GenerateAziLine(SeasonGrade grade)
+        {
+            switch (grade)
+            {
+                case SeasonGrade.Collapse:    return "Tough run. We didn't quite get there. Next time?";
+                case SeasonGrade.Concerning:  return "We made a small dent. Felt like the start of something.";
+                case SeasonGrade.Adequate:    return "Solid run, Cap. The land remembers what we did.";
+                case SeasonGrade.Commendable: return "Look at what we built. I'm proud of us.";
+                case SeasonGrade.Exemplary:   return "Cap... this is the best I've ever seen this region look. HQ's going to want to know how we did this.";
+                default:                      return "Look at what we built. I'm proud of us.";
+            }
         }
     }
 }

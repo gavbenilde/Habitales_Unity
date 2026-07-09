@@ -17,7 +17,7 @@ namespace Habitales.UI
     /// <see cref="PopupStyle"/> + a list of <see cref="ResolvedLine"/> onto a
     /// <see cref="PopupRequest"/> and hands it to the hub, which drives the one properly-wired
     /// presenter. Presentation logic lives ONLY in PopupController (S2 — one concept, one place);
-    /// this class exists so the many callers (onboarding beats, DaysLeftPopupNotifier, etc.) keep
+    /// this class exists so the many callers (onboarding beats, AziCheckInNotifier, etc.) keep
     /// a stable <c>Say</c>/<c>PlayThread</c>/<c>PlayLines</c> surface.</para>
     ///
     /// <para>The former self-driven <c>DialoguePopupView</c>/<c>SideNarrativeBubble</c> refs are

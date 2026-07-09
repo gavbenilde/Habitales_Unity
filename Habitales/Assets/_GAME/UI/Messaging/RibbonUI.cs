@@ -30,8 +30,39 @@ namespace Habitales.UI
     /// anchored so its hidden position is fully off the right edge (or top, your call).
     /// Set hiddenAnchoredX (serialized) to match.
     /// </summary>
-    public class RibbonUI : MonoBehaviour
+    public class RibbonUI : MonoBehaviour, IUISubsystem
     {
+        // ── IUISubsystem ──────────────────────────────────────────────
+        //
+        // SetVisible(false) is the hub's hide-ALL-UI path (screenshot hide-all) —
+        // it must hide the panel GameObject without corrupting the message queue
+        // or its own animation state. We cancel any in-flight LeanTween on the
+        // panel and park it off-screen (same as Awake/OpenChat do), then
+        // deactivate the GameObject; _showing resets to false so a subsequent
+        // TryDequeue (e.g. from the next OnDayResolved) starts a fresh slide-in
+        // rather than resuming a half-finished tween on a re-enabled panel. The
+        // QUEUE itself is left untouched — any pending previews simply wait and
+        // drain normally once RestoreUIVisibility (or an ordinary future dequeue)
+        // reactivates the panel. SetVisible(true) alone does not force-show a
+        // ribbon; it only makes the panel's GameObject available again for the
+        // normal TryDequeue flow to use.
+
+        public string SubsystemId => "ribbon";
+        public bool   IsVisible   => ribbonPanel != null && ribbonPanel.gameObject.activeSelf;
+        public void   SetVisible(bool visible)
+        {
+            if (ribbonPanel == null) return;
+
+            if (!visible)
+            {
+                LeanTween.cancel(ribbonPanel.gameObject);
+                ParkOffScreen();
+                _showing = false;
+            }
+
+            ribbonPanel.gameObject.SetActive(visible);
+        }
+
         // ── Inspector ──────────────────────────────────────────────────
 
         [Header("Panel")]

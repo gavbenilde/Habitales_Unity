@@ -24,7 +24,7 @@ namespace Habitales.Entities
         public GenericTileEntity(TileEntitySO definition)
         {
             def        = definition;
-            entityId   = definition != null ? definition.entityId : null;
+            entityId   = definition != null ? definition.EntityId : null;
             health     = 100f;
         }
 

@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
   m_Name: legume_mature
   m_EditorClassIdentifier: 
-  entityId: legume_mature
   displayName: Mature Legumes
   category: 0
   tileSprite: {fileID: 21300000, guid: fa065be6543f0594098e39ff0ed27ecc, type: 3}

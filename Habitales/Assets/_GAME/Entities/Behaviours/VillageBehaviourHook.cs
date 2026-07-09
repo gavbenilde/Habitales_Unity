@@ -23,7 +23,7 @@ namespace Habitales.Entities
             if (Random.value >= KAINGIN_DAILY_CHANCE) return;
 
             // Fire the "kaingin just started" interruption through the meaning-event sink — no
-            // singleton grab (S1). The real sink (EventManagerEntitySink) routes it to EventManager.
+            // singleton grab (S1). The real sink (TriggerManagerEntitySink) routes it to TriggerManager.
             ctx.Events.Raise(new EntityEvent
             {
                 kind         = EntityEvent.ScriptedEvent,
@@ -49,7 +49,7 @@ namespace Habitales.Entities
                 bool isBuilding = target.entity != null && target.entity.def != null &&
                                   target.entity.def.category == EntityCategory.Building;
                 if (!isBuilding && !target.tv.Contains(TileOverlayType.Firebreak))
-                    ctx.Tiles.SpawnById(target, "fire");
+                    ctx.Tiles.SpawnById(target, EntityIds.Fire);
 
                 targets.RemoveAt(idx);
             }

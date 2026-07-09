@@ -27,8 +27,15 @@ public class EndGameData
     public int       peakThrivingCount;
     public Texture2D peakScreenshot;
 
+    // Day index (into healthHistory) at which the peak-thriving high-water mark was set.
+    // -1 when no peak has been recorded (e.g. run ended before EvaluateThrivingPeak ever fired).
+    public int peakAtDay = -1;
+
     public int xpEarned;   // = peakThrivingCount; kept separate for LevelUpScreenUI clarity
     public int xpBefore;   // totalXp BEFORE AddXp; drives bar fill start position
+
+    // HQ's verdict on the season — forced to Collapse when endReason is an Ecosystem Collapse.
+    public Habitales.Meta.SeasonGrade seasonGrade;
 
     // Per-unlocked-zone health snapshot  (regionID → avg health)
     public Dictionary<int, float> zoneHealths = new();

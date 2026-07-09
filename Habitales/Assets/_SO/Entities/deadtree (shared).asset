@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
   m_Name: deadtree (shared)
   m_EditorClassIdentifier: 
-  entityId: deadtree
   displayName: Dead Tree
   category: 3
   tileSprite: {fileID: 21300000, guid: bd7cfd6c12edbd448b1a88146d2b4c0a, type: 3}
