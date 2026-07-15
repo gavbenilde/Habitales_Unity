@@ -38,7 +38,7 @@ namespace Habitales.UI
     // DOES NOT touch RunManager.PauseForEvent — UIManager owns the pause gate.
     // PopupController is pure presentation.
     //
-    // S2: popup-presentation logic lives ONLY here. NarrativePopupManager is a thin
+    // S2: popup-presentation logic lives ONLY here. PopupManager is a thin
     // facade that routes into this controller — do not duplicate logic between both.
     //
     // Edited 2026-06-30 (WO-1): thread paging, PopupSO resolver, collapsed view.
@@ -230,7 +230,7 @@ namespace Habitales.UI
         /// Hard-dismiss every active popup — the one intrusive modal (if any) plus all
         /// live side bubbles. Each dismissal fires <see cref="OnPopupDismissed"/> so
         /// UIManager clears modal state / un-pauses. Used by
-        /// <c>NarrativePopupManager.HideAll</c> on teardown (game over, trigger-batch abort).
+        /// <c>PopupManager.HideAll</c> on teardown (game over, trigger-batch abort).
         /// </summary>
         public void DismissAll()
         {

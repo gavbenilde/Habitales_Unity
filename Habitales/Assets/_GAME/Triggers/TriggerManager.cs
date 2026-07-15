@@ -371,7 +371,7 @@ namespace Habitales.Triggers
                 _currentPopup = PopupHandle.None;
 
                 // Also hide any lingering threaded-dialogue surfaces.
-                NarrativePopupManager.Instance?.HideAll();
+                PopupManager.Instance?.HideAll();
             }
 
             IsBusy = false;

@@ -17,17 +17,19 @@ namespace Habitales.UI
     /// <see cref="PopupStyle"/> + a list of <see cref="ResolvedLine"/> onto a
     /// <see cref="PopupRequest"/> and hands it to the hub, which drives the one properly-wired
     /// presenter. Presentation logic lives ONLY in PopupController (S2 — one concept, one place);
-    /// this class exists so the many callers (onboarding beats, AziCheckInNotifier, etc.) keep
-    /// a stable <c>Say</c>/<c>PlayThread</c>/<c>PlayLines</c> surface.</para>
+    /// this class exists so callers (onboarding beats, notes, nudges) keep a stable
+    /// <c>Say</c>/<c>PlayThread</c>/<c>PlayLines</c> surface. Renamed from
+    /// NarrativePopupManager 2026-07-15 (GUID preserved); the check-in system no longer
+    /// touches it — this stays a dumb presentation router.</para>
     ///
     /// <para>The former self-driven <c>DialoguePopupView</c>/<c>SideNarrativeBubble</c> refs are
     /// gone — they were routinely mis-wired to prefab assets (not scene instances), so popups
     /// silently no-op'd. Do not re-add per-view refs here; add them to PopupController's scene
     /// wiring instead.</para>
     /// </summary>
-    public class NarrativePopupManager : MonoBehaviour
+    public class PopupManager : MonoBehaviour
     {
-        public static NarrativePopupManager Instance { get; private set; }
+        public static PopupManager Instance { get; private set; }
 
         private bool _warnedNoHub;   // warn-once guard so a missing hub doesn't spam the log
 

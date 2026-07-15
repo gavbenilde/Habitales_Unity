@@ -95,6 +95,24 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     [SerializeField] private TextMeshProUGUI mostAvoidedText;
     [SerializeField] private TextMeshProUGUI mostChattedText;
 
+    [Header("Results Minipanel Carousel (OPTIONAL — unwired falls back to the flat layout)")]
+    // WIRING (human): minipanelRoot is one shared container holding 3 slide roots that all
+    // occupy the same rect (snapshotSlide / sparklineSlide / sillyStatsSlide), plus
+    // slidePrevButton/slideNextButton as children of that same container. Move the existing
+    // snapshotImage into snapshotSlide, seasonSparkline into sparklineSlide, and the
+    // favouriteAction/mostAvoided/mostChatted texts into sillyStatsSlide. Only one slide is
+    // SetActive at a time; minipanelRoot itself (buttons included) is what the reveal
+    // ceremony fades in as a single unit.
+    [Tooltip("Shared container: 3 slides + nav buttons. Fades in as one unit during the reveal ceremony.")]
+    [SerializeField] private GameObject minipanelRoot;
+    [SerializeField] private GameObject snapshotSlide;    // slide 0 root — contains snapshotImage in-scene
+    [SerializeField] private GameObject sparklineSlide;   // slide 1 root — contains seasonSparkline in-scene
+    [SerializeField] private GameObject sillyStatsSlide;  // slide 2 root — contains the silly-stat texts in-scene
+    [SerializeField] private Button     slidePrevButton;
+    [SerializeField] private Button     slideNextButton;
+    [SerializeField] private float      sparklineSweepSeconds = 1.2f; // sweep duration each time slide 1 is shown
+    [SerializeField] private float      minipanelFadeSeconds  = 0.4f; // ceremony fade-in of the whole minipanel
+
     [Header("Footer")]
     [SerializeField] private TextMeshProUGUI researchPointsText;
     [SerializeField] private Button          playAgainButton;        // reloads the run scene for a fresh attempt
@@ -131,6 +149,10 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     private bool _gradeStampWarned;
     private bool _sparklineWarned;
 
+    private const int SlideCount = 3;
+    private int  _slideIndex;
+    private bool _carouselWarned;
+
     // -------------------------------------------------------------------------
     // Presentation style block
     // -------------------------------------------------------------------------
@@ -160,6 +182,8 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         if (playAgainButton      != null) playAgainButton.onClick.AddListener(OnPlayAgain);
         if (exitToMainMenuButton != null) exitToMainMenuButton.onClick.AddListener(OnExitToMainMenu);
         if (skipCatcherButton    != null) skipCatcherButton.onClick.AddListener(SkipReveal);
+        if (slidePrevButton      != null) slidePrevButton.onClick.AddListener(OnPrevSlide);
+        if (slideNextButton      != null) slideNextButton.onClick.AddListener(OnNextSlide);
     }
 
     private void OnDisable()
@@ -168,6 +192,8 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         if (playAgainButton      != null) playAgainButton.onClick.RemoveListener(OnPlayAgain);
         if (exitToMainMenuButton != null) exitToMainMenuButton.onClick.RemoveListener(OnExitToMainMenu);
         if (skipCatcherButton    != null) skipCatcherButton.onClick.RemoveListener(SkipReveal);
+        if (slidePrevButton      != null) slidePrevButton.onClick.RemoveListener(OnPrevSlide);
+        if (slideNextButton      != null) slideNextButton.onClick.RemoveListener(OnNextSlide);
     }
 
     // -------------------------------------------------------------------------
@@ -198,6 +224,7 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         _lastData = data;
         Populate(data);
         ApplyPresentationStyle(data);
+        if (IsCarouselWired()) ShowSlide(0);
         isMinimized = false;
         fullContent.SetActive(true);
         overlayPanel.SetActive(true);
@@ -385,12 +412,20 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     }
 
     // -------------------------------------------------------------------------
-    // Staged reveal ceremony — zone pills stagger in, tile counts count up, snapshot
-    // fades, Employee of the Year slides in, silly stats fade in, season sparkline
-    // fades in, grade stamp lands last with a scale-punch. Click-to-skip jumps straight
-    // to FinishReveal(), which the coroutine itself also calls at the end — every
-    // element must land on identical final values whichever path runs. Sim is paused
-    // during this screen, so every tween/wait uses unscaled time.
+    // Staged reveal ceremony — zone pills stagger in, tile counts count up, Employee of
+    // the Year slides in, grade stamp lands last with a scale-punch. Click-to-skip jumps
+    // straight to FinishReveal(), which the coroutine itself also calls at the end —
+    // every element must land on identical final values whichever path runs. Sim is
+    // paused during this screen, so every tween/wait uses unscaled time.
+    //
+    // Two modes, chosen by IsCarouselWired():
+    //   Carousel wired    — snapshot/silly-stats/sparkline fades are replaced by ONE
+    //                        fade-in of the whole results minipanel (buttons included),
+    //                        shown on slide 0. Order: pills → counts → employee →
+    //                        minipanel fade → grade stamp.
+    //   Carousel unwired  — legacy flat layout: pills → counts → snapshot fade → employee
+    //                        → silly stats fade → sparkline fade → grade stamp, byte-for-byte
+    //                        as it shipped before the carousel existed.
     // -------------------------------------------------------------------------
 
     private void StopReveal()
@@ -408,8 +443,9 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         if (snapshotImage     != null) LeanTween.cancel(snapshotImage.gameObject);
         if (workerNameText    != null) LeanTween.cancel(workerNameText.gameObject);
         if (favouriteActionText != null) LeanTween.cancel(favouriteActionText.gameObject);
-        if (seasonSparkline   != null) LeanTween.cancel(seasonSparkline.gameObject);
+        if (seasonSparkline   != null) seasonSparkline.CancelProgressiveReveal(); // lands on the FULL polyline, never a partial sweep
         if (gradeStampRoot    != null) LeanTween.cancel(gradeStampRoot);
+        if (minipanelRoot     != null) LeanTween.cancel(minipanelRoot);
     }
 
     private void SkipReveal()
@@ -423,16 +459,27 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     {
         _revealInProgress = true;
         bool celebrate = ActiveStyle(data).showCelebration;
+        bool carousel = IsCarouselWired();
 
         // Start everything hidden/zeroed; FinishReveal (skip path) sets these same
         // elements directly to final values, so the "start" state below must be the
         // only place pre-reveal values are set.
         SetZonePillsVisible(false);
         SetTileCountsTo(0, 0, 0);
-        SetSnapshotAlpha(0f);
         SetEmployeeAlpha(0f);
-        SetSillyStatsAlpha(0f);
-        SetSparklineAlpha(0f);
+        if (carousel)
+        {
+            // Snapshot/silly-stats/sparkline now live inside slides — their own alphas
+            // must stay at 1 (set at construction time / by Populate) or a slide swap
+            // would show invisible content. Only the shared minipanel container fades.
+            SetMinipanelAlpha(0f);
+        }
+        else
+        {
+            SetSnapshotAlpha(0f);
+            SetSillyStatsAlpha(0f);
+            SetSparklineAlpha(0f);
+        }
         SetGradeStampHidden(celebrate);
 
         // Zone pills — sequential stagger.
@@ -447,17 +494,29 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         // Tile-tier counts — unscaled count-up.
         yield return CountUpTileCounts(data);
 
-        // Peak snapshot fade-in.
-        yield return FadeUnscaled(snapshotImage != null ? snapshotImage.gameObject : null, snapshotFadeSeconds, SetSnapshotAlpha);
+        if (!carousel)
+        {
+            // Peak snapshot fade-in.
+            yield return FadeUnscaled(snapshotImage != null ? snapshotImage.gameObject : null, snapshotFadeSeconds, SetSnapshotAlpha);
+        }
 
         // Employee of the Year — slide + fade.
         yield return SlideInEmployee();
 
-        // Silly stats.
-        yield return FadeUnscaled(favouriteActionText != null ? favouriteActionText.gameObject : null, sillyStatsFadeSeconds, SetSillyStatsAlpha);
+        if (carousel)
+        {
+            // Results minipanel — fades in as one unit (currently showing slide 0, the
+            // snapshot) instead of the three legacy flat-layout fade stages.
+            yield return FadeUnscaled(minipanelRoot, minipanelFadeSeconds, SetMinipanelAlpha);
+        }
+        else
+        {
+            // Silly stats.
+            yield return FadeUnscaled(favouriteActionText != null ? favouriteActionText.gameObject : null, sillyStatsFadeSeconds, SetSillyStatsAlpha);
 
-        // Season sparkline — fades in right before the grade stamp.
-        yield return FadeUnscaled(seasonSparkline != null ? seasonSparkline.gameObject : null, sparklineFadeSeconds, SetSparklineAlpha);
+            // Season sparkline — fades in right before the grade stamp.
+            yield return FadeUnscaled(seasonSparkline != null ? seasonSparkline.gameObject : null, sparklineFadeSeconds, SetSparklineAlpha);
+        }
 
         // Grade stamp lands last.
         if (celebrate)
@@ -467,6 +526,10 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
 
         _revealInProgress = false;
         _revealRoutine = null;
+
+        // Reveal done — retire the invisible skip-catcher so it stops eating clicks meant
+        // for the live buttons underneath (carousel nav, Play Again, Exit).
+        HideSkipCatcher();
     }
 
     /// <summary>
@@ -483,8 +546,18 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         SetEmployeeOffset(0f);
         SetSillyStatsAlpha(1f);
         SetSparklineAlpha(1f);
+        SetMinipanelAlpha(1f); // no-op in flat-layout mode (minipanelRoot null); required in carousel mode
         SetGradeStampFinal();
         _revealInProgress = false;
+
+        // Covers the skip path (SkipReveal → FinishReveal) and the non-staged Show(): once
+        // everything's on its final value there's nothing left to skip, so the catcher goes.
+        HideSkipCatcher();
+    }
+
+    private void HideSkipCatcher()
+    {
+        if (skipCatcherButton != null) skipCatcherButton.gameObject.SetActive(false);
     }
 
     // ── Zone pills ─────────────────────────────────────────────────────
@@ -594,6 +667,63 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         SetTextAlpha(favouriteActionText, a);
         SetTextAlpha(mostAvoidedText, a);
         SetTextAlpha(mostChattedText, a);
+    }
+
+    // ── Results minipanel carousel ────────────────────────────────────
+
+    /// <summary>
+    /// True only when all six carousel refs are wired. This is the OPTIONAL-with-warning
+    /// (Law 3 exception) idiom used elsewhere on this screen (grade stamp, sparkline):
+    /// fully unwired is a silent, valid configuration (matches how the screen ships today,
+    /// with the flat 3-section layout); PARTIALLY wired is a misconfiguration and warns once.
+    /// </summary>
+    private bool IsCarouselWired()
+    {
+        bool allWired = minipanelRoot   != null && snapshotSlide    != null &&
+                         sparklineSlide != null && sillyStatsSlide  != null &&
+                         slidePrevButton != null && slideNextButton != null;
+        if (allWired) return true;
+
+        bool anyWired = minipanelRoot   != null || snapshotSlide    != null ||
+                         sparklineSlide != null || sillyStatsSlide  != null ||
+                         slidePrevButton != null || slideNextButton != null;
+        if (anyWired && !_carouselWarned)
+        {
+            _carouselWarned = true;
+            Debug.LogWarning("[EndGameScreenUI] Results minipanel carousel is PARTIALLY wired — falling back to the flat layout. It needs all six refs: minipanelRoot, snapshotSlide, sparklineSlide, sillyStatsSlide, slidePrevButton, slideNextButton.", this);
+        }
+        return false;
+    }
+
+    private void OnPrevSlide() => ShowSlide(_slideIndex - 1);
+    private void OnNextSlide() => ShowSlide(_slideIndex + 1);
+
+    /// <summary>
+    /// Swaps the visible slide via SetActive — not scrolling/marquee. Wraps both ways.
+    /// Landing on slide 1 (sparkline) replays its progressive-reveal sweep every time,
+    /// deliberately, so the history "draws itself" again on every visit.
+    /// </summary>
+    private void ShowSlide(int index)
+    {
+        if (!IsCarouselWired()) return;
+
+        _slideIndex = ((index % SlideCount) + SlideCount) % SlideCount;
+        snapshotSlide.SetActive(_slideIndex == 0);
+        sparklineSlide.SetActive(_slideIndex == 1);
+        sillyStatsSlide.SetActive(_slideIndex == 2);
+
+        if (_slideIndex == 1 && seasonSparkline != null)
+            seasonSparkline.PlayProgressiveReveal(sparklineSweepSeconds);
+    }
+
+    private void SetMinipanelAlpha(float a)
+    {
+        if (minipanelRoot == null) return;
+        var cg = GetOrAddCanvasGroup(minipanelRoot);
+        cg.alpha = a;
+        bool interactive = a >= 0.99f;
+        cg.interactable   = interactive;
+        cg.blocksRaycasts = interactive;
     }
 
     // ── Season sparkline ───────────────────────────────────────────────

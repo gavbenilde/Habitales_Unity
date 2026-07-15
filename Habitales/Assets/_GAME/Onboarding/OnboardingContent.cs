@@ -23,7 +23,7 @@ namespace Habitales.Onboarding
         // auto-substitute tokens in this content, so these are NOT
         // {token} strings — Beat_0_ContractLine is the generic, always-correct version. Where a
         // caller CAN resolve a live day count (the Director, or whoever authors the PopupSO from
-        // this), Beat_0_ContractLineTemplate + ResolveContractLine mirror AziCheckInNotifier's
+        // this), Beat_0_ContractLineTemplate + ResolveContractLine mirror CheckInScheduler's
         // exact idiom (a "{days}" token replaced at show time) so the number never drifts from
         // ResourceManager.RunLengthDays.
         public const string Beat_0_Headline = "Welcome aboard, Captain.";
@@ -44,7 +44,8 @@ namespace Habitales.Onboarding
         /// Substitutes the "{days}" token in <see cref="Beat_0_ContractLineTemplate"/> with
         /// <paramref name="runLengthDays"/> (read from <c>ResourceManager.RunLengthDays</c> by the
         /// caller — this class stays a pure content table and does not reach for managers itself).
-        /// Mirrors <c>AziCheckInNotifier</c>'s "{days}" substitution idiom exactly.
+        /// Mirrors <c>CheckInScheduler</c>'s "{days}" substitution idiom (historic — the check-in
+        /// now resolves tokens through EventContext; this stays the raw-content variant).
         /// </summary>
         public static string ResolveContractLine(int runLengthDays)
             => Beat_0_ContractLineTemplate.Replace("{days}", runLengthDays.ToString());

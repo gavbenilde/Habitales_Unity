@@ -25,7 +25,7 @@ namespace Habitales.Onboarding
 
     /// <summary>
     /// Drives the Alpha onboarding: ordered beat progression, per-beat Azi cue
-    /// via NarrativePopupManager, stall detection, and the coach-mark contract
+    /// via PopupManager, stall detection, and the coach-mark contract
     /// that B2 / B3 / B4 subscribe to.
     ///
     /// <para><b>Scene wiring:</b> see the Inspector checklist at the bottom of this file.</para>
@@ -269,10 +269,10 @@ namespace Habitales.Onboarding
             // Loud-fail all required refs (Law 3).
             bool ok = true;
 
-            if (NarrativePopupManager.Instance == null)
+            if (PopupManager.Instance == null)
             {
-                Debug.LogError($"{name}: NarrativePopupManager.Instance is null — OnboardingDirector cannot show cues. " +
-                               "Ensure a NarrativePopupManager is in the scene and initialized before this component.", this);
+                Debug.LogError($"{name}: PopupManager.Instance is null — OnboardingDirector cannot show cues. " +
+                               "Ensure a PopupManager is in the scene and initialized before this component.", this);
                 ok = false;
             }
 
@@ -769,13 +769,13 @@ namespace Habitales.Onboarding
 
         void ShowAziLine(string line)
         {
-            var npm = NarrativePopupManager.Instance;
-            if (npm == null)
+            var popups = PopupManager.Instance;
+            if (popups == null)
             {
-                Debug.LogError($"{name}: NarrativePopupManager.Instance is null — cannot show Azi line.", this);
+                Debug.LogError($"{name}: PopupManager.Instance is null — cannot show Azi line.", this);
                 return;
             }
-            npm.Say(line, aziPortrait, "Azi", PopupStyle.Character);
+            popups.Say(line, aziPortrait, "Azi", PopupStyle.Character);
         }
 
         void FirePriorityZero()

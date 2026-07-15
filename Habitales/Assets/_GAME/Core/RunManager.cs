@@ -23,16 +23,15 @@ public class RunManager : MonoBehaviour {
     [SerializeField] private RegionOutlineRenderer regionOutlineRenderer;
     
     [SerializeField] private EndGameScreenUI     endGameScreenUI;
-    [SerializeField] private AziSpeechBubbleUI   aziSpeechBubbleUI;
     [SerializeField] private Habitales.Meta.RunEndCoordinator runEndCoordinator; // owns XP/level-up/persistence
 
     [Header("Run End Conversation")]
     [Tooltip("The scripted Azi/Bob conversation shown when the field season completes, before the end report. " +
              "Variant selection reuses the check-in comparators with end-of-run semantics: 'improved' = final " +
              "thriving tile count, 'decayed' = final critical tile count, days-left is real (0 unless the run " +
-             "ended past the cap). Unwired → falls back to the legacy Azi speech bubble.")]
+             "ended past the cap). Unwired → LogError, End Report shows directly.")]
     [SerializeField] private CheckInConversationSO seasonEndConversation;
-    [Tooltip("Same as above but for the Ecosystem Collapse ending. Unwired → Azi speech bubble fallback.")]
+    [Tooltip("Same as above but for the Ecosystem Collapse ending. Unwired → LogError, End Report directly.")]
     [SerializeField] private CheckInConversationSO collapseConversation;
 
     
@@ -475,12 +474,14 @@ public class RunManager : MonoBehaviour {
 
 
     /// <summary>
-    /// Triggers game over. Flow (2026-07-08 rework): (1) OnGameOverTriggered — pending
-    /// presentation stands down (TriggerManager clears its popup queue); (2) End
-    /// Conversation — the scripted Azi/Bob wrap-up via CheckInPanelUI's conversation-only
-    /// mode; (3) End Report — EndGameScreenUI. Falls back to the legacy Azi speech bubble
-    /// chain when the conversation path isn't wired/authored, so an unwired scene still
-    /// reaches the end report.
+    /// Triggers game over. Flow (2026-07-08 rework, simplified 2026-07-15): (1)
+    /// OnGameOverTriggered — pending presentation stands down (TriggerManager clears its
+    /// popup queue); (2) End Conversation — the scripted Azi/Bob wrap-up via
+    /// CheckInPanelUI's conversation-only mode; (3) End Report — EndGameScreenUI. When the
+    /// conversation path isn't wired/authored: LogError → End Report directly (the old
+    /// Azi-speech-bubble middle tier is deleted) — an unwired scene still ends.
+    /// If the world collapses on a check-in day, ShowConversationOnly force-resets any
+    /// in-progress midseason panel (collision rule — end flow trumps).
     /// </summary>
     void TriggerGameOver(string reason, int thrivingTiles, bool collapsed = false)
     {
@@ -509,38 +510,30 @@ public class RunManager : MonoBehaviour {
         if (TryShowEndConversation(collapsed, data))
             return; // End Report shows on the conversation's [Continue]
 
-        // ── Legacy fallback: Azi speech bubble → End Report ──
-        if (aziSpeechBubbleUI != null)
-        {
-            Debug.Log("[RunManager] Showing Azi speech bubble → EndGameScreen on dismiss.");
-            aziSpeechBubbleUI.Show(data.aziSummaryLine, () => ShowEndReport(data));
-        }
-        else
-        {
-            Debug.LogWarning("[RunManager] aziSpeechBubbleUI not wired — skipping speech bubble, showing EndGameScreen directly.");
-            ShowEndReport(data);
-        }
+        // No middle tier: the End Conversation either plays or the End Report shows now.
+        // TryShowEndConversation already LogError'd the specific missing piece.
+        ShowEndReport(data);
     }
 
     /// <summary>
-    /// Step 2 of the end flow: the End Conversation. Returns false (with a loud warn) on any
-    /// missing piece so TriggerGameOver can fall back — the end flow must never dead-end.
-    /// Variant selection reuses the check-in comparators with end-of-run semantics:
-    /// 'improved' = final thriving count, 'decayed' = final critical count.
+    /// Step 2 of the end flow: the End Conversation. Returns false (with a LogError naming
+    /// the missing piece) so TriggerGameOver can show the End Report directly — the end
+    /// flow must never dead-end. Variant selection reuses the check-in comparators with
+    /// end-of-run semantics: 'improved' = final thriving count, 'decayed' = final critical count.
     /// </summary>
     bool TryShowEndConversation(bool collapsed, EndGameData data)
     {
         CheckInConversationSO source = collapsed ? collapseConversation : seasonEndConversation;
         if (source == null)
         {
-            Debug.LogWarning($"[RunManager] {(collapsed ? "collapseConversation" : "seasonEndConversation")} is not wired — falling back to the Azi speech bubble for the end flow.");
+            Debug.LogError($"[RunManager] {(collapsed ? "collapseConversation" : "seasonEndConversation")} is not wired — skipping the End Conversation, showing the End Report directly.");
             return false;
         }
 
         var panel = Habitales.UI.CheckInPanelUI.Instance;
         if (panel == null)
         {
-            Debug.LogWarning("[RunManager] CheckInPanelUI is not in the scene — falling back to the Azi speech bubble for the end flow.");
+            Debug.LogError("[RunManager] CheckInPanelUI is not in the scene — skipping the End Conversation, showing the End Report directly.");
             return false;
         }
 

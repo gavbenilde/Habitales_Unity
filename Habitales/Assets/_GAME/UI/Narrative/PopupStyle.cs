@@ -15,7 +15,7 @@ namespace Habitales.UI
 
     /// <summary>
     /// The two independent axes that distinguish every narrative-popup flavour, plus
-    /// pacing. One presenter, parameterised — see <see cref="NarrativePopupManager"/>.
+    /// pacing. One presenter, parameterised — see <see cref="PopupManager"/>.
     ///
     ///   • intrusive    — dim the background, block input, pause the sim (Dialog Popup).
     ///                    false = a small side bubble that never stops the game.
