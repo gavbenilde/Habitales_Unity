@@ -1,0 +1,62 @@
+
+NPCworker_frontfacing.png
+size: 542,761
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+Body_front
+  rotate: true
+  xy: 2, 25
+  size: 214, 220
+  orig: 218, 224
+  offset: 3, 3
+  index: -1
+Face_front
+  rotate: false
+  xy: 336, 2
+  size: 204, 202
+  orig: 208, 208
+  offset: 3, 4
+  index: -1
+Hat_front
+  rotate: false
+  xy: 2, 241
+  size: 342, 224
+  orig: 342, 224
+  offset: 0, 0
+  index: -1
+L Cloak_back
+  rotate: false
+  xy: 224, 52
+  size: 110, 187
+  orig: 113, 189
+  offset: 1, 1
+  index: -1
+L Leg_front
+  rotate: false
+  xy: 471, 639
+  size: 63, 120
+  orig: 74, 120
+  offset: 1, 0
+  index: -1
+R Cloak_front
+  rotate: false
+  xy: 346, 206
+  size: 165, 259
+  orig: 165, 259
+  offset: 0, 0
+  index: -1
+R Leg_front
+  rotate: false
+  xy: 471, 513
+  size: 60, 124
+  orig: 60, 124
+  offset: 0, 0
+  index: -1
+block_guide
+  rotate: false
+  xy: 2, 467
+  size: 467, 292
+  orig: 467, 292
+  offset: 0, 0
+  index: -1
