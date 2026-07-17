@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
-  m_Name: legume_mature
+  m_Name: nitrogen_sapling
   m_EditorClassIdentifier: 
-  displayName: Mature Legumes
+  displayName: Nitrogen Sapling
   category: 0
-  tileSprite: {fileID: 21300000, guid: fa065be6543f0594098e39ff0ed27ecc, type: 3}
+  tileSprite: {fileID: 21300000, guid: 62647700b307fdb4ca4a8fc9369144f7, type: 3}
   vfxKey: 
   billboardScale: 1
-  promoteAfterDays: 0
-  nextStage: {fileID: 0}
+  promoteAfterDays: 5
+  nextStage: {fileID: 11400000, guid: 2dbb6079d64e0cd4f88bae884960122f, type: 2}
   transitionEffects: []
   requirePromoteCondition: 0
   promoteWhen:
@@ -26,14 +26,16 @@ MonoBehaviour:
     comparator: 0
     threshold: 0
   plantDailyDeltas:
-    nutrientBalance: 1.2
-    soilOrganicMatter: 0.6
-    soilStructure: 0.4
-    biologicalActivity: 1
-    waterDynamics: 0.3
-    erosionResistance: 0.5
-    vegetationCover: 0.2
+    nutrientBalance: 0
+    soilOrganicMatter: 0
+    soilStructure: 0
+    biologicalActivity: 0
+    waterDynamics: 0
+    erosionResistance: 0
+    vegetationCover: 0.5
     contamination: 0
   dailyEffects: []
+  droughtResistance: 0
+  floodResistance: 0
   deathConditions: []
   behaviour: {fileID: 0}

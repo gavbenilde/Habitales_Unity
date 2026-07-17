@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
-  m_Name: phyto_seedling
+  m_Name: buckwheat_mature
   m_EditorClassIdentifier: 
-  displayName: Rinorea Seedling
+  displayName: Buckwheat Mature
   category: 0
-  tileSprite: {fileID: 21300000, guid: 87d41a2e9002a724981b6261b9880ac4, type: 3}
+  tileSprite: {fileID: 21300000, guid: 3aba621ceaa183f4aa8f704d8806764d, type: 3}
   vfxKey: 
   billboardScale: 1
-  promoteAfterDays: 5
-  nextStage: {fileID: 11400000, guid: 1b35d075289f5db458ab183804f321cb, type: 2}
+  promoteAfterDays: 0
+  nextStage: {fileID: 0}
   transitionEffects: []
   requirePromoteCondition: 0
   promoteWhen:
@@ -26,14 +26,16 @@ MonoBehaviour:
     comparator: 0
     threshold: 0
   plantDailyDeltas:
-    nutrientBalance: 0
+    nutrientBalance: 1
     soilOrganicMatter: 0
-    soilStructure: 0
+    soilStructure: 3.5
     biologicalActivity: 0
-    waterDynamics: 0
-    erosionResistance: 0
-    vegetationCover: 0
+    waterDynamics: 2.4
+    erosionResistance: 1.5
+    vegetationCover: 2.6
     contamination: 0
   dailyEffects: []
+  droughtResistance: 0
+  floodResistance: 0
   deathConditions: []
   behaviour: {fileID: 0}
