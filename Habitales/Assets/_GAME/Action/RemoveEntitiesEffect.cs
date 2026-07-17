@@ -21,7 +21,7 @@ namespace Habitales.Actions
         // `tileManager` is the live manager so hooks can spawn/remove entities.
         public override void Apply(Tile tile, TileManager tileManager)
         {
-            if (tile == null || tileManager == null) return;
+            if (tile == null || tileManager == null || tile.entity == null) return;
 
             if (entitiesToRemove == null || entitiesToRemove.Count == 0) return;
             foreach (var e in entitiesToRemove)

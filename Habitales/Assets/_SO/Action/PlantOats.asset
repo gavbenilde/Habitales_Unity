@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Plant Oats
   group: 1
   description: 
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 00c1db4598c94c443977b48647d6c7da, type: 3}
   selectionMode: 0
   effects:
   - type: 0

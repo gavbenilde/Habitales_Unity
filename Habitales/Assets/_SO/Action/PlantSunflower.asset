@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Plant Sunflower
   group: 1
   description: 
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 845677dafec643c4fab533ce54505495, type: 3}
   selectionMode: 0
   effects:
   - type: 0

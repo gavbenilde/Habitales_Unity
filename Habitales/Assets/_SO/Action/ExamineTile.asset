@@ -10,18 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f9be8fe52efe9a54994df2c0eac0a79c, type: 3}
-  m_Name: PlantBuckwheat
+  m_Name: ExamineTile
   m_EditorClassIdentifier: 
-  actionId: plant_buckwheat
-  displayName: Plant Buckwheat
-  group: 1
+  actionId: 
+  displayName: 
+  group: 0
   description: 
-  icon: {fileID: 21300000, guid: 00c1db4598c94c443977b48647d6c7da, type: 3}
+  icon: {fileID: 0}
   selectionMode: 0
-  effects:
-  - type: 0
-    entityToPlace: {fileID: 11400000, guid: e55283656fec7da459372cc2fc964e89, type: 2}
-    customBehaviour: {fileID: 0}
+  effects: []
   baseDays: 1
   minDays: 1
   minPeoplePerTile: 1
