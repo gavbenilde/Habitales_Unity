@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
-  m_Name: nitrogen_mature
+  m_Name: phyto_mature
   m_EditorClassIdentifier: 
-  displayName: Nitrogen Mature
+  displayName: Rinorea Mature
   category: 0
-  tileSprite: {fileID: 21300000, guid: 1c0d2e8de58122940a7b5b153f2dc224, type: 3}
+  tileSprite: {fileID: 21300000, guid: 5dd9f5368e77a964c878e66bb7a0dd75, type: 3}
   vfxKey: 
   billboardScale: 1
   promoteAfterDays: 0
@@ -25,9 +25,17 @@ MonoBehaviour:
     stat: 0
     comparator: 0
     threshold: 0
-    outcome: 0
-    transformTarget: {fileID: 0}
-    onSatisfied: []
+  plantDailyDeltas:
+    nutrientBalance: 0
+    soilOrganicMatter: 1
+    soilStructure: 0.2
+    biologicalActivity: 0.2
+    waterDynamics: 0
+    erosionResistance: 0.2
+    vegetationCover: 0.5
+    contamination: -2
   dailyEffects: []
+  droughtResistance: 0
+  floodResistance: 0
   deathConditions: []
   behaviour: {fileID: 0}

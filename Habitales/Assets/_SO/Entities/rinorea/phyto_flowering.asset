@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
-  m_Name: legume_seedling
+  m_Name: phyto_flowering
   m_EditorClassIdentifier: 
-  displayName: Legume Seedling
+  displayName: Rinorea Shrub
   category: 0
-  tileSprite: {fileID: 21300000, guid: f8a3fb58b798b844cb17a1377b045cea, type: 3}
+  tileSprite: {fileID: 21300000, guid: d57d9ccf8b8cc954f862872e31894a64, type: 3}
   vfxKey: 
   billboardScale: 1
-  promoteAfterDays: 5
-  nextStage: {fileID: 11400000, guid: ba143847e9cc0c44b805d6adf9988cae, type: 2}
+  promoteAfterDays: 0
+  nextStage: {fileID: 0}
   transitionEffects: []
   requirePromoteCondition: 0
   promoteWhen:
@@ -33,7 +33,9 @@ MonoBehaviour:
     waterDynamics: 0
     erosionResistance: 0
     vegetationCover: 0
-    contamination: 0
+    contamination: -4
   dailyEffects: []
+  droughtResistance: 0
+  floodResistance: 0
   deathConditions: []
   behaviour: {fileID: 0}

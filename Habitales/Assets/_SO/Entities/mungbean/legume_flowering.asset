@@ -26,7 +26,7 @@ MonoBehaviour:
     comparator: 0
     threshold: 0
   plantDailyDeltas:
-    nutrientBalance: 0
+    nutrientBalance: -0.6
     soilOrganicMatter: 0
     soilStructure: 0
     biologicalActivity: 0
@@ -35,5 +35,7 @@ MonoBehaviour:
     vegetationCover: 0
     contamination: 0
   dailyEffects: []
+  droughtResistance: 0
+  floodResistance: 0
   deathConditions: []
   behaviour: {fileID: 0}

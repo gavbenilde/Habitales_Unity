@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
-  m_Name: nitrogen_sapling
+  m_Name: sunflower_bud
   m_EditorClassIdentifier: 
-  displayName: Nitrogen Sapling
+  displayName: Sunflower Bud
   category: 0
-  tileSprite: {fileID: 21300000, guid: 62647700b307fdb4ca4a8fc9369144f7, type: 3}
+  tileSprite: {fileID: 21300000, guid: 8296276d4f7648d42b41dde5f9c82733, type: 3}
   vfxKey: 
   billboardScale: 1
   promoteAfterDays: 5
-  nextStage: {fileID: 11400000, guid: 2dbb6079d64e0cd4f88bae884960122f, type: 2}
+  nextStage: {fileID: 11400000, guid: 0978765d898e75941890423e1009ff56, type: 2}
   transitionEffects: []
   requirePromoteCondition: 0
   promoteWhen:
@@ -27,13 +27,15 @@ MonoBehaviour:
     threshold: 0
   plantDailyDeltas:
     nutrientBalance: 0
-    soilOrganicMatter: 0
-    soilStructure: 0
-    biologicalActivity: 0
-    waterDynamics: 0
-    erosionResistance: 0
-    vegetationCover: 0
-    contamination: 0
+    soilOrganicMatter: 1.1
+    soilStructure: 2
+    biologicalActivity: 2.3
+    waterDynamics: 1.3
+    erosionResistance: 1.6
+    vegetationCover: 1
+    contamination: -1.7
   dailyEffects: []
+  droughtResistance: 0
+  floodResistance: 0
   deathConditions: []
   behaviour: {fileID: 0}
