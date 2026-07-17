@@ -37,5 +37,7 @@ MonoBehaviour:
   dailyEffects:
   - stat: 0
     delta: 0.03
+  droughtResistance: 0
+  floodResistance: 0
   deathConditions: []
-  behaviour: {fileID: 0}
+  behaviour: {fileID: 11400000, guid: 37f619404a4931940a5342fee37b847e, type: 2}

@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Remove Trash
   group: 2
   description: 
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 91ad279528afaff4aad5599e69d1b0aa, type: 3}
   selectionMode: 2
   effects:
   - type: 1
