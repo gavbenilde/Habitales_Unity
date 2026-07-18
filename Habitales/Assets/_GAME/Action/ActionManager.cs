@@ -103,12 +103,18 @@ public class ActionManager : MonoBehaviour
 
     public List<PlayerAction> GetAvailableActions() => availableActions;
 
-    public void ExecuteAction(PlayerAction action, List<Tile> targetTiles)
+    /// <summary>
+    /// Starts <paramref name="action"/> on <paramref name="targetTiles"/>. Returns false when
+    /// the action was REFUSED (missing components, event pause, workforce, CanExecute) so the
+    /// caller can react — ActionBarUI must not reset its UI as if the action ran (the old void
+    /// signature made every refusal a silent swallow; 2026-07-19 fix).
+    /// </summary>
+    public bool ExecuteAction(PlayerAction action, List<Tile> targetTiles)
     {
         if (action == null || targetTiles == null || targetTiles.Count == 0 || tileManager == null)
         {
             Debug.LogError("Cannot execute action — missing components!");
-            return;
+            return false;
         }
 
         // Pause entry-guard (arch §3.4): do not START a new action while an active event
@@ -118,7 +124,7 @@ public class ActionManager : MonoBehaviour
         if (RunManager.Instance != null && RunManager.Instance.IsEventPaused)
         {
             Debug.LogWarning($"Cannot execute action {action.ActionName} — simulation is paused by an active event.");
-            return;
+            return false;
         }
 
         ResourceManager rm = ResourceManager.Instance;
@@ -128,14 +134,14 @@ public class ActionManager : MonoBehaviour
         if (targetTiles.Count > maxTiles)
         {
             Debug.LogWarning($"Not enough people! Need {action.MinPeoplePerTile * targetTiles.Count}, have {availablePeople}");
-            return;
+            return false;
         }
 
         bool success = action.Execute(targetTiles, tileManager);
         if (!success)
         {
             Debug.LogWarning($"Action {action.ActionName} blocked by CanExecute.");
-            return;
+            return false;
         }
 
         int baseDays = action.CalculateDays(availablePeople, targetTiles.Count);
@@ -160,6 +166,7 @@ public class ActionManager : MonoBehaviour
 
         // Pass assigned people into the Coroutine
         currentActionCoroutine = StartCoroutine(FinishAction(rm, action, targetTiles, days, availablePeople));
+        return true;
     }
 
     private IEnumerator FinishAction(ResourceManager rm, PlayerAction action, List<Tile> targetTiles, int days, int assignedPeople)

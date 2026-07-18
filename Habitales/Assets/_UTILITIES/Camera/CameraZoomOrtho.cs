@@ -23,8 +23,11 @@ namespace _UTILITIES.Camera
         // Update is called once per frame
         void Update()
         {
-            float scroll = Input.GetAxis("Mouse ScrollWheel");
-            
+            // Ctrl+Scroll is reserved for brush sizing (TileSelector) — don't zoom while Ctrl is held.
+            float scroll = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)
+                ? 0f
+                : Input.GetAxis("Mouse ScrollWheel");
+
             if (scroll != 0f)
             {
                 targetZoom -= scroll * zoomSpeed * cam.orthographicSize * 0.1f;

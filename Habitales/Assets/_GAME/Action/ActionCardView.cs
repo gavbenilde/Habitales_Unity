@@ -13,13 +13,13 @@ namespace Habitales.UI.Actions
 public class ActionCardView : MonoBehaviour
 {
     [SerializeField] private Image    background;   // the card root Image (background tint)
-    [SerializeField] private Button   cardButton;   // the card root Button (arm / lock click)
+    [SerializeField] private Button   cardButton;   // the card root Button (arm click)
     [SerializeField] private Image    icon;         // "ActionIcon"
     [SerializeField] private TMP_Text label;
     [SerializeField] private Button   boogleButton; // the "?" button (optional per card)
 
     /// <summary>Renders this card and wires its click handlers. Pass iconSprite null to hide the icon;
-    /// pass onBoogle null to disable/hide the "?" button (e.g. the lock card).</summary>
+    /// pass onBoogle null to disable/hide the "?" button (any card that shouldn't offer Boogle help).</summary>
     public void Bind(string displayName, Sprite iconSprite, Color bgColor, Action onClick, Action onBoogle)
     {
         if (background != null) background.color = bgColor;

@@ -1,6 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+// DORMANT (2026-07-18): level-ups cut — kept for reference. RunEndCoordinator no longer
+// calls AddXp (see RunEndCoordinator.ProcessRunEnd), so this SO's XP/level state is frozen
+// wherever the save file left it. MainMenu still reads level/totalXp for a static display
+// and exposes a debug Reset Progress button; nothing awards XP anymore.
 [CreateAssetMenu(fileName = "PlayerProgression", menuName = "Habitales/Player Progression")]
 public class PlayerProgressionSO : ScriptableObject
 {

@@ -4,6 +4,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+// DORMANT (2026-07-18): level-ups cut — kept for reference. No longer instantiated or
+// wired anywhere (MainMenu's level-up overlay path was removed). Retained in case the
+// level-up flow is revived later.
 public class LevelUpScreenUI : MonoBehaviour
 {
     [Header("Root")]

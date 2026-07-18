@@ -31,8 +31,9 @@ public class EndGameData
     // -1 when no peak has been recorded (e.g. run ended before EvaluateThrivingPeak ever fired).
     public int peakAtDay = -1;
 
-    public int xpEarned;   // = peakThrivingCount; kept separate for LevelUpScreenUI clarity
-    public int xpBefore;   // totalXp BEFORE AddXp; drives bar fill start position
+    // DORMANT (2026-07-18): level-ups cut — xpEarned/xpBefore fields removed. They had no
+    // reader (EndGameScreenUI never displayed them; LevelUpScreenUI is no longer wired to
+    // this data). RunEndCoordinator.RunEndSummary still computes xpEarned for logging only.
 
     // HQ's verdict on the season — forced to Collapse when endReason is an Ecosystem Collapse.
     public Habitales.Meta.SeasonGrade seasonGrade;
@@ -47,7 +48,4 @@ public class EndGameData
     public string favouriteAction;
     public string mostAvoidedAction;
     public string mostChattedWorker;
-
-    // Footer
-    public int researchPoints;
 }

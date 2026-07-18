@@ -7,8 +7,8 @@ namespace Habitales.UI.Actions
 {
     /// <summary>
     /// Passive view: owns card building for the action strip. Instantiates ActionCardView prefabs,
-    /// tracks them in a dictionary, and raises events upward when a card or the lock card is
-    /// clicked. The controller drives visibility and highlight calls.
+    /// tracks them in a dictionary, and raises events upward when a card is clicked. The controller
+    /// drives visibility and highlight calls.
     /// </summary>
     public class ActionStripView : MonoBehaviour
     {
@@ -20,9 +20,6 @@ namespace Habitales.UI.Actions
 
         /// <summary>Raised when the player clicks an action card. Law-2: on the click.</summary>
         public event Action<PlayerAction> OnActionCardClicked;
-
-        /// <summary>Raised when the player clicks the lock card. Law-2: on the click.</summary>
-        public event Action OnLockClicked;
 
         private readonly Dictionary<PlayerAction, GameObject> cardObjects = new Dictionary<PlayerAction, GameObject>();
 
@@ -45,8 +42,7 @@ namespace Habitales.UI.Actions
         // ─── Card building ────────────────────────────────────────────────────
 
         /// <summary>
-        /// Clears all existing cards and rebuilds the strip from <paramref name="actions"/>,
-        /// appending a single locked card at the end.
+        /// Clears all existing cards and rebuilds the strip from <paramref name="actions"/>.
         /// </summary>
         public void Render(IEnumerable<PlayerAction> actions)
         {
@@ -64,8 +60,6 @@ namespace Habitales.UI.Actions
             {
                 SpawnActionCard(action);
             }
-
-            SpawnLockCard();
         }
 
         private void SpawnActionCard(PlayerAction action)
@@ -92,28 +86,6 @@ namespace Habitales.UI.Actions
                 defaultCardColor,
                 () => OnActionCardClicked?.Invoke(captured),
                 () => OpenBoogle(captured));
-        }
-
-        private void SpawnLockCard()
-        {
-            if (cardPrefab == null || content == null) return;
-
-            GameObject card = Instantiate(cardPrefab, content);
-            card.name = "Card_Locked";
-
-            var view = card.GetComponent<ActionCardView>();
-            if (view == null)
-            {
-                Debug.LogError($"{name}: action card prefab is missing an ActionCardView component — add it and wire its refs.", this);
-                return;
-            }
-
-            view.Bind(
-                "Locked",
-                null,
-                defaultCardColor,
-                () => OnLockClicked?.Invoke(),
-                null);   // no Boogle button on the lock card
         }
 
         private void OpenBoogle(PlayerAction action)

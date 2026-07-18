@@ -1,11 +1,11 @@
 using UnityEngine;
 
 // RunEndCoordinator — owns the META layer at run-end (arch §Meta), decoupled from the run
-// simulation. RunManager calls ProcessRunEnd() when a run ends; this computes XP, applies it to
-// the player's progression, persists it, and returns a summary (+ the Azi flavour line) for the
-// run-end UI.
+// simulation. RunManager calls ProcessRunEnd() when a run ends; this computes the season grade
+// and returns a summary (+ the Azi flavour line) for the run-end UI.
 //
-// In Alpha, XP unlocks NOTHING functional — it is a cosmetic/feel reward. The prototype's
+// DORMANT (2026-07-18): level-ups cut — XP is computed for logging only and is no longer
+// applied to PlayerProgressionSO or persisted. See ProcessRunEnd below. The prototype's
 // per-level procedural plant-unlock path (GrantOnePlantUnlock → GeneratedPlantRegistry) is gone
 // with the cube system.
 namespace Habitales.Meta
@@ -41,8 +41,11 @@ namespace Habitales.Meta
 
         private void Awake()
         {
+            // DORMANT (2026-07-18): level-ups cut — progression is no longer awarded XP here.
+            // It's kept wired only so the F10 debug ResetProgression() hotkey has something to
+            // reset. A null ref just means that debug hotkey no-ops.
             if (progression == null)
-                Debug.LogError($"{name}: RunEndCoordinator has no PlayerProgressionSO assigned — XP/level-up will not persist. Wire it in the Inspector.", this);
+                Debug.LogWarning($"{name}: RunEndCoordinator has no PlayerProgressionSO assigned — the F10 debug ResetProgression() will no-op.", this);
         }
 
         private void Start()
@@ -51,7 +54,7 @@ namespace Habitales.Meta
             ProgressionPersistence.Load(progression);
         }
 
-        // Called by RunManager.TriggerGameOver. Pure meta: XP → progression → save → summary.
+        // Called by RunManager.TriggerGameOver. Pure meta: computes the season grade and summary.
         // collapsed forces the grade to SeasonGrade.Collapse regardless of the tile mix — RunManager
         // knows why the run ended (Ecosystem Collapse vs Field Season Complete) and passes it through.
         public RunEndSummary ProcessRunEnd(int thriving, int degraded, int critical, int peakThriving, bool collapsed = false)
@@ -59,19 +62,16 @@ namespace Habitales.Meta
             float raw = critical * xpPerCriticalTile + degraded * xpPerDegradedTile + thriving * xpPerThrivingTile;
             int   xpEarned = Mathf.RoundToInt(raw);
 
+            // DORMANT (2026-07-18): level-ups cut. xpEarned is still computed (and logged below)
+            // purely as an informational number — it is NOT applied to PlayerProgressionSO and
+            // nothing is persisted anymore. xpBefore/levelUps are always 0 now; kept in the
+            // summary struct only so EndGameScreenDebugTrigger and any other caller still compile.
             int xpBefore = 0;
             int levelUps = 0;
-            if (progression != null)
-            {
-                xpBefore = progression.totalXp;
-                levelUps = progression.AddXp(xpEarned);
-                // Alpha: level-up is a cosmetic/feel reward — no functional unlock granted here.
-                ProgressionPersistence.Save(progression);
-            }
 
             SeasonGrade grade = collapsed ? SeasonGrade.Collapse : ComputeGrade(thriving, degraded, critical);
 
-            Debug.Log($"[RunEnd] XP +{xpEarned} (thriving {thriving}×{xpPerThrivingTile}, degraded {degraded}×{xpPerDegradedTile}, critical {critical}×{xpPerCriticalTile}) | level-ups: {levelUps} | grade: {grade}");
+            Debug.Log($"[RunEnd] XP +{xpEarned} (thriving {thriving}×{xpPerThrivingTile}, degraded {degraded}×{xpPerDegradedTile}, critical {critical}×{xpPerCriticalTile}) | level-ups DORMANT | grade: {grade}");
 
             return new RunEndSummary
             {

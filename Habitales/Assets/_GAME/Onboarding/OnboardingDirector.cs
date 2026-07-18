@@ -1050,7 +1050,8 @@ namespace Habitales.Onboarding
 //    Director subscribes in Start(), unsubscribes in OnDestroy(). No more polling.
 //
 // 2. OnActionConfirmed ✓ WIRED
-//    ActionBarUI.OnActionConfirmed fires inside HandleConfirmed() before ExecuteAction().
+//    ActionBarUI.OnActionConfirmed fires inside HandleConfirmed() after ExecuteAction()
+//    reports success — a refused confirm (event pause, workforce) no longer fires it.
 //    Director subscribes in Start(), unsubscribes in OnDestroy().
 //    TileSelector.OnMultiSelectionConfirmed is kept as a secondary/fallback handler.
 //

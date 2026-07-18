@@ -37,7 +37,6 @@ public class EndGameScreenDebugTrigger : MonoBehaviour
     [SerializeField] private int thrivingCount = 14;
     [SerializeField] private int degradedCount = 6;
     [SerializeField] private int criticalCount = 2;
-    [SerializeField] private int researchPoints = 42;
 
     private void OnEnable()
     {
@@ -93,8 +92,7 @@ public class EndGameScreenDebugTrigger : MonoBehaviour
             peakScreenshot    = null, // RawImage shows empty — fine for a debug preview
             peakAtDay         = peakAtDay,
 
-            xpEarned = 120,
-            xpBefore = 40,
+            // DORMANT (2026-07-18): level-ups cut — EndGameData.xpEarned/xpBefore removed.
 
             seasonGrade = previewGrade,
 
@@ -110,8 +108,6 @@ public class EndGameScreenDebugTrigger : MonoBehaviour
             favouriteAction   = "Plant Sunflower",
             mostAvoidedAction = "Controlled Burn",
             mostChattedWorker = "Bob",
-
-            researchPoints = researchPoints,
         };
     }
 

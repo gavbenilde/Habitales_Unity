@@ -75,7 +75,6 @@ namespace Habitales.UI.Actions
         [SerializeField] private ActionCategoryBar categoryBar;
         [SerializeField] private ActionStripView    strip;
         [SerializeField] private ActionEstimatePanel estimatePanel;
-        [SerializeField] private LockModalView       lockModal;
         [SerializeField] private FlowerBudToggle     flower;
 
         [Header("Systems")]
@@ -179,11 +178,6 @@ namespace Habitales.UI.Actions
                 Debug.LogError($"{name}: estimatePanel is not wired — assign the ActionEstimatePanel component in the Inspector.", this);
                 ok = false;
             }
-            if (lockModal == null)
-            {
-                Debug.LogError($"{name}: lockModal is not wired — assign the LockModalView component in the Inspector.", this);
-                ok = false;
-            }
             if (flower == null)
             {
                 Debug.LogError($"{name}: flower is not wired — assign the FlowerBudToggle component in the Inspector.", this);
@@ -209,6 +203,7 @@ namespace Habitales.UI.Actions
             {
                 tileSelector.OnTileSelected            += HandleTileClicked;
                 tileSelector.OnMultiSelectionConfirmed += HandleConfirmed;
+                tileSelector.OnBrushSizeChanged        += HandleBrushSizeFromSelector;
             }
 
             if (categoryBar != null)
@@ -217,11 +212,13 @@ namespace Habitales.UI.Actions
             if (strip != null)
             {
                 strip.OnActionCardClicked += ArmAction;
-                strip.OnLockClicked       += HandleLockClicked;
             }
 
             if (estimatePanel != null)
-                estimatePanel.OnConfirmClicked += HandleConfirmClicked;
+            {
+                estimatePanel.OnConfirmClicked   += HandleConfirmClicked;
+                estimatePanel.OnBrushSizeChanged += HandleBrushSliderChanged;
+            }
 
             if (flower != null)
                 flower.OnBloomToggled += HandleBloomToggled;
@@ -233,6 +230,7 @@ namespace Habitales.UI.Actions
             {
                 tileSelector.OnTileSelected            -= HandleTileClicked;
                 tileSelector.OnMultiSelectionConfirmed -= HandleConfirmed;
+                tileSelector.OnBrushSizeChanged        -= HandleBrushSizeFromSelector;
             }
 
             if (categoryBar != null)
@@ -241,11 +239,13 @@ namespace Habitales.UI.Actions
             if (strip != null)
             {
                 strip.OnActionCardClicked -= ArmAction;
-                strip.OnLockClicked       -= HandleLockClicked;
             }
 
             if (estimatePanel != null)
-                estimatePanel.OnConfirmClicked -= HandleConfirmClicked;
+            {
+                estimatePanel.OnConfirmClicked   -= HandleConfirmClicked;
+                estimatePanel.OnBrushSizeChanged -= HandleBrushSliderChanged;
+            }
 
             if (flower != null)
                 flower.OnBloomToggled -= HandleBloomToggled;
@@ -267,15 +267,24 @@ namespace Habitales.UI.Actions
 
         // ─── View event handlers (upward channel) ─────────────────────────────
 
-        private void HandleLockClicked()
-        {
-            if (lockModal != null) lockModal.Show();
-        }
-
         private void HandleConfirmClicked()
         {
             // Controller mediates the TileSelector write — views never touch TileSelector (Law 1).
             if (tileSelector != null) tileSelector.ConfirmSelection();
+        }
+
+        // ─── Brush-size mediation (flood-fill slider ↔ TileSelector) ──────────
+
+        /// <summary>Blob resized by drag/Ctrl+Scroll/initial flood → sync (and reveal) the slider.</summary>
+        private void HandleBrushSizeFromSelector(int current, int min, int max)
+        {
+            if (estimatePanel != null) estimatePanel.ShowBrush(min, max, current);
+        }
+
+        /// <summary>Slider dragged by the player → resize the blob (Law 1: controller mediates the write).</summary>
+        private void HandleBrushSliderChanged(int size)
+        {
+            if (tileSelector != null) tileSelector.SetBrushSize(size);
         }
 
         // ─── Category selection ───────────────────────────────────────────────
@@ -348,6 +357,9 @@ namespace Habitales.UI.Actions
             currentAction = action;
 
             if (estimatePanel != null) estimatePanel.SetVisible(true);
+            // Hide any lingering brush slider from a previously armed FloodFill action;
+            // a FloodFill entry re-shows it via TileSelector.OnBrushSizeChanged.
+            if (estimatePanel != null) estimatePanel.HideBrush();
             if (strip         != null) strip.Highlight(action);
 
             // Law-2: fire the armed event now that the action is meaningfully selected.
@@ -383,6 +395,7 @@ namespace Habitales.UI.Actions
                 tileSelector.CancelSelection();
 
             if (estimatePanel != null) estimatePanel.SetVisible(false);
+            if (estimatePanel != null) estimatePanel.HideBrush();
             if (strip         != null) strip.Highlight(null);
         }
 
@@ -397,9 +410,20 @@ namespace Habitales.UI.Actions
         private void HandleConfirmed(List<Tile> tiles)
         {
             if (currentAction == null || actionManager == null) return;
+
+            // ExecuteAction can refuse (event pause, workforce, CanExecute). A refused confirm
+            // used to fire OnActionConfirmed and Disarm anyway, so the bar reset exactly as if
+            // the action ran — the "actions silently do nothing" symptom (2026-07-19 fix). On
+            // refusal the action stays armed; TileSelector already cleared the selection, so
+            // the player just re-picks tiles and confirms again.
+            if (!actionManager.ExecuteAction(currentAction, tiles))
+            {
+                Debug.LogWarning($"{name}: '{currentAction.ActionName}' confirm refused — see the ActionManager warning above. Action stays armed.", this);
+                return;
+            }
+
             // Law-2: fire confirmed at the moment of meaning (action committed), before Disarm clears state.
             OnActionConfirmed?.Invoke();
-            actionManager.ExecuteAction(currentAction, tiles);
             Disarm();
         }
 

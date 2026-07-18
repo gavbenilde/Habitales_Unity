@@ -9,9 +9,6 @@ public class MainMenu : MonoBehaviour
     [SerializeField] private TextMeshProUGUI     levelText;
     [SerializeField] private TextMeshProUGUI     xpText;
 
-    [Header("Level-Up Overlay")]
-    [SerializeField] private LevelUpScreenUI levelUpScreen;
-
     [Header("Scene Names")]
     [Tooltip("Scene to load when Start Run is pressed.")]
     [SerializeField] private string runSceneName = "Vertical Slice";
@@ -22,32 +19,15 @@ public class MainMenu : MonoBehaviour
              "scene-default run length, with a warning.")]
     [SerializeField] private Habitales.UI.SeasonSelectPanelUI seasonSelectPanel;
 
+    // DORMANT (2026-07-18): level-ups cut — this used to show a level-up overlay when
+    // current progression was ahead of PlayerProgressionSO.lastSeen*. That overlay path is
+    // removed; nothing awards XP anymore (see RunEndCoordinator.ProcessRunEnd), so
+    // lastSeen* would never fall behind current values in the first place. Level/XP text
+    // still displays a static snapshot via RefreshDisplay().
     void Start()
     {
         ProgressionPersistence.Load(playerProgression);
-
-        // Show the lastSeen snapshot first — the level-up overlay (if it plays)
-        // is what animates the player up to current state.
         RefreshDisplay();
-
-        if (playerProgression == null) return;
-
-        bool hasUnseenXp      = playerProgression.totalXp > playerProgression.lastSeenTotalXp;
-        bool hasUnseenUnlocks = playerProgression.unlockedPlantIds.Count > playerProgression.lastSeenUnlockCount;
-        if (!hasUnseenXp && !hasUnseenUnlocks) return;
-        if (levelUpScreen == null) return;
-
-        int xpBefore = playerProgression.lastSeenTotalXp;
-        int xpEarned = playerProgression.totalXp - playerProgression.lastSeenTotalXp;
-
-        levelUpScreen.Show(xpBefore, xpEarned, playerProgression, () =>
-        {
-            playerProgression.lastSeenLevel       = playerProgression.level;
-            playerProgression.lastSeenTotalXp     = playerProgression.totalXp;
-            playerProgression.lastSeenUnlockCount = playerProgression.unlockedPlantIds.Count;
-            ProgressionPersistence.Save(playerProgression);
-            RefreshDisplay();
-        });
     }
 
     private void RefreshDisplay()

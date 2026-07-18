@@ -104,7 +104,12 @@ public class RunManager : MonoBehaviour {
     /// <summary>True once the run has ended (Law 1 read). TriggerManager reads this to drop
     /// a popup whose mid-fire action-abort just ended the run underneath it.</summary>
     public bool IsGameOver => isGameOver;
-    public bool IsEventPaused { get; private set; } = false;
+    /// <summary>True while ANY event holds the sim paused. Refcounted (2026-07-19): three
+    /// systems pause independently — CheckInPanelUI, TriggerManager popup batches, and
+    /// UIManager modal popups. As a plain bool, whichever one resumed first un-paused the
+    /// others; the depth counter makes each Pause/Resume pair balance on its own.</summary>
+    public bool IsEventPaused => eventPauseDepth > 0;
+    private int eventPauseDepth = 0;
 
     /// <summary>Fires the moment the run ends, BEFORE any end-flow UI shows. Subscribers stand
     /// down pending presentation (TriggerManager clears its popup queue — game over trumps
@@ -512,6 +517,10 @@ public class RunManager : MonoBehaviour {
 
         // No middle tier: the End Conversation either plays or the End Report shows now.
         // TryShowEndConversation already LogError'd the specific missing piece.
+        // A midseason check-in may still be open under the End Report (its [Continue] —
+        // the only ResumeFromEvent for its pause — is about to be covered); force-close
+        // it so the event-pause can't be held for the rest of the process.
+        Habitales.UI.CheckInPanelUI.Instance?.ForceClose();
         ShowEndReport(data);
     }
 
@@ -635,14 +644,19 @@ public class RunManager : MonoBehaviour {
     
     public void PauseForEvent()
     {
-        IsEventPaused = true;
-        if (showDebugInfo) Debug.Log("GameManager: Paused for event.");
+        eventPauseDepth++;
+        if (showDebugInfo) Debug.Log($"GameManager: Paused for event (depth {eventPauseDepth}).");
     }
 
     public void ResumeFromEvent()
     {
-        IsEventPaused = false;
-        if (showDebugInfo) Debug.Log("GameManager: Resumed from event.");
+        if (eventPauseDepth <= 0)
+        {
+            Debug.LogWarning("GameManager: ResumeFromEvent called with no matching PauseForEvent — ignored (depth already 0).");
+            return;
+        }
+        eventPauseDepth--;
+        if (showDebugInfo) Debug.Log($"GameManager: Resumed from event (depth {eventPauseDepth}).");
     }
 
     /// <summary>
@@ -685,7 +699,6 @@ public class RunManager : MonoBehaviour {
             totalDays      = resourceManager.TotalDays,
             worldHealth    = regionManager.GetTotalAverageHealth(),
             healthHistory  = new List<float>(healthHistory),
-            researchPoints = resourceManager.ResearchPoints,
         };
 
         // Tile counts — reuses existing threshold fields on this class
@@ -694,8 +707,7 @@ public class RunManager : MonoBehaviour {
         data.peakScreenshot    = peakScreenshot;
         data.peakAtDay         = peakAtDay;
         data.aziSummaryLine = summary.aziLine;
-        data.xpEarned       = summary.xpEarned;
-        data.xpBefore       = summary.xpBefore;
+        // DORMANT (2026-07-18): level-ups cut — EndGameData no longer carries xpEarned/xpBefore.
         data.seasonGrade    = summary.grade;
 
         // Top worker by actions participated

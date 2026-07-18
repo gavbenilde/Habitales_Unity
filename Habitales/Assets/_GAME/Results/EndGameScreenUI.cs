@@ -114,7 +114,6 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     [SerializeField] private float      minipanelFadeSeconds  = 0.4f; // ceremony fade-in of the whole minipanel
 
     [Header("Footer")]
-    [SerializeField] private TextMeshProUGUI researchPointsText;
     [SerializeField] private Button          playAgainButton;        // reloads the run scene for a fresh attempt
     [SerializeField] private Button          exitToMainMenuButton;   // exits to the main menu (or prototype menu — see toggle)
     [SerializeField] private Button          minimizeButton;
@@ -124,10 +123,6 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     [SerializeField] private bool usePrototypeMenu = false;
     [SerializeField] private string mainMenuSceneName      = "Main Menu";
     [SerializeField] private string prototypeMenuSceneName = "PrototypeMenu";
-
-    [Header("Level-Up Handoff (DORMANT — moved to MainMenu)")]
-    [SerializeField] private LevelUpScreenUI     levelUpScreen;
-    [SerializeField] private PlayerProgressionSO playerProgression;
 
     [Header("Staged Reveal Ceremony")]
     [Tooltip("When true, Show() plays the staged reveal coroutine. When false, everything lands instantly (skip state).")]
@@ -271,9 +266,7 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     private void OnExitToMainMenu()
     {
         // Routes to the prototype menu during dev, or the real main menu otherwise.
-        // MainMenu.Start fires the level-up overlay whenever current progression
-        // is ahead of PlayerProgressionSO.lastSeen*; Play Again skips this path,
-        // so accumulated XP/unlocks from consecutive reloads land all at once.
+        // DORMANT (2026-07-18): level-ups cut — MainMenu no longer shows a level-up overlay.
         Hide();
         string target = usePrototypeMenu ? prototypeMenuSceneName : mainMenuSceneName;
         SceneManager.LoadScene(target);
@@ -318,9 +311,6 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         favouriteActionText.text = Coalesce(data.favouriteAction);
         mostAvoidedText.text     = Coalesce(data.mostAvoidedAction);
         mostChattedText.text     = Coalesce(data.mostChattedWorker);
-
-        // Footer
-        researchPointsText.text = $"{data.researchPoints} RP";
 
         // Season sparkline — OPTIONAL-with-warning (Law 3 exception): this screen is already
         // live in-scene, so a missing sparkline ref must degrade gracefully, not brick Show().

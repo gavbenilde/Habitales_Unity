@@ -1,7 +1,9 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Habitales.Dialogue;
 using Habitales.Meta;
+using Habitales.Triggers;
 
 namespace Habitales.UI
 {
@@ -89,6 +91,14 @@ namespace Habitales.UI
         {
             if (RunManager.Instance != null)
                 RunManager.Instance.OnDayResolved -= HandleDayResolved;
+
+            // Disabling a MonoBehaviour does NOT stop its coroutines — kill a pending
+            // deferred fire explicitly so a disabled scheduler can't pop a check-in.
+            if (_pendingFire != null)
+            {
+                StopCoroutine(_pendingFire);
+                _pendingFire = null;
+            }
         }
 
         private void HandleDayResolved(int day)
@@ -112,6 +122,46 @@ namespace Habitales.UI
             if (RunManager.Instance != null && RunManager.Instance.IsGameOver) return;
 
             if (checkInIntervalDays <= 0 || day % checkInIntervalDays != 0) return;
+
+            RequestCheckIn();
+        }
+
+        // ── Deferral (2026-07-19 fix) ─────────────────────────────────────────
+
+        // A check-in day can resolve MID-multi-day-action (OnDayResolved fires inside
+        // ActionManager.FinishAction's day loop) and BEFORE the same heartbeat's popup
+        // drain (TriggerManager.DrainDeferredFires is the step after OnDayResolved).
+        // Firing immediately used to (a) open the "paused" panel over an action that kept
+        // resolving days behind it, and (b) trap that day's trigger popups underneath the
+        // panel's full-screen blocker, wedging TriggerManager.IsBusy for the rest of the
+        // run. So: request now, fire once the world is presentable. All stats/deltas are
+        // computed at FIRE time, so a deferred check-in reports the world it actually shows.
+        private Coroutine _pendingFire;
+
+        private void RequestCheckIn()
+        {
+            if (_pendingFire != null) return; // one pending check-in at a time
+            _pendingFire = StartCoroutine(FireWhenClear());
+        }
+
+        private IEnumerator FireWhenClear()
+        {
+            yield return null; // let the current heartbeat finish (including the popup drain)
+            // Also wait for IsEventPaused == 0: an action's completion can immediately open a
+            // managed modal (e.g. the Examine results popup) — never stack the check-in on
+            // top of another pause owner. Safe: our own pause isn't taken until Show().
+            yield return new WaitUntil(() =>
+                (ActionManager.Instance == null || !ActionManager.Instance.IsActionRunning) &&
+                (TriggerManager.Instance == null || !TriggerManager.Instance.IsBusy) &&
+                (RunManager.Instance == null || !RunManager.Instance.IsEventPaused));
+
+            _pendingFire = null;
+
+            // Re-check the cadence gates — the wait can cross a game-over or the final day
+            // (e.g. the action we waited on ended the run via EvaluateGameOver).
+            if (RunManager.Instance == null || RunManager.Instance.IsGameOver) yield break;
+            if (ResourceManager.Instance != null &&
+                ResourceManager.Instance.RunLengthDays - ResourceManager.Instance.TotalDays <= 0) yield break;
 
             FireCheckIn();
         }

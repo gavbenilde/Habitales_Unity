@@ -62,11 +62,6 @@ public class ResourceManager : MonoBehaviour
     [SerializeField] private int startingWorkerCount = 12;
     private List<Worker> allWorkers = new List<Worker>();
 
-    // ── Research Points ───────────────────────────────────────────────────────
-    [Header("Research Points")]
-    private int researchPoints = 0;
-    public int ResearchPoints => researchPoints;
-
     // ── Events ────────────────────────────────────────────────────────────────
     // OnGameOver was DELETED (2026-07-08 run-end rework): the clock never declares game
     // over any more. RunManager owns the decision (RunManager.OnGameOverTriggered) and
@@ -75,7 +70,6 @@ public class ResourceManager : MonoBehaviour
     public event Action<int>      OnTimeAdvanced;
     public event Action<int, int> OnPeopleFatigued;  // (count, latestReturnDay)
     public event Action<int>      OnPeopleRecovered;
-    public event Action<int>      OnRPChanged;
 
     // ── Worker meaning-event seams (arch §6.1 HOOK) ─────────────────────────────
     // Law 2: a SPECIFIC named worker recovering / having a birthday is meaning — the
@@ -285,21 +279,6 @@ public class ResourceManager : MonoBehaviour
             OnPeopleRecovered?.Invoke(recovered);
             Debug.Log($"{recovered} worker(s) recovered. Available: {AvailablePeople}/{TotalPeople}");
         }
-    }
-
-    // ── Research Points ───────────────────────────────────────────────────────
-    public void EarnRP(int amount)
-    {
-        researchPoints += amount;
-        OnRPChanged?.Invoke(researchPoints);
-    }
-
-    public bool SpendRP(int amount)
-    {
-        if (researchPoints < amount) return false;
-        researchPoints -= amount;
-        OnRPChanged?.Invoke(researchPoints);
-        return true;
     }
 
     // ── Utility ───────────────────────────────────────────────────────────────

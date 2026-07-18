@@ -315,6 +315,10 @@ namespace Habitales.UI
             else
             {
                 RunManager.Instance?.PauseForEvent();
+                // Block the action bar in code, like every other modal (UIManager.ShowPopup,
+                // PauseMenuController) — the full-screen blocker alone is a wiring assumption,
+                // and a confirm that slips through gets silently swallowed by the pause gate.
+                UIManager.Instance?.ActionBar?.SetInteractable(false);
                 _isOpen = true;
             }
             ResetSession();
@@ -406,14 +410,42 @@ namespace Habitales.UI
             // Phase B: a quiet beat after the stats land — the player never summons Azi.
             yield return PacedWait(firstMessageDelaySeconds, showTyping: false);
 
-            while (TryResolveNextStep(out ResolvedLine line, out ChoicePayload choice))
+            // Every non-yield step below is exception-guarded: a throwing step ends the
+            // conversation early instead of killing this coroutine. A dead walk would
+            // strand [Continue] — the ONLY release for the event-pause — forever.
+            while (true)
             {
+                ResolvedLine line = null;
+                ChoicePayload choice = null;
+                bool hasStep = false;
+                try
+                {
+                    hasStep = TryResolveNextStep(out line, out choice);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"{name}: check-in walk failed while resolving the next step — ending the conversation early so [Continue] can release the pause.", this);
+                    Debug.LogException(e, this);
+                }
+                if (!hasStep) break;
+
                 if (choice != null)
                 {
                     // The choice row IS the input — suspend until the player picks.
                     // HandleChoiceSelected spawns their reply bubble and clears the halt.
                     SetTyping(false);
-                    ShowChoices(choice);
+                    bool choicesShown = false;
+                    try
+                    {
+                        ShowChoices(choice);
+                        choicesShown = true;
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError($"{name}: check-in walk failed while building the choice row — ending the conversation early so [Continue] can release the pause.", this);
+                        Debug.LogException(e, this);
+                    }
+                    if (!choicesShown) break;
                     while (_pendingChoice != null) yield return null;
                     continue;
                 }
@@ -423,13 +455,30 @@ namespace Habitales.UI
                              + perCharacterDelaySeconds * (line.body != null ? line.body.Length : 0);
                 yield return PacedWait(wait, showTyping: true);
                 SetTyping(false);
-                SpawnBubble(line);
+                try
+                {
+                    SpawnBubble(line);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"{name}: check-in walk failed while spawning a bubble — ending the conversation early so [Continue] can release the pause.", this);
+                    Debug.LogException(e, this);
+                    break;
+                }
             }
 
             // Phase D: terminal bubble shown, nowhere left to walk → marker → Continue.
             SetTyping(false);
             yield return PacedWait(endBeatSeconds, showTyping: false);
-            SpawnEndMarker();
+            try
+            {
+                SpawnEndMarker();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"{name}: end-of-conversation marker failed to spawn — continuing to [Continue] anyway.", this);
+                Debug.LogException(e, this);
+            }
             yield return PacedWait(endBeatSeconds, showTyping: false);
 
             _pendingChoice = null;
@@ -611,9 +660,27 @@ namespace Habitales.UI
             ResetSession(); // also clears tokens and _onContinue — hence the local copy
 
             panelRoot.SetActive(false);
+            UIManager.Instance?.ActionBar?.SetInteractable(true);
             RunManager.Instance?.ResumeFromEvent();
 
             onContinue?.Invoke();
+        }
+
+        /// <summary>
+        /// Force-closes an open session WITHOUT invoking onContinue — the game-over fallback
+        /// (RunManager.TriggerGameOver) uses this when the End Conversation can't play, so an
+        /// orphaned midseason panel can never hold the event-pause for the rest of the run.
+        /// No-op when nothing is open.
+        /// </summary>
+        public void ForceClose()
+        {
+            if (!_isOpen) return;
+            _isOpen = false;
+
+            ResetSession();
+            if (panelRoot != null) panelRoot.SetActive(false);
+            UIManager.Instance?.ActionBar?.SetInteractable(true);
+            RunManager.Instance?.ResumeFromEvent();
         }
     }
 }
