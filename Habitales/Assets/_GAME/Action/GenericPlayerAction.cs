@@ -22,6 +22,7 @@ public class GenericPlayerAction : PlayerAction
     public override string Description             => _def.description;
     public override SelectionMode selectionMode    => _def.selectionMode;
     public override ActionCategory Category        => MapGroup(_def.group);
+    public override ExamineActionType ExamineReport => _def.examineReport;
 
     // Crew of 0 would divide-by-zero in the cost math; clamp to a sane floor.
     public override int MinPeoplePerTile           => Mathf.Max(1, _def.minPeoplePerTile);

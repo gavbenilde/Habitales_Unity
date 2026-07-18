@@ -214,12 +214,8 @@ public class RegionManager : MonoBehaviour
         // Step 5: Issue assignment
         int issuesAssigned = AssignIssues(regionTiles, dominantTheme, profile);
 
-        // Step 6: Building placement
-        int villagesPlaced = 0;
-        int factoriesPlaced = 0;
-        PlaceBuildings(regionTiles, profile, ref villagesPlaced, ref factoriesPlaced);
-
-        PlaceOrganicEntities(regionTiles, profile);
+        // Step 6: Spawn table (trees, trash, villages, factories — all profile-authored)
+        PlaceSpawnTableEntities(regionTiles, profile);
 
         // Step 7: Forced entity overrides (event-driven regions)
         if (profile.forceSpecificEntities)
@@ -247,8 +243,6 @@ public class RegionManager : MonoBehaviour
             tileCount             = regionTiles.Count,
             dominantTheme         = dominantTheme,
             averageStartingHealth = avgHealth,
-            villagesPlaced        = villagesPlaced,
-            factoriesPlaced       = factoriesPlaced,
             issuesAssigned        = issuesAssigned,
             contaminationCoverage = contamCoverage,
             approximateCenter     = center,
@@ -259,7 +253,7 @@ public class RegionManager : MonoBehaviour
         PopulateNotableFindings(result, dominantTheme);
 
         if (showDebugInfo)
-            Debug.Log($"Region {regionID} generated: {regionTiles.Count} tiles | Theme: {dominantTheme} | Issues: {issuesAssigned} | Villages: {villagesPlaced} | Factories: {factoriesPlaced} | Avg Health: {avgHealth:F1}");
+            Debug.Log($"Region {regionID} generated: {regionTiles.Count} tiles | Theme: {dominantTheme} | Issues: {issuesAssigned} | Avg Health: {avgHealth:F1}");
 
         OnRegionGenerated?.Invoke(result);
         return result;
@@ -552,32 +546,61 @@ public class RegionManager : MonoBehaviour
     }
 
     // =====================================================================
-    // STEP 5 — BUILDING PLACEMENT
+    // STEP 5 — SPAWN TABLE
     // =====================================================================
 
-    private void PlaceBuildings(List<Tile> tiles, RegionProfile profile, ref int villagesPlaced, ref int factoriesPlaced)
+    /// <summary>
+    /// Scatters the profile's spawn table across the region (replaces the old fixed
+    /// Buildings + Organic Entity passes, 2026-07-17). Entries run in list order, so
+    /// earlier rows get first pick of empty tiles. Per entry: roll `frequency` against
+    /// each empty tile until `maxCount` is hit, then top up to `minCount` on random
+    /// remaining empty tiles (the guarantee wins over a max authored below it).
+    /// </summary>
+    private void PlaceSpawnTableEntities(List<Tile> tiles, RegionProfile profile)
     {
-        List<Tile> shuffled = new List<Tile>(tiles);
-        Shuffle(shuffled);
+        if (profile.spawnTable == null || profile.spawnTable.Count == 0) return;
 
-        foreach (Tile tile in shuffled)
+        foreach (RegionSpawnEntry entry in profile.spawnTable)
         {
-            if (tile.entity != null) continue;
-
-            bool villagesDone  = villagesPlaced  >= profile.maxVillages;
-            bool factoriesDone = factoriesPlaced >= profile.maxFactories;
-            if (villagesDone && factoriesDone) break;
-
-            if (!villagesDone && Random.value <= profile.villageSpawnChance)
+            if (entry == null || entry.entity == null)
             {
-                tileManager.SpawnById(tile, EntityIds.Village);
-                villagesPlaced++;
+                Debug.LogWarning($"RegionManager: spawn table entry in profile '{profile.name}' has no TileEntitySO assigned — skipping.", profile);
+                continue;
             }
-            else if (!factoriesDone && Random.value <= profile.factorySpawnChance)
+
+            int cap = Mathf.Max(entry.maxCount, entry.minCount);
+            if (cap == 0) continue;
+
+            List<Tile> empties = new List<Tile>();
+            foreach (Tile t in tiles)
+                if (t.entity == null) empties.Add(t);
+            Shuffle(empties);
+
+            int placed = 0;
+            foreach (Tile tile in empties)
             {
-                tileManager.SpawnById(tile, EntityIds.Factory);
-                factoriesPlaced++;
+                if (placed >= cap) break;
+                if (Random.value < entry.frequency)
+                {
+                    tileManager.SpawnFromDef(tile, entry.entity);
+                    placed++;
+                }
             }
+
+            // Top up to the guaranteed minimum on tiles the rolls skipped.
+            if (placed < entry.minCount)
+            {
+                foreach (Tile tile in empties)
+                {
+                    if (placed >= entry.minCount) break;
+                    if (tile.entity != null) continue;
+                    tileManager.SpawnFromDef(tile, entry.entity);
+                    placed++;
+                }
+            }
+
+            if (showDebugInfo)
+                Debug.Log($"RegionManager: spawn table placed {placed}× '{entry.entity.displayName}' (min {entry.minCount}, cap {cap}).");
         }
     }
 
@@ -612,42 +635,6 @@ public class RegionManager : MonoBehaviour
             tileManager.SpawnById(tile, entityId);
         }
     }
-
-    private void PlaceOrganicEntities(List<Tile> tiles, RegionProfile profile)
-    {
-        // Skip entirely if no organic chances are configured — avoid a pointless shuffle
-        if (profile.matureTreeSpawnChance == 0f && profile.saplingSpawnChance == 0f &&
-            profile.seedlingSpawnChance == 0f && profile.deadTreeSpawnChance == 0f &&
-            profile.stumpSpawnChance == 0f && profile.bioTrashSpawnChance == 0f)
-            return;
-
-        List<Tile> shuffled = new List<Tile>(tiles);
-        Shuffle(shuffled);
-
-        int placed = 0;
-        foreach (Tile tile in shuffled)
-        {
-            if (tile.entity != null) continue; // already has a Village, Factory, etc.
-
-            if (profile.matureTreeSpawnChance > 0f && Random.value < profile.matureTreeSpawnChance)
-            { tileManager.SpawnById(tile, EntityIds.TreeMature); placed++; }
-            else if (profile.saplingSpawnChance > 0f && Random.value < profile.saplingSpawnChance)
-            { tileManager.SpawnById(tile, EntityIds.TreeSapling); placed++; }
-            else if (profile.seedlingSpawnChance > 0f && Random.value < profile.seedlingSpawnChance)
-            { tileManager.SpawnById(tile, EntityIds.TreeSeedling); placed++; }
-            else if (profile.deadTreeSpawnChance > 0f && Random.value < profile.deadTreeSpawnChance)
-            { tileManager.SpawnById(tile, EntityIds.DeadTree); placed++; }
-            else if (profile.stumpSpawnChance > 0f && Random.value < profile.stumpSpawnChance)
-            { tileManager.SpawnById(tile, EntityIds.Stump); placed++; }
-            else if (profile.bioTrashSpawnChance > 0f && Random.value < profile.bioTrashSpawnChance)
-            { tileManager.SpawnById(tile, EntityIds.TrashBio); placed++; }
-        }
-
-        if (showDebugInfo)
-            Debug.Log($"RegionManager: PlaceOrganicEntities placed {placed} entities across {tiles.Count} tiles.");
-    }
-
-
 
     // =====================================================================
     // THEME ROLLING
@@ -739,11 +726,9 @@ public class RegionManager : MonoBehaviour
         RegionTheme theme = profile.forceTheme ? profile.forcedTheme : RollTheme(profile);
         AssignIssues(tiles, theme, profile);
 
-        int v = 0, f = 0;
-        PlaceBuildings(tiles, profile, ref v, ref f);
-        PlaceOrganicEntities(tiles, profile);
+        PlaceSpawnTableEntities(tiles, profile);
         if (showDebugInfo)
-            Debug.Log($"RegionManager.InitializeRegion: theme={theme}, issues assigned, v={v}, f={f}");
+            Debug.Log($"RegionManager.InitializeRegion: theme={theme}, issues assigned, spawn table applied.");
     }
 
     /// <summary>
@@ -900,9 +885,7 @@ public class RegionManager : MonoBehaviour
         RegionTheme dominantTheme = profile.forceTheme ? profile.forcedTheme : RollTheme(profile);
         int issuesAssigned = AssignIssues(regionTiles, dominantTheme, profile);
 
-        int villagesPlaced = 0, factoriesPlaced = 0;
-        PlaceBuildings(regionTiles, profile, ref villagesPlaced, ref factoriesPlaced);
-        PlaceOrganicEntities(regionTiles, profile);
+        PlaceSpawnTableEntities(regionTiles, profile);
 
         if (profile.forceSpecificEntities)
             ApplyForcedEntities(seed, profile);
@@ -919,8 +902,6 @@ public class RegionManager : MonoBehaviour
             tileCount             = regionTiles.Count,
             dominantTheme         = dominantTheme,
             averageStartingHealth = avgHealth,
-            villagesPlaced        = villagesPlaced,
-            factoriesPlaced       = factoriesPlaced,
             issuesAssigned        = issuesAssigned,
             contaminationCoverage = contamCoverage,
             approximateCenter     = CalculateCenter(positions),
@@ -946,12 +927,6 @@ public class RegionManager : MonoBehaviour
     private void PopulateNotableFindings(RegionGenerationResult result, RegionTheme theme)
     {
         result.notableFindings.Add($"Dominant issue: {theme}.");
-
-        if (result.villagesPlaced > 0)
-            result.notableFindings.Add($"{result.villagesPlaced} village(s) detected — kaingin risk present.");
-
-        if (result.factoriesPlaced > 0)
-            result.notableFindings.Add($"{result.factoriesPlaced} factory(ies) detected — contamination spread risk.");
 
         if (result.contaminationCoverage > 0.3f)
             result.notableFindings.Add("High contamination coverage detected across region.");

@@ -136,9 +136,8 @@ public class AtmosphereDirector : MonoBehaviour
         _currentCloudStrength = p.cloudShadowStrength;
         _currentCloudSpeed    = p.cloudSpeed;
 
-        foreach (var kv in _byState)
-            if (kv.Value.volume != null)
-                kv.Value.volume.weight = kv.Key == CurrentWeather() ? 1f : 0f;
+        foreach (var kv in ResolveVolumeTargets())
+            kv.Key.weight = kv.Value;
 
         ApplyLight();
         PushHorizon();
@@ -170,12 +169,8 @@ public class AtmosphereDirector : MonoBehaviour
         _currentCloudStrength = Mathf.MoveTowards(_currentCloudStrength, p.cloudShadowStrength, rate);
         _currentCloudSpeed    = Mathf.MoveTowards(_currentCloudSpeed, p.cloudSpeed, rate * 2f);
 
-        foreach (var kv in _byState)
-        {
-            if (kv.Value.volume == null) continue;
-            float target = kv.Key == CurrentWeather() ? 1f : 0f;
-            kv.Value.volume.weight = Mathf.MoveTowards(kv.Value.volume.weight, target, rate);
-        }
+        foreach (var kv in ResolveVolumeTargets())
+            kv.Key.weight = Mathf.MoveTowards(kv.Key.weight, kv.Value, rate);
 
         // ── 3. Lightning flash decay (applied on top of the lerped intensity) ──
         if (_flashBoost > 0f)
@@ -247,6 +242,27 @@ public class AtmosphereDirector : MonoBehaviour
         }
     }
 
+    // One weight target per DISTINCT Volume. Several profiles may legitimately share one
+    // Volume (a single global grade until all four are authored) — naive per-profile writes
+    // would have every inactive state drag the shared Volume back toward 0, fighting the
+    // active state's 1 within the same frame (last writer wins). Max target wins instead:
+    // a Volume is up whenever ANY of its states is active.
+    private readonly Dictionary<Volume, float> _volumeTargets = new Dictionary<Volume, float>();
+
+    private Dictionary<Volume, float> ResolveVolumeTargets()
+    {
+        _volumeTargets.Clear();
+        WeatherState active = CurrentWeather();
+        foreach (var kv in _byState)
+        {
+            if (kv.Value.volume == null) continue;
+            float target = kv.Key == active ? 1f : 0f;
+            _volumeTargets.TryGetValue(kv.Value.volume, out float existing);
+            _volumeTargets[kv.Value.volume] = Mathf.Max(existing, target);
+        }
+        return _volumeTargets;
+    }
+
     private WeatherState CurrentWeather() =>
         WeatherManager.Instance != null ? WeatherManager.Instance.CurrentWeather : WeatherState.Cloudy;
 
@@ -265,7 +281,28 @@ public class AtmosphereDirector : MonoBehaviour
     {
         _byState = new Dictionary<WeatherState, AmbienceProfile>();
         foreach (var p in profiles)
-            if (p != null) _byState[p.state] = p;
+        {
+            if (p == null) continue;
+
+            // Unity zero-initializes NEW Inspector list entries (field initializers don't run),
+            // so a freshly added, never-filled profile arrives as intensity 0 + black — which
+            // would pin the directional light to invisible and mask the day/night rotation
+            // entirely. Treat that as unauthored: refill the numbers from the coded default,
+            // keep whatever Volume was assigned.
+            if (p.lightIntensity <= 0f && p.lightColor.maxColorComponent <= 0f)
+            {
+                var d = DefaultProfile(p.state);
+                p.lightIntensity      = d.lightIntensity;
+                p.lightColor          = d.lightColor;
+                p.cloudShadowStrength = d.cloudShadowStrength;
+                p.cloudSpeed          = d.cloudSpeed;
+                Debug.LogWarning($"AtmosphereDirector: AmbienceProfile for {p.state} was zeroed " +
+                                 "(intensity 0, black) — treated as unauthored, coded defaults applied. " +
+                                 "Fill it in the Inspector to tune it.", this);
+            }
+
+            _byState[p.state] = p;
+        }
 
         // Law 3 — seed unauthored states with coded defaults and warn, never null-ref.
         foreach (WeatherState s in Enum.GetValues(typeof(WeatherState)))

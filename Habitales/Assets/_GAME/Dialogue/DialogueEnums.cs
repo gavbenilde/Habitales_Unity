@@ -1,10 +1,12 @@
 namespace Habitales.Dialogue
 {
     // How a conversation enters the chat. DailyRoll = picked by the worker randomizer.
-    // Other trigger types are stubbed for future event/script-driven sends.
+    // Manual = only ever played by direct reference (check-ins, reports, popup links);
+    // never rolled or auto-sent, and must NOT be listed in the DialogueRegistry.
     public enum DialogueTrigger
     {
-        DailyRoll
+        DailyRoll,
+        Manual
     }
 
     // Which tab a conversation is delivered to. GroupChat/Azi/Bob are hard-installed

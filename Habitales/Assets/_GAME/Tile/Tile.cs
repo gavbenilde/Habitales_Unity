@@ -24,9 +24,10 @@ public class Tile
     // Exponentially escalating neglect decay (per-tile runtime state). Each resolved day the
     // tile loses decayK from every soil substat + vegetation cover, then decayK grows by
     // DecayGrowth — so an untended tile degrades faster the longer it's ignored. Working the
-    // tile (a player action) resets it to DecayStart. Applied by TileManager.ApplyDailyDecay.
+    // tile (a player action) resets it to DecayStart, and a Plant-category occupant pins it
+    // there every day (a living plant tends its own tile). Applied by TileManager.ApplyDailyDecay.
     public const float DecayStart  = 0.1f;   // starting / reset decay rate
-    public const float DecayGrowth = 1.01f;  // per-day multiplier (k *= 1.01)
+    public const float DecayGrowth = 1.016f; // per-day multiplier (k *= 1.016)
     public float decayK = DecayStart;
 
     public void ResetDecay() => decayK = DecayStart;

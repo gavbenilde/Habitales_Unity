@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8868b9299d4e44643a1c9892b23c2f26, type: 3}
   m_Name: CheckIn_1
   m_EditorClassIdentifier: 
-  trigger: 0
+  trigger: 1
   channel: 0
   personality: 0
   universal: 0

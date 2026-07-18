@@ -125,6 +125,16 @@ namespace Habitales.Dialogue
         {
             _conversationMap = null;
             _workerDailyPool = null;
+
+#if UNITY_EDITOR
+            // Manual conversations are played by direct reference (check-ins, reports);
+            // listing one here is an authoring mistake — it can't be rolled or delivered.
+            foreach (var conv in conversations)
+            {
+                if (conv != null && conv.trigger == DialogueTrigger.Manual)
+                    Debug.LogWarning($"{name}: '{conv.name}' has Trigger = Manual and should not be in the registry — remove it (it's played by direct reference only).", this);
+            }
+#endif
         }
     }
 }

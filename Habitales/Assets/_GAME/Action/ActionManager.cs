@@ -213,15 +213,10 @@ public class ActionManager : MonoBehaviour
             ResourceManager.Instance?.ApplyFatigue(assignedPeople, actualDaysPassed, action.FatigueMultiplierPerTile, exertion);
         }
 
-        if (!aborted && ExamineResultPopupUI.Instance != null)
-        {
-            if (action is EcologicalSurveyAction)
-                ExamineResultPopupUI.Instance.ShowExamineResult(targetTiles, ExamineActionType.EcologicalSurvey);
-            else if (action is AnalyzeSoilSampleAction)
-                ExamineResultPopupUI.Instance.ShowExamineResult(targetTiles, ExamineActionType.SoilAnalysis);
-            else if (action is InspectTrashAction)
-                ExamineResultPopupUI.Instance.ShowExamineResult(targetTiles, ExamineActionType.InspectTrash);
-        }
+        // Keyed off Category (not concrete class) so authored Examine ActionSOs fire the
+        // popup too; the action itself declares which summary to build (ExamineReport).
+        if (!aborted && action.Category == ActionCategory.Examine && ExamineResultPopupUI.Instance != null)
+            ExamineResultPopupUI.Instance.ShowExamineResult(targetTiles, action.ExamineReport);
 
         if (!actionUsageCounts.ContainsKey(action.ActionName))
             actionUsageCounts[action.ActionName] = 0;

@@ -22,8 +22,15 @@ namespace Habitales.UI
 
         public string SubsystemId => "pausemenu";
 
-        public bool IsVisible =>
-            _overlayRoot != null && _overlayRoot.gameObject.activeSelf;
+        public bool IsVisible
+        {
+            get
+            {
+                if (_overlayRoot == null) return false;
+                if (_overlayCanvas != null) return _overlayCanvas.enabled;
+                return _overlayRoot.gameObject.activeSelf;
+            }
+        }
 
         /// <summary>
         /// Shows or hides the entire pause overlay (used by the hub's master-visibility
@@ -31,8 +38,7 @@ namespace Habitales.UI
         /// </summary>
         public void SetVisible(bool visible)
         {
-            if (_overlayRoot == null) return;
-            _overlayRoot.gameObject.SetActive(visible);
+            SetOverlayShown(visible);
         }
 
         // ─── Serialized refs (Law 3 — loud-fail) ──────────────────────────────
@@ -82,6 +88,13 @@ namespace Habitales.UI
         // Time.timeScale value cached before we set it to 0, so we can restore it on Resume.
         private float _cachedTimeScale = 1f;
 
+        // When the overlay root is (or contains) this controller's own GameObject,
+        // SetActive(false) would disable this component and Update() would stop polling
+        // the toggle key. In that case we hide by disabling the root's Canvas (and
+        // GraphicRaycaster) instead, keeping the GameObject — and this script — alive.
+        private Canvas _overlayCanvas;
+        private UnityEngine.UI.GraphicRaycaster _overlayRaycaster;
+
         // ─── Lifecycle ────────────────────────────────────────────────────────
 
         private void Awake()
@@ -89,9 +102,25 @@ namespace Habitales.UI
             ValidateRefs();
             HookButtons();
 
+            if (_overlayRoot != null &&
+                (transform == _overlayRoot || transform.IsChildOf(_overlayRoot)))
+            {
+                _overlayCanvas = _overlayRoot.GetComponent<Canvas>();
+                _overlayRaycaster = _overlayRoot.GetComponent<UnityEngine.UI.GraphicRaycaster>();
+
+                if (_overlayCanvas == null)
+                {
+                    Debug.LogError($"{name}: _overlayRoot is this controller's own GameObject " +
+                                   "(or an ancestor of it) but has no Canvas component to toggle. " +
+                                   "Either add a Canvas to the overlay root, or move " +
+                                   "PauseMenuController outside the overlay root.", this);
+                    enabled = false;
+                    return;
+                }
+            }
+
             // Overlay starts hidden.
-            if (_overlayRoot != null)
-                _overlayRoot.gameObject.SetActive(false);
+            SetOverlayShown(false);
 
             // Sub-panels start hidden.
             HideSubPanels();
@@ -191,7 +220,7 @@ namespace Habitales.UI
             if (_overlayRoot == null) return;
 
             // Show main button row; hide sub-panels so we start clean.
-            _overlayRoot.gameObject.SetActive(true);
+            SetOverlayShown(true);
             HideSubPanels();
 
             // Tell the hub we are in Paused mode.
@@ -215,9 +244,7 @@ namespace Habitales.UI
         public void Resume()
         {
             HideSubPanels();
-
-            if (_overlayRoot != null)
-                _overlayRoot.gameObject.SetActive(false);
+            SetOverlayShown(false);
 
             // Restore timescale before anything else to avoid a zero-scale frame.
             if (freezeTimeScaleWhileOpen)
@@ -309,8 +336,7 @@ namespace Habitales.UI
             // RunRestart.RestartCurrentRun() sets Time.timeScale = 1f itself, and the scene
             // reload is about to destroy this GameObject anyway.
             HideSubPanels();
-            if (_overlayRoot != null)
-                _overlayRoot.gameObject.SetActive(false);
+            SetOverlayShown(false);
 
             Habitales.Core.RunRestart.RestartCurrentRun();
         }
@@ -324,6 +350,28 @@ namespace Habitales.UI
         }
 
         // ─── Private helpers ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// Shows/hides the overlay. Uses Canvas + GraphicRaycaster enabling when the
+        /// controller lives on (or under) the overlay root — SetActive(false) there would
+        /// disable this component and Escape would stop working. Falls back to
+        /// GameObject.SetActive when the controller is outside the overlay root.
+        /// </summary>
+        private void SetOverlayShown(bool shown)
+        {
+            if (_overlayRoot == null) return;
+
+            if (_overlayCanvas != null)
+            {
+                _overlayCanvas.enabled = shown;
+                if (_overlayRaycaster != null)
+                    _overlayRaycaster.enabled = shown;
+            }
+            else
+            {
+                _overlayRoot.gameObject.SetActive(shown);
+            }
+        }
 
         private void HideSubPanels()
         {
@@ -370,7 +418,9 @@ namespace Habitales.UI
 // ─────────────────────────────────────────────────
 //  In the Inspector on the PauseMenuOverlay GameObject:
 //
-//   _overlayRoot         → drag "PauseMenuOverlay" RectTransform (self-ref is fine)
+//   _overlayRoot         → drag "PauseMenuOverlay" RectTransform (self-ref is fine —
+//                          the overlay root then needs a Canvas component, which is
+//                          toggled instead of SetActive so this script keeps running)
 //   _resumeButton        → drag "ResumeButton" Button component
 //   _settingsButton      → drag "SettingsButton" Button component
 //   _galleryButton       → drag "GalleryButton" Button component

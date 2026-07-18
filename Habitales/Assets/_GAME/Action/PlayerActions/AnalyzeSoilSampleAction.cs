@@ -6,6 +6,7 @@ public class AnalyzeSoilSampleAction : PlayerAction
     public override string ActionName          => "Analyze Soil Sample";
     public override string Description        => "Assess the soil quality of a tile.";
     public override ActionCategory Category   => ActionCategory.Examine;
+    public override ExamineActionType ExamineReport => ExamineActionType.SoilAnalysis;
     public override SelectionMode selectionMode => SelectionMode.FloodFill;
     public override int MinPeoplePerTile       => 2;
     public override int BaseDays               => 1;

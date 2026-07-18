@@ -24,6 +24,11 @@ public abstract class PlayerAction
 
     public virtual string VariantGroupName => null;
 
+    // Which result summary ExamineResultPopupUI builds when this action finishes. Only
+    // consulted for Category == Examine (ActionManager.FinalizeAction); ignored otherwise.
+    // GenericPlayerAction returns its ActionSO.examineReport.
+    public virtual ExamineActionType ExamineReport => ExamineActionType.EcologicalSurvey;
+
     // Author-supplied card sprite. Null for legacy code-defined actions (the UI falls back
     // to ActionIconConfig); GenericPlayerAction returns its ActionSO.icon so data-driven
     // actions display their own art without a config entry.

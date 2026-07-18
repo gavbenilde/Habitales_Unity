@@ -303,19 +303,21 @@ namespace Habitales.UI
         }
 
         // Shared head of Show / ShowConversationOnly: take the pause exactly once and
-        // force-reset any session already in progress (collision rule, decision 12).
+        // reset the previous session's traces. The reset lives HERE — before the caller
+        // stores _onContinue / tokens / header — never later in the open path, or it
+        // would wipe the very state the caller just set (collision rule, decision 12).
         private void OpenSession()
         {
             if (_isOpen)
             {
                 Debug.LogWarning($"{name}: opened while a session is in progress — force-resetting in place (end flow trumps).", this);
-                ResetSession();
             }
             else
             {
                 RunManager.Instance?.PauseForEvent();
                 _isOpen = true;
             }
+            ResetSession();
         }
 
         // Stops the auto-walk and clears every trace of the current session — bubbles,
@@ -343,12 +345,13 @@ namespace Habitales.UI
             EventContext.ClearOverrides();
         }
 
-        // Shared tail of Show / ShowConversationOnly: reset the thread and hand it to the
-        // auto-walk. panelRoot activates BEFORE the coroutine starts (a coroutine can't
-        // start on an inactive hierarchy if this component sits under panelRoot).
+        // Shared tail of Show / ShowConversationOnly: hand the thread to the auto-walk.
+        // No reset here — OpenSession already did it, and resetting now would wipe the
+        // _onContinue / token state the caller set in between. panelRoot activates BEFORE
+        // the coroutine starts (a coroutine can't start on an inactive hierarchy if this
+        // component sits under panelRoot).
         private void StartConversation(ConversationSO conversation)
         {
-            ResetSession();
             _walk.Push(new Frame { nodes = conversation.thread, index = 0 });
 
             continueButton.gameObject.SetActive(false);

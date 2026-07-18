@@ -7,6 +7,7 @@ public class InspectTrashAction : PlayerAction
     public override string ActionName              => "Inspect Trash";
     public override string Description            => "Examine waste on a tile to identify its type.";
     public override ActionCategory Category       => ActionCategory.Examine;
+    public override ExamineActionType ExamineReport => ExamineActionType.InspectTrash;
     public override SelectionMode selectionMode   => SelectionMode.FloodFill;
     public override int MinPeoplePerTile           => 1;
     public override int BaseDays                   => 1;

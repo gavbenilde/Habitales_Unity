@@ -422,12 +422,18 @@ public class TileManager : MonoBehaviour
     /// Every tile loses its current <c>decayK</c> from each of the 6 soil substats and vegetation
     /// cover (clamped ≥0), then its <c>decayK</c> grows by <see cref="Tile.DecayGrowth"/> so an
     /// untended tile degrades faster the longer it's ignored. Contamination and the derived
-    /// SoilComposite are untouched. Working a tile resets its decay via <see cref="ResetTileDecay"/>.
+    /// SoilComposite are untouched. Working a tile resets its decay via <see cref="ResetTileDecay"/>,
+    /// and a living plant counts as tending its own tile: while a Plant-category entity occupies the
+    /// tile, <c>decayK</c> is pinned at <see cref="Tile.DecayStart"/> (planted land still decays at
+    /// the base rate, but never escalates into runaway neglect).
     /// </summary>
     public void ApplyDailyDecay()
     {
         foreach (Tile tile in tileCache.Values)
         {
+            if (tile.entity?.def != null && tile.entity.def.category == EntityCategory.Plant)
+                tile.ResetDecay();
+
             TileStats s = tile.stats;
             float k = tile.decayK;
             s.nutrientBalance    = Mathf.Max(0f, s.nutrientBalance    - k);

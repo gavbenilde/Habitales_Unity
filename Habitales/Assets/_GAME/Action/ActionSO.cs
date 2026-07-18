@@ -32,6 +32,10 @@ namespace Habitales.Actions
         [Tooltip("Which of the three action groups this belongs to.")]
         public ActionGroup group;
         [BoxGroup("Identity")]
+        [EnableIf(nameof(group), ActionGroup.Examine)]
+        [Tooltip("Which result summary the popup builds when this Examine action finishes (Examine group only).")]
+        public ExamineActionType examineReport;
+        [BoxGroup("Identity")]
         [TextArea] public string description;
 
         [BoxGroup("Visuals")]

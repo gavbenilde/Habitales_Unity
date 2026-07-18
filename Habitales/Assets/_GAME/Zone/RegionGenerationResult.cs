@@ -8,10 +8,6 @@ public class RegionGenerationResult
     public RegionTheme dominantTheme;
     public float averageStartingHealth;
 
-    // Building counts — for Azi callouts and UI
-    public int villagesPlaced;
-    public int factoriesPlaced;
-
     // Issue summary — for Azi callouts
     public int issuesAssigned;
     public float contaminationCoverage; // 0–1, proportion of tiles with HMC

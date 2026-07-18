@@ -6,13 +6,29 @@ public class DayNightCycleHandler : MonoBehaviour
 {
     [SerializeField] private GameObject directionalLight;
 
-    private readonly float dayDuration = 5f;   // first day of any action
-    private readonly float minDuration = 0.3125f; // floor (~0.31 s)
+    // ── Cycle timing (2026-07-17 rework: sliders replace the readonly constants) ─
+    [Header("Cycle Timing")]
+    [Tooltip("Seconds one full day-night rotation takes on the FIRST day of an action. " +
+             "Lower = faster days from the start.")]
+    [Range(0.25f, 10f)]
+    [SerializeField] private float baseDayDuration = 3f;
+
+    [Tooltip("Exponential speed-up per consecutive action day: day N lasts " +
+             "baseDayDuration / speedMultiplier^N. 1 = every day the same length; " +
+             "2 = each day twice as fast as the previous one.")]
+    [Range(1f, 5f)]
+    [SerializeField] private float speedMultiplier = 2f;
+
+    [Tooltip("Hard floor for a single cycle — no day ever spins faster than this, " +
+             "no matter how high the multiplier compounds.")]
+    [Range(0.05f, 2f)]
+    [SerializeField] private float minDuration = 0.3125f;
 
     private Coroutine currentCycle;
     private int actionDayIndex = 0;
-    
+
     private Quaternion _dayStartRotation;
+    private bool _subscribed;
 
     // ── Idle gate ────────────────────────────────────────────────────────────
     // ResourceManager.AdvanceTimeStepped yields on this.
@@ -34,6 +50,16 @@ public class DayNightCycleHandler : MonoBehaviour
     void Awake()
     {
         Instance = this;
+
+        if (directionalLight == null)
+        {
+            // Loud, not fatal: StartCycle degrades to instant cycles so the game
+            // clock never deadlocks on a missing scene reference.
+            Debug.LogError("DayNightCycleHandler: 'Directional Light' is not assigned — " +
+                           "day/night rotation disabled, days will resolve instantly.", this);
+            return;
+        }
+
         _dayStartRotation = directionalLight.transform.rotation;
     }
 
@@ -42,22 +68,44 @@ public class DayNightCycleHandler : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
-    void OnEnable()
+    // Subscription is attempted twice: OnEnable (normal path) and Start (safety net for
+    // any enable-order edge where ResourceManager.Instance wasn't up yet). The old
+    // one-shot OnEnable check failed SILENTLY when it lost that race — the cycle then
+    // never ran and days blasted through with no sun movement.
+    void OnEnable() => TrySubscribe(warnIfMissing: false);
+
+    void Start()
     {
-        if (ResourceManager.Instance != null)
-            ResourceManager.Instance.OnTimeAdvanced += StartCycle;
+        TrySubscribe(warnIfMissing: true);
+    }
+
+    private void TrySubscribe(bool warnIfMissing)
+    {
+        if (_subscribed) return;
+
+        if (ResourceManager.Instance == null)
+        {
+            if (warnIfMissing)
+                Debug.LogWarning("DayNightCycleHandler: no ResourceManager.Instance by Start() — " +
+                                 "day/night cycle will never trigger in this scene.", this);
+            return;
+        }
+
+        ResourceManager.Instance.OnTimeAdvanced += StartCycle;
+        _subscribed = true;
     }
 
     void OnDisable()
     {
-        if (ResourceManager.Instance != null)
+        if (_subscribed && ResourceManager.Instance != null)
             ResourceManager.Instance.OnTimeAdvanced -= StartCycle;
+        _subscribed = false;
 
         TimeFlowSignal.SpeedFactor = 1f; // a disabled handler kills its coroutine — never leave the factor stuck high
     }
 
     // Called by ActionManager once before the first day of a new action.
-    // Resets the duration so day 1 always starts at full 5 s.
+    // Resets the duration so day 1 always starts at full baseDayDuration.
     public void ResetForNewAction()
     {
         actionDayIndex = 0;
@@ -68,43 +116,60 @@ public class DayNightCycleHandler : MonoBehaviour
         if (currentCycle != null)
             StopCoroutine(currentCycle);
 
+        // Missing light (or inactive GO — StartCoroutine would throw): resolve the cycles
+        // instantly instead of latching IsIdle false and hanging AdvanceTimeStepped forever.
+        if (directionalLight == null || !gameObject.activeInHierarchy)
+        {
+            IsIdle = true;
+            for (int i = 0; i < cycles; i++) OnCycleEnd?.Invoke(i + 1);
+            return;
+        }
+
         IsIdle = false;   // ← was missing; caused AdvanceTimeStepped to never wait
         currentCycle = StartCoroutine(RunCycles(cycles));
     }
 
     private IEnumerator RunCycles(int cycles)
     {
-        for (int i = 0; i < cycles; i++)
+        // try/finally so the idle gate and speed factor ALWAYS recover — even if the
+        // coroutine is stopped (StartCycle, deactivation) or a subscriber throws.
+        // A dead coroutine leaving IsIdle latched false deadlocks the whole action clock.
+        try
         {
-            float currentDuration = Mathf.Max(
-                dayDuration / Mathf.Pow(2f, actionDayIndex),
-                minDuration
-            );
-
-            // Publish the effective time-lapse factor (1..16) — atmosphere FX scroll faster with it.
-            TimeFlowSignal.SpeedFactor = dayDuration / currentDuration;
-
-            float elapsed = 0f;
-            float rotationSpeed = 360f / currentDuration;
-
-            while (elapsed < currentDuration)
+            for (int i = 0; i < cycles; i++)
             {
-                float delta = Time.deltaTime;
-                directionalLight.transform.Rotate(Vector3.right * (rotationSpeed * delta));
-                elapsed += delta;
-                yield return null;
+                // Sliders are read fresh each day, so both are live-tunable in Play mode.
+                float currentDuration = Mathf.Max(
+                    baseDayDuration / Mathf.Pow(Mathf.Max(1f, speedMultiplier), actionDayIndex),
+                    minDuration
+                );
+
+                // Publish the effective time-lapse factor (1..base/min) — atmosphere FX scroll faster with it.
+                TimeFlowSignal.SpeedFactor = baseDayDuration / currentDuration;
+
+                float elapsed = 0f;
+                float rotationSpeed = 360f / currentDuration;
+
+                while (elapsed < currentDuration)
+                {
+                    float delta = Time.deltaTime;
+                    directionalLight.transform.Rotate(Vector3.right * (rotationSpeed * delta));
+                    elapsed += delta;
+                    yield return null;
+                }
+
+                // Snap back to exact start angle — kills any float drift from delta accumulation
+                directionalLight.transform.rotation = _dayStartRotation;
+
+                actionDayIndex++;
+                OnCycleEnd?.Invoke(i + 1);
             }
-
-            // Snap back to exact start angle — kills any float drift from delta accumulation
-            
-            directionalLight.transform.rotation = _dayStartRotation;
-
-            actionDayIndex++;
-            OnCycleEnd?.Invoke(i + 1);
         }
-
-        currentCycle = null;
-        TimeFlowSignal.SpeedFactor = 1f; // time-lapse over — atmosphere FX ease back to real time
-        IsIdle = true;
+        finally
+        {
+            currentCycle = null;
+            TimeFlowSignal.SpeedFactor = 1f; // time-lapse over — atmosphere FX ease back to real time
+            IsIdle = true;
+        }
     }
 }

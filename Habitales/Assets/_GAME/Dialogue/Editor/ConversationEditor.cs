@@ -82,15 +82,29 @@ namespace Habitales.Dialogue.EditorTools
             var newTrigger = (DialogueTrigger)EditorGUILayout.EnumPopup("Trigger", so.trigger);
 
             // ── Channel ──────────────────────────────────────────────────────────
-            EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("Routing", EditorStyles.boldLabel);
-            var newChannel = (DialogueChannel)EditorGUILayout.EnumPopup("Channel", so.channel);
-
-            // ── Personality (Worker channel only) ────────────────────────────────
+            // Manual conversations are played by direct reference (check-ins, reports)
+            // and never routed to a chat tab, so the whole Routing section is moot.
+            var newChannel = so.channel;
             bool newUniversal = so.universal;
             WorkerTrait newPersonality = so.personality;
 
-            if (newChannel == DialogueChannel.Worker)
+            if (newTrigger == DialogueTrigger.Manual)
+            {
+                EditorGUILayout.Space(4);
+                EditorGUILayout.HelpBox(
+                    "Manual: played only by direct reference (check-ins, reports, popup links). " +
+                    "No chat routing — do not add this conversation to the DialogueRegistry.",
+                    MessageType.Info);
+            }
+            else
+            {
+                EditorGUILayout.Space(4);
+                EditorGUILayout.LabelField("Routing", EditorStyles.boldLabel);
+                newChannel = (DialogueChannel)EditorGUILayout.EnumPopup("Channel", so.channel);
+            }
+
+            // ── Personality (Worker channel only) ────────────────────────────────
+            if (newTrigger != DialogueTrigger.Manual && newChannel == DialogueChannel.Worker)
             {
                 int currentIndex = so.universal
                     ? UniversalIndex
