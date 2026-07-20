@@ -74,9 +74,9 @@ public class ResourceDisplay : MonoBehaviour
 
         if (workforceFill != null)
         {
-            string color = available > 15 ? "#61c415" : available > 5 ? "#e7b81d" : "#c41515";
-            ColorUtility.TryParseHtmlString(color, out Color tint);
-            workforceFill.color = tint;
+            // string color = available > 15 ? "#61c415" : available > 5 ? "#e7b81d" : "#c41515";
+            // ColorUtility.TryParseHtmlString(color, out Color tint);
+            // workforceFill.color = tint;
         }
 
         // People text — optional secondary info, skipped silently if unwired.

@@ -26,14 +26,24 @@ MonoBehaviour:
     comparator: 0
     threshold: 0
   plantDailyDeltas:
-    nutrientBalance: 0
-    soilOrganicMatter: 0
-    soilStructure: 0
-    biologicalActivity: 0
+    nutrientBalance: 1.9
+    soilOrganicMatter: 2.3
+    soilStructure: -1.6
+    biologicalActivity: 2.5
     waterDynamics: 0
     erosionResistance: 0
     vegetationCover: 0
     contamination: 0
   dailyEffects: []
-  deathConditions: []
+  droughtResistance: 0
+  floodResistance: 0
+  deathConditions:
+  - stat: 0
+    comparator: 0
+    threshold: 0
+    outcome: 1
+    transformTarget: {fileID: 0}
+    onSatisfied:
+    - stat: 0
+      delta: 0
   behaviour: {fileID: 0}
