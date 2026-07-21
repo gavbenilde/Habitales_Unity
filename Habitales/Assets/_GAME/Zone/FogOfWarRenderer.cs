@@ -13,8 +13,8 @@ using UnityEngine.Rendering;
 /// The mask is a tiny R8 Texture2D, one texel per grid cell, baked from the same 4-neighbour
 /// BFS ring distance HinterlandRenderer uses (0 at occupied cells). Bilinear filtering + the
 /// shader's edge noise smooth the per-cell steps. Fully-fogged pixels render in the
-/// `_HorizonColor` global (owned by AtmosphereDirector, also the camera clear color), so fog
-/// and backdrop can never drift apart — beyond the quad there is only more of the same color.
+/// `_HorizonColor` global (owned by AtmosphereDirector) — now a separate color from the camera
+/// clear, so the edge fog and the backdrop sky can be tuned independently.
 ///
 /// Rebuilds lazily, same pattern as HinterlandRenderer: RegionManager.OnRegionGenerated marks
 /// it dirty; the next LateUpdate re-bakes mask + quad. No GameObjects, no colliders.

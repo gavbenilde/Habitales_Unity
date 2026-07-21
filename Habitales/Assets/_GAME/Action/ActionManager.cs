@@ -23,6 +23,15 @@ public class ActionManager : MonoBehaviour
 
     public event Action<Tile, int> OnActionCompleted;
 
+    /// <summary>
+    /// Fires at the TOP of each day-loop iteration in FinishAction, before that day's per-tile
+    /// effects run — carries the batch of tiles being worked THIS day (Walkers handoff §5). The
+    /// first fire doubles as the avalanche-start signal; IsActionRunning already covers plain
+    /// state checks, so there is no separate "action started" event. Never fires again on abort —
+    /// OnActionCompleted (fired on finish AND abort) covers the exit in both cases.
+    /// </summary>
+    public event Action<IReadOnlyList<Tile>> OnActionDayStarted;
+
     public Dictionary<string, int> actionUsageCounts = new Dictionary<string, int>();
 
     /// <summary>
@@ -181,6 +190,13 @@ public class ActionManager : MonoBehaviour
             // Apply THIS day's batch of tile effects FIRST, so the day-advance that follows
             // cascades stats that already include the action's work (arch §2.1 ordering).
             int tilesThisDay = baseTilesPerDay + (day < remainder ? 1 : 0);
+
+            // Slice out today's batch before any per-tile effect runs, so subscribers (the
+            // Walker system's Working avalanche) see the same batch ExecuteOnTile is about to
+            // process (Walkers handoff §5 — fired before per-tile effects).
+            int batchCount = Mathf.Min(tilesThisDay, totalTiles - processedTiles);
+            List<Tile> dayBatch = targetTiles.GetRange(processedTiles, Mathf.Max(0, batchCount));
+            OnActionDayStarted?.Invoke(dayBatch);
 
             for (int i = 0; i < tilesThisDay && processedTiles < totalTiles; i++)
             {

@@ -1,19 +1,19 @@
 
 NPCworker_backfacing.png
-size: 636,279
+size: 636,636
 format: RGBA8888
 filter: Linear,Linear
 repeat: none
 Cloak_back
   rotate: false
-  xy: 334, 20
+  xy: 2, 377
   size: 300, 257
   orig: 305, 259
   offset: 0, 2
   index: -1
 Hat_back
   rotate: false
-  xy: 2, 2
+  xy: 304, 359
   size: 330, 275
   orig: 330, 276
   offset: 0, 1

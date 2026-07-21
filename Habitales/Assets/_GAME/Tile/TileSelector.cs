@@ -12,7 +12,9 @@ using Habitales.Triggers;
 /// stroke can vary in thickness. The selection is the union of all seed blobs, capped by the
 /// people budget: when the union would exceed it, the OLDEST seeds (whole stamped blobs) are
 /// retired. The stroke tolerates a one-tile gap (it can hop a single occupied tile); landing
-/// farther away resets the flood at the cursor as if the player pressed LMB there.
+/// farther away resets the flood at the cursor as if the player pressed LMB there. Seeds
+/// stranded by retirement (no longer chain-connected to the newest seed by Chebyshev ≤ 2)
+/// are destroyed as orphans on every rebuild.
 /// </summary>
 public class TileSelector : MonoBehaviour
 {
@@ -27,6 +29,13 @@ public class TileSelector : MonoBehaviour
 
     [Header("Input")]
     [SerializeField] private KeyCode deselectKey = KeyCode.Escape;
+
+    [Header("Flood Fill Brush")]
+    [Tooltip("Smallest allowed brush stamp, in tiles. The floor is deliberately NOT the " +
+             "people-budget minimum (that made the smallest stamp huge, so the union cap " +
+             "left room for only ~2-3 seeds and the stroke read as one circle) — a tight " +
+             "brush paints many small seeds and reads as a real stroke.")]
+    [SerializeField] private int minBrushSize = 3;
 
     // ─── Single-select state ─────────────────────────────────────────────────
     private Tile currentTile;
@@ -58,9 +67,12 @@ public class TileSelector : MonoBehaviour
     private readonly List<BrushSeed> _brushSeeds = new List<BrushSeed>();
 
     // The live brush size (tiles per stamp). A persistent tool setting: survives strokes,
-    // re-arms, and mid-drag resets; clamped to [MinSelectableTiles, maxSelectableTiles]
-    // on each mode entry. 0 = "never set" → defaults to the minimum on first entry.
+    // re-arms, and mid-drag resets; clamped to [_brushMin, maxSelectableTiles] on each mode
+    // entry. 0 = "never set" → defaults to the people-budget minimum on first entry.
     private int _brushSize = 0;
+
+    // Brush-size floor for this mode entry: minBrushSize, but never above the budget max.
+    private int _brushMin = 1;
 
     // ─── Singleton ────────────────────────────────────────────────────────────
 
@@ -153,16 +165,21 @@ public class TileSelector : MonoBehaviour
         adjacentAvailableTiles.Clear();
         _brushSeeds.Clear();
 
+        // The brush floor is the authored minBrushSize (a tight stamp), NOT the people-budget
+        // minimum — a small brush just means more seeds per stroke, the budget still caps the
+        // union in RebuildBrushSelection.
+        _brushMin = Mathf.Clamp(minBrushSize, 1, maxSelectableTiles);
+
         // Brush size persists across strokes/resets as a tool setting; first-ever entry
-        // defaults to the minimum (matches the old initial min-blob behaviour).
+        // defaults to the people-budget minimum (a sensible mid-size working stamp).
         _brushSize = _brushSize <= 0
-            ? MinSelectableTiles
-            : Mathf.Clamp(_brushSize, MinSelectableTiles, maxSelectableTiles);
+            ? Mathf.Clamp(MinSelectableTiles, _brushMin, maxSelectableTiles)
+            : Mathf.Clamp(_brushSize, _brushMin, maxSelectableTiles);
 
         AddBrushSeed(seedTile);
-        OnBrushSizeChanged?.Invoke(_brushSize, MinSelectableTiles, maxSelectableTiles);
+        OnBrushSizeChanged?.Invoke(_brushSize, _brushMin, maxSelectableTiles);
 
-        Debug.Log($"FloodFill mode entered | Brush: {_brushSize} | Min: {MinSelectableTiles} | Max: {maxSelectableTiles}");
+        Debug.Log($"FloodFill mode entered | Brush: {_brushSize} | BrushMin: {_brushMin} | Max: {maxSelectableTiles}");
     }
 
     // ─── Paint Stroke (LMB held, flood-fill mode) ─────────────────────────────
@@ -228,6 +245,8 @@ public class TileSelector : MonoBehaviour
     /// seed — its whole stamped blob — is retired. This is how a long thin stroke gets eaten
     /// from the tail when the player switches to a big brush mid-stroke and keeps painting.
     /// Terminates because a single seed's blob is at most _brushSize ≤ maxSelectableTiles tiles.
+    /// After retirement, orphan seeds (no longer chain-connected to the newest seed) are
+    /// destroyed via <see cref="PruneOrphanSeeds"/>.
     /// </summary>
     void RebuildBrushSelection()
     {
@@ -252,11 +271,67 @@ public class TileSelector : MonoBehaviour
         }
         if (start > 0) _brushSeeds.RemoveRange(0, start);
 
+        // Retirement can strand islands (a stroke that doubled back loses the section that
+        // connected it). Destroy them, then recompute the union from the survivors.
+        if (PruneOrphanSeeds())
+        {
+            union.Clear();
+            seen.Clear();
+            foreach (BrushSeed s in _brushSeeds)
+                foreach (Tile tile in s.blob)
+                    if (seen.Add(tile)) union.Add(tile);
+        }
+
         foreach (Tile tile in union)
         {
             selectedTiles.Add(tile);
             UpdateTileVisual(tile, TileVisualState.Selected);
         }
+    }
+
+    /// <summary>
+    /// Destroys orphan seeds (user spec 2026-07-20): flood across the seed TILES from the
+    /// NEWEST seed (the live brush under the cursor), where two seeds are linked when their
+    /// tiles are within Chebyshev distance 2 — the same one-tile-gap tolerance the stroke
+    /// uses — and remove every seed the flood can't reach. Insertion order of survivors is
+    /// preserved so budget retirement still eats the oldest end first. Returns true if any
+    /// seed was destroyed.
+    /// </summary>
+    bool PruneOrphanSeeds()
+    {
+        if (_brushSeeds.Count <= 1) return false;
+
+        var keep  = new bool[_brushSeeds.Count];
+        var stack = new Stack<int>();
+        keep[_brushSeeds.Count - 1] = true;
+        stack.Push(_brushSeeds.Count - 1);
+
+        while (stack.Count > 0)
+        {
+            int i = stack.Pop();
+            for (int j = 0; j < _brushSeeds.Count; j++)
+            {
+                if (keep[j]) continue;
+                int dx = Mathf.Abs(_brushSeeds[i].tile.gridPosition.x - _brushSeeds[j].tile.gridPosition.x);
+                int dy = Mathf.Abs(_brushSeeds[i].tile.gridPosition.y - _brushSeeds[j].tile.gridPosition.y);
+                if (dx <= 2 && dy <= 2)
+                {
+                    keep[j] = true;
+                    stack.Push(j);
+                }
+            }
+        }
+
+        bool removedAny = false;
+        for (int i = _brushSeeds.Count - 1; i >= 0; i--)
+        {
+            if (!keep[i])
+            {
+                _brushSeeds.RemoveAt(i);
+                removedAny = true;
+            }
+        }
+        return removedAny;
     }
 
     /// <summary>
@@ -428,7 +503,7 @@ public class TileSelector : MonoBehaviour
     }
 
     /// <summary>
-    /// Sets the brush-size setting (clamped to [MinSelectableTiles, maxSelectableTiles]).
+    /// Sets the brush-size setting (clamped to [_brushMin, maxSelectableTiles]).
     /// Called by ActionBarUI when the slider moves, and by Ctrl+Scroll. The LATEST seed is
     /// the live brush under the cursor, so it re-stamps at the new size for immediate
     /// feedback; every earlier seed keeps the size it was painted with (user spec 2026-07-18).
@@ -438,7 +513,7 @@ public class TileSelector : MonoBehaviour
     {
         if (!floodFillMode) return;
 
-        int clamped = Mathf.Clamp(tiles, MinSelectableTiles, maxSelectableTiles);
+        int clamped = Mathf.Clamp(tiles, _brushMin, maxSelectableTiles);
         if (clamped == _brushSize) return;
         _brushSize = clamped;
 
@@ -452,7 +527,7 @@ public class TileSelector : MonoBehaviour
             RebuildBrushSelection();
         }
 
-        OnBrushSizeChanged?.Invoke(_brushSize, MinSelectableTiles, maxSelectableTiles);
+        OnBrushSizeChanged?.Invoke(_brushSize, _brushMin, maxSelectableTiles);
     }
 
     // ─── Click Handling ───────────────────────────────────────────────────────

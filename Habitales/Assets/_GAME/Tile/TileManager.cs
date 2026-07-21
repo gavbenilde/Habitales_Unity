@@ -24,6 +24,13 @@ public class TileManager : MonoBehaviour
              "Assign the EntityRegistry asset in the Inspector.")]
     [SerializeField] private EntityRegistry entityRegistry;
 
+    [Header("Weather Death → Debris")]
+    [Tooltip("Shared debris TileEntitySO a weather-killed Plant transforms into (drought/flood) " +
+             "instead of being deleted outright — the tile stays occupied until the player clears " +
+             "it. One shared asset for every species (per-species overrides are backlog). Unwired " +
+             "-> LogError once per stress pass and falls back to deleting the entity outright.")]
+    [SerializeField] private TileEntitySO debrisEntity;
+
     [Header("Entity Spawn Pop-In (cosmetic only — arch S3)")]
     [Tooltip("Duration of the scale-up pop when an entity visual first appears (fresh spawn) or " +
              "is promoted to its next stage (reads as new growth). Purely presentational.")]
@@ -262,6 +269,41 @@ public class TileManager : MonoBehaviour
         }
 
         return regionTiles;
+    }
+
+    /// <summary>
+    /// Read-only (Law 1) mean of every tile's world position in a region — cheap camera-framing
+    /// centroid, NOT a geometric centroid of the region's shape. Caveat: flood-fill regions can be
+    /// concave, so the averaged point may land on a tile outside the region (or on no tile at all)
+    /// — harmless for camera framing, do not use this for tile-membership logic.
+    /// Returns false (world = Vector3.zero) if the region has no tiles.
+    /// </summary>
+    public bool TryGetRegionCentroid(int regionID, out Vector3 world)
+    {
+        List<Tile> tiles = GetTilesInRegion(regionID);
+        if (tiles == null || tiles.Count == 0)
+        {
+            world = Vector3.zero;
+            return false;
+        }
+
+        Vector3 sum = Vector3.zero;
+        int count = 0;
+        foreach (Tile tile in tiles)
+        {
+            if (tile == null) continue;
+            sum += GridToWorldPosition(tile.gridPosition);
+            count++;
+        }
+
+        if (count == 0)
+        {
+            world = Vector3.zero;
+            return false;
+        }
+
+        world = sum / count;
+        return true;
     }
 
     /// <summary>
@@ -511,7 +553,23 @@ public class TileManager : MonoBehaviour
                 float resistance = drought ? g.def.droughtResistance : g.def.floodResistance;
                 if (UnityEngine.Random.value < baseKillChance * vulnerability * ramp * (1f - resistance))
                 {
-                    RemoveEntity(tile); // fires OnEntityDied — a plant dying is meaning (Law 2)
+                    // Weather kills no longer delete the entity outright. OnEntityDied fires FIRST
+                    // (cause = "drought"/"flood" — Law 2, the death is the meaning), THEN the plant
+                    // transforms into the shared debris entity (tile stays occupied until the player
+                    // clears it) via the same transform-to mechanics death conditions already use
+                    // (see KillAndTransform).
+                    string cause = drought ? "drought" : "flood";
+                    if (debrisEntity != null)
+                    {
+                        KillAndTransform(tile, debrisEntity, cause);
+                    }
+                    else
+                    {
+                        Debug.LogError("TileManager.ApplyWeatherStress: debrisEntity is not wired — weather deaths will " +
+                                       "delete the entity outright instead of leaving debris. Wire the shared debris " +
+                                       "TileEntitySO in the Inspector.", this);
+                        RemoveEntity(tile, cause: cause);
+                    }
                     plantsWithered++;
                 }
             }
@@ -654,6 +712,44 @@ public class TileManager : MonoBehaviour
     {
         if (tile == null || def == null) return;
 
+        ReplaceEntityVisualAndData(tile, def);
+
+        OnEntityEvolved?.Invoke(tile, tile.entity.entityId);
+    }
+
+    /// <summary>
+    /// Death-with-successor: fires <see cref="OnEntityDied"/> with <paramref name="cause"/> FIRST —
+    /// Law 2, the death is the meaning, and the dying entity is STILL attached to
+    /// <paramref name="tile"/> when subscribers observe the event — THEN transforms the tile in
+    /// place into <paramref name="transformTo"/> (debris, DeadTree, …), reusing the same
+    /// visual/data swap <see cref="ReplaceWithSO"/> uses. Distinct from ReplaceWithSO (fires
+    /// <see cref="OnEntityEvolved"/> — an in-place STAGE PROMOTION, never a death) and from
+    /// <see cref="RemoveEntity"/> (no successor entity, entity/visual just gone). <paramref name="cause"/>
+    /// must be a real death-cause tag ("drought"/"flood"/"environment"), never "removed".
+    /// </summary>
+    public void KillAndTransform(Tile tile, Habitales.Entities.TileEntitySO transformTo, string cause)
+    {
+        if (tile == null || transformTo == null || tile.entity == null) return;
+
+        string diedEntityId = tile.entity.entityId;
+        OnEntityDied?.Invoke(tile, diedEntityId, cause);
+
+        // Defensive re-check (Law 3): nothing today reassigns tile.entity from an OnEntityDied
+        // subscriber, but if one ever does, don't stomp on it.
+        if (tile.entity == null || tile.entity.entityId != diedEntityId) return;
+
+        ReplaceEntityVisualAndData(tile, transformTo);
+    }
+
+    /// <summary>
+    /// Shared core for <see cref="ReplaceWithSO"/> / <see cref="KillAndTransform"/>: swaps
+    /// <c>tile.entity</c> for a fresh <c>GenericTileEntity</c> built from <paramref name="def"/>
+    /// and refreshes the visual + VFX. Fires NO meaning-event itself — callers decide whether the
+    /// swap means "evolved" or "died" (S2, one concept one place for the visual/data swap; the
+    /// event choice stays with the caller).
+    /// </summary>
+    private void ReplaceEntityVisualAndData(Tile tile, Habitales.Entities.TileEntitySO def)
+    {
         tile.entity = new Habitales.Entities.GenericTileEntity(def);
 
         if (tileGameObjects.ContainsKey(tile))
@@ -664,9 +760,9 @@ public class TileManager : MonoBehaviour
             {
                 visualizer.SetEntity(tile.entity);
 
-                // Promotion pop (cosmetic only, arch S3) — an in-place stage transform reads as
-                // new growth, so it gets the same pop-in as a fresh spawn. Final scale respects
-                // the NEW stage's billboardScale (species/stage can resize on promote).
+                // Promotion/transform pop (cosmetic only, arch S3) — an in-place stage transform
+                // reads as new growth (or new debris), so it gets the same pop-in as a fresh spawn.
+                // Final scale respects the NEW stage's billboardScale (species/stage can resize).
                 float billboardScale = def.billboardScale;
                 Vector3 finalScale = Vector3.one * billboardScale;
                 EntitySpawnTween.PopIn(visualizer.gameObject, finalScale, entitySpawnPopDuration, entitySpawnPopOvershoot);
@@ -676,8 +772,6 @@ public class TileManager : MonoBehaviour
             // no longer leaks the old effect.
             InitializeEntityVFX(tile, tileObj);
         }
-
-        OnEntityEvolved?.Invoke(tile, tile.entity.entityId);
     }
 
     /// <summary>

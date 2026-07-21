@@ -8,9 +8,9 @@
 // bakes from BFS ring distance (0 = region, 1 = beyond the hinterland). One texel per grid
 // cell, bilinear-smoothed; world-anchored, so camera pans never swim the fog.
 //
-// Fog color is the _HorizonColor GLOBAL (owned by AtmosphereDirector, also the camera clear
-// color): fully fogged pixels are pixel-identical to the backdrop, so vision just ENDS —
-// no visible seam where the hinterland tiles stop.
+// Fog color is the _HorizonColor GLOBAL (owned by AtmosphereDirector). It is now INDEPENDENT
+// of the camera clear color (a separate AtmosphereDirector field), so the edge fog and the
+// sky behind it can be tuned apart — a horizon line shows where they differ.
 //
 // A little value noise, scrolled by the _WeatherTime/_CloudDir globals, erodes the gradient
 // band only (mask 0 and 1 are untouched) so the edge reads as drifting fog, not a vignette.

@@ -307,10 +307,13 @@ public class RunManager : MonoBehaviour {
     }
 
     /// <summary>
-    /// Flags the next region as unlockable when world health crosses the threshold.
-    /// Does NOT generate the region — that waits on the player pressing the unlock
-    /// button (see UnlockNextRegion). Guarded so the event fires at most once per
-    /// pending unlock. Called from both the per-action path and the debug F1 path.
+    /// Flags the next region as unlockable when world health crosses the threshold, then
+    /// AUTO-GENERATES it immediately (2026-07-21). The manual "Unlock Next Zone" button step
+    /// was removed — crossing the threshold now spawns the next zone with no player press, so
+    /// the button can be dormant/disabled in the scene. OnRegionUnlockReady still fires for any
+    /// subscribers (the button, if left active, shows then hides again on OnRegionUnlocked in
+    /// the same frame). Guarded so it fires at most once per pending unlock. Called from both
+    /// the per-action path and the debug F1 path.
     /// </summary>
     void TryFlagRegionUnlock(float totalAverageHealth)
     {
@@ -319,14 +322,16 @@ public class RunManager : MonoBehaviour {
         if (unlockedRegions.Contains(regionManager.NextRegionID - 1)) return;
 
         regionUnlockPending = true;
-        Debug.Log($"ZONE UNLOCK READY! World avg health {totalAverageHealth:F1} passed threshold {regionUnlockThreshold}. Awaiting player.");
+        Debug.Log($"ZONE UNLOCK READY! World avg health {totalAverageHealth:F1} passed threshold {regionUnlockThreshold}. Auto-generating the next zone.");
         OnRegionUnlockReady?.Invoke();
+        UnlockNextRegion();   // auto-unlock — no manual button press required
     }
 
     /// <summary>
-    /// Player-triggered region generation (wired to the "Unlock Next Zone" button).
-    /// No-op unless a region is currently pending. Generates exactly one region,
-    /// clears the pending flag, and fires OnRegionUnlocked.
+    /// Generates the next region. Now invoked automatically from TryFlagRegionUnlock the moment
+    /// the threshold is crossed (2026-07-21); still public so the debug F1 path and the legacy
+    /// "Unlock Next Zone" button can call it too. No-op unless a region is currently pending.
+    /// Generates exactly one region, clears the pending flag, and fires OnRegionUnlocked.
     /// </summary>
     public void UnlockNextRegion()
     {

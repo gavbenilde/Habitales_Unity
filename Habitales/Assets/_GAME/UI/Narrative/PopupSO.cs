@@ -161,7 +161,8 @@ namespace Habitales.UI
                     speakerID    = pl.speaker.ToString(),
                     displayName  = displayName,
                     portrait     = portrait,
-                    body         = pl.body ?? string.Empty,
+                    // §5: token substitution lives here (the single resolution path) so no caller can bypass it.
+                    body         = PopupTokens.Resolve(pl.body) ?? string.Empty,
                     expressionID = string.Empty
                 });
             }

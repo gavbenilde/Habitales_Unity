@@ -9,34 +9,37 @@ namespace Habitales.Onboarding
     // ─────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Every beat in the Alpha onboarding sequence. Values are stable integers — safe to
-    /// store in save data. Beat numbering mirrors the design doc (0, 1_1, 1_2, …).
+    /// Every phase in aki's 18-slide onboarding exposition (the # column of
+    /// ONBOARDING_TUTORIAL_PLAN.md). Values are stable integers — safe to store in save data.
+    ///
+    /// <para>Rebuilt 2026-07-21 (ONBOARDING_HANDOFF §3): the legacy 11-beat cut
+    /// (Beat_Click_*, Beat_Drag_*, Beat_2_0_GroupChat, Beat_3_*) is retired. The two juice
+    /// systems re-point here: <c>DragGhostInset</c> → <see cref="Phase_06_SelectTiles"/>,
+    /// <c>Beat1_3JuiceDirector</c> → <see cref="Phase_07_Confirm"/>.</para>
     /// </summary>
     public enum OnboardingBeatId
     {
-        None            = -1,
+        None                    = -1,
 
-        Beat_0_PriorityZero     = 0,    // Captain premise — full-screen PopupSO headline (via TriggerManager)
-
-        // ── Click-teaching cycle (repeats 3×) ──────────────────────────────────
-        Beat_Click_Arm          = 11,   // Arm the Plant Trees action from the bar
-        Beat_Click_Place        = 12,   // Click a tile to select one seed
-        Beat_Click_Confirm      = 13,   // Arrow → Confirm; press it to commit
-        Beat_1_4_PassDay        = 14,   // "Pass a day" nudge — fires after first action confirms
-
-        Beat_2_0_GroupChat      = 20,   // Forced Azi & Bob kickoff — slots after Beat_1_4_PassDay,
-                                         // before the drag cycle (arch ENDGAME_BUILD_PLAN §6.2)
-
-        // ── Drag-teaching cycle (repeats 3×) ───────────────────────────────────
-        Beat_Drag_Arm           = 23,   // Arm the Plant Trees action again
-        Beat_Drag_Select        = 24,   // Hold-drag multi-select 3+ seeds (Ghost Drag + DragInset)
-        Beat_Drag_Confirm       = 25,   // Arrow → Confirm; press it to commit
-
-        Beat_2_2_TileInspector  = 22,   // Tile inspector discovered (tile selected in non-onboarding state)
-        Beat_3_1_FirstRibbon    = 31,   // Region 2 unlocked → first ribbon
-        Beat_3_2_LookAround     = 32,   // RMB pan nudge
-        Beat_3_3_NewTool        = 33,   // New action card unlocked
-        Beat_3_4_Graduation     = 34,   // Scaffolding retires — onboarding complete
+        Phase_01_LoadingReveal  = 1,    // Loading screen spectating live Zone-1 tile generation
+        Phase_02_MeetAzi        = 2,    // Dialog (worried Azi): "Oh yikes. It's really bad out here…"
+        Phase_03_Framing        = 3,    // Dialog: framing device — "Let's recall what we're here to do"
+        Phase_04_ActionBar      = 4,    // Text + arrow → Intervene icon; teach the Action Bar
+        Phase_05_PickCard       = 5,    // Text; cards dimmed except Plant Trees (arm PlantTreesAction)
+        Phase_06_SelectTiles    = 6,    // Text + GhostMouseDrag; hold-drag multi-select 3+ (DragGhostInset)
+        Phase_07_Confirm        = 7,    // Text + arrow → Confirm; commit the action (Beat1_3JuiceDirector)
+        Phase_08_TimeStamina    = 8,    // Character: actions cost days; workers rest — highlight counters
+        Phase_09_Weather        = 9,    // Character: weather affects growth — highlight weather hex
+        Phase_10_ZoneHealth     = 10,   // Character: zone health bar + dropdown
+        Phase_10_1_TraitPips    = 101,  // Character: trait icon pips (Indicators)
+        Phase_11_GoalDeadline   = 11,   // Dialog: HQ report deadline + Azi Day-60 check-in (parametric later)
+        Phase_12_Stakes         = 12,   // Dialog (worried Azi): stakes / motivation
+        Phase_13_RoleAffirm     = 13,   // Dialog (sparkly Azi): player-role affirmation — LAST intrusive
+        Phase_14_HelpAffordance = 14,   // Character (single bubble, one thread): Azi will proactively notify
+        Phase_15_FreePlay       = 15,   // No UI — free play toward the zone-unlock threshold
+        Phase_16_ZoneUnlock     = 16,   // Camera pan to the new zone + Character announcement
+        Phase_17_Factory        = 17,   // Camera zoom/pan to the factory (persistent pollution source)
+        Phase_18_Maintenance    = 18,   // Character/CornerReminder: maintain earlier zones — then graduate
     }
 
     // ─────────────────────────────────────────────────────────────────────────

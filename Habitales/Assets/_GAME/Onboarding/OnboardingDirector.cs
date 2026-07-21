@@ -1,58 +1,75 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Habitales.UI;
 using Habitales.UI.Actions;
 using Habitales.Dialogue;
-using Habitales.Triggers;
+using UTILITIES.Camera;
 
 namespace Habitales.Onboarding
 {
     // =========================================================================
-    //  OnboardingDirector — Work-Order B1
-    //  The spine of the Alpha onboarding: an ordered 11-beat state machine with
-    //  an input-idle (stall) detector that reveals explicit text after ~3 s of
-    //  no input (Hodent implicit-first).
+    //  OnboardingDirector — 18-phase rebuild (ONBOARDING_HANDOFF §3, 2026-07-21)
     //
-    //  ARCHITECTURAL LAWS (arch §1):
-    //    1. Getters, not setters — reads other systems via public read-only
-    //       properties; never writes their state.
-    //    2. Hooks fire on meaning — subscribes to meaning-events (OnDayResolved,
-    //       OnRegionUnlocked, OnEntitySpawned, OnActionCompleted). Conditions that
-    //       have no event are polled in Update (documented below).
-    //    3. Loud failure for misconfig — every null [SerializeField] ref produces
-    //       Debug.LogError and the component disables gracefully.
+    //  Drives aki's 18-slide exposition deck (ONBOARDING_TUTORIAL_PLAN.md) as a
+    //  linear phase runner. The legacy 11-beat model (s_Beats, click/drag loops,
+    //  group-chat kickoff, Priority Zero) is retired; the PUBLIC SURFACE is kept
+    //  intact so the two onboarding-juice systems keep COMPILING. Both are
+    //  DORMANT for now (parked pending a design decision — ONBOARDING_HANDOFF §3);
+    //  the main onboarding is built first. If revived, they re-point to:
+    //    • DragGhostInset       → Phase_06_SelectTiles  (drag demo)
+    //    • Beat1_3JuiceDirector → Phase_07_Confirm      (delta-tip / score juice)
+    //
+    //  CONTENT MODEL (decided 2026-07-21): each phase's words come from an
+    //  authored PopupSO wired in the `phases` list below. The director resolves
+    //  the SO's lines and presents them via PopupManager.PlayLines with a fixed
+    //  per-phase PRESET (Dialog / Character / Text). PlayLines routes through
+    //  UIManager.ShowPopup, so intrusive Dialog phases pause the sim on the same
+    //  path the Pausing Bug Fix stabilised (handoff §7) — do NOT swap this for
+    //  PopupController.Show(PopupSO), which skips that pause path.
+    //
+    //  ADVANCE MODEL:
+    //    • Passive phases (2,3,8,9,10,10.1,11,12,13,14,16,17,18): advance on the
+    //      popup's onComplete callback.
+    //    • Interactive phases advance on real gameplay events:
+    //        4  → strip opened            (ActionBarUI.IsStripOpen)
+    //        5  → Plant Trees armed        (ActionBarUI.OnActionArmed)
+    //        6  → drag multi-select ≥ 3    (TileSelector.SelectedTileCount, polled)
+    //        7  → action confirmed         (ActionBarUI.OnActionConfirmed)
+    //        15 → next zone unlocked       (RunManager.OnRegionUnlocked)
+    //    • Phase 1 (loading reveal): timer-authoritative — lasts exactly
+    //      loadingRevealSeconds. The world's tile pop-in animates independently.
+    //
+    //  ARCHITECTURAL LAWS (unchanged):
+    //    1. Getters, not setters — reads other systems' read-only surface.
+    //    2. Hooks fire on meaning — subscribes to meaning-events; only the few
+    //       gates with no event are polled in Update.
+    //    3. Loud failure for misconfig — required refs LogError; the director
+    //       degrades without soft-locking (unwired popups auto-advance).
+    //
+    //  Scene wiring: see the Inspector checklist at the bottom of this file.
     // =========================================================================
 
-    /// <summary>
-    /// Drives the Alpha onboarding: ordered beat progression, per-beat Azi cue
-    /// via PopupManager, stall detection, and the coach-mark contract
-    /// that B2 / B3 / B4 subscribe to.
-    ///
-    /// <para><b>Scene wiring:</b> see the Inspector checklist at the bottom of this file.</para>
-    /// </summary>
     [DefaultExecutionOrder(50)] // after all manager singletons
     public class OnboardingDirector : MonoBehaviour
     {
         // ─────────────────────────────────────────────────────────────────────
-        // THE CONTRACT (copy-paste-ready for sibling agents)
+        // THE CONTRACT (kept stable for DragGhostInset / Beat1_3JuiceDirector)
         // ─────────────────────────────────────────────────────────────────────
 
-        /// <summary>Fires when the director enters a new beat (BEFORE the cue is shown).</summary>
+        /// <summary>Fires when the director enters a new phase (BEFORE the popup/cue is shown).</summary>
         public event Action<OnboardingBeatId> OnBeatEntered;
 
-        /// <summary>Fires when a beat's success condition is satisfied and we advance.</summary>
+        /// <summary>Fires when a phase's success condition is satisfied and we advance.</summary>
         public event Action<OnboardingBeatId> OnBeatCompleted;
 
-        /// <summary>
-        /// B2 subscribes here. The director calls this whenever a coach-mark should appear
-        /// or be hidden. See <see cref="CoachMarkRequest.hide"/> for hide-request convention.
-        /// </summary>
+        /// <summary>The coach-mark layer (B2) subscribes here. See <see cref="CoachMarkRequest.hide"/>.</summary>
         public event Action<CoachMarkRequest> OnCoachMarkRequested;
 
         /// <summary>True while the onboarding sequence is running (not yet graduated).</summary>
         public bool IsActive { get; private set; }
 
-        /// <summary>The beat currently in progress (None if inactive).</summary>
+        /// <summary>The phase currently in progress (None if inactive).</summary>
         public OnboardingBeatId CurrentBeat { get; private set; } = OnboardingBeatId.None;
 
         /// <summary>Singleton — one director per scene.</summary>
@@ -62,197 +79,137 @@ namespace Habitales.Onboarding
         // Inspector
         // ─────────────────────────────────────────────────────────────────────
 
-        [Header("Content")]
-        [Tooltip("Catalog id of the Priority-Zero PopupSO (beat 0), resolved via TriggerManager.Fire. " +
-                 "The Director fires it here instead of waiting for OnboardingBootstrap — " +
-                 "leave OnboardingBootstrap in the scene with the same id.")]
-        [SerializeField] private string priorityZeroEventId = "priority_zero";
-
-        [Tooltip("Azi portrait Sprite. Every Say() call passes this.")]
-        [SerializeField] private Sprite aziPortrait;
-
-        [Tooltip("Beat 2.0's forced group-chat kickoff (Azi & Bob, 2-3 choice points, under ~8 " +
-                 "messages, channel = GroupChat). Delivered via DialogueManager.DeliverConversation " +
-                 "on beat entry — badge/shake/ribbon fire for free off OnMessagesUpdated. Beat 2.0 " +
-                 "completes when DialogueManager reports this conversation read to its end.")]
-        [SerializeField] private ConversationSO groupChatKickoffConversation;
-
-        [Tooltip("Screen-space RectTransform of the messaging app icon (the same object " +
-                 "MessagingAppIconUI sits on / shakes). The FidgetArrow coach-mark for beat 2.0 " +
-                 "points here. Assign explicitly — MessagingAppIconUI has no public accessor.")]
-        [SerializeField] private RectTransform messagingIconCueTarget;
-
-        [Header("Stall Detector")]
-        [Tooltip("Seconds of input idle before the explicit stall-fallback text is shown.")]
-        [SerializeField] private float stallSeconds = 3f;
-
-        [Header("References (optional — auto-found if null)")]
-        [Tooltip("The ActionBarUI in the scene. Auto-found if null; assign explicitly for determinism.")]
-        [SerializeField] private ActionBarUI actionBarUI;
-
-        [Tooltip("The ObjectiveBannerUI in the scene. Auto-found if null. Its PlayLandingReveal() " +
-                 "is called at graduation (Beat_3_4) — the \"text lands in front of the player\" tween.")]
-        [SerializeField] private ObjectiveBannerUI objectiveBannerUI;
-
-        [Header("Skip / Debug")]
-        [Tooltip("If true, skip Priority Zero (beat 0) — useful when the scene already fires it via OnboardingBootstrap.")]
-        [SerializeField] private bool skipBeat0 = false;
-
-        [Tooltip("Start from this beat index (0 = normal start). Debug only.")]
-        [SerializeField] private int debugStartBeat = 0;
-
-        // ─────────────────────────────────────────────────────────────────────
-        // Beat definition
-        // ─────────────────────────────────────────────────────────────────────
-
-        private struct BeatDef
+        /// <summary>Pairs a phase with the PopupSO that supplies its authored words.</summary>
+        [Serializable]
+        public struct PhaseContent
         {
-            public OnboardingBeatId id;
-            public string cueLine;           // shown immediately on enter
-            public string stallFallback;     // shown after stallSeconds idle (null = no fallback)
-            public CoachMarkKind coachMark;  // BlinkingTileMarker, etc. (None = no mark)
+            [Tooltip("Which onboarding phase this PopupSO supplies content for.")]
+            public OnboardingBeatId phase;
+
+            [Tooltip("Authored lines for the phase. The director picks the preset " +
+                     "(Dialog/Character/Text); you supply the words + speakers.")]
+            public PopupSO popup;
         }
 
-        // Hardcoded per the doc's license. This is a lookup TABLE (id → cue/coachMark); advance
-        // order is owned by ResolveNext() so the click/drag phases can loop 3× each.
-        private static readonly BeatDef[] s_Beats = new BeatDef[]
+        [Header("Content")]
+        [Tooltip("Resolves Azi/Bob display names + portraits when presenting a PopupSO. " +
+                 "Assign the same DialogueRegistry PopupController uses. Falls back to literal names if null.")]
+        [SerializeField] private DialogueRegistry dialogueRegistry;
+
+        [Tooltip("One entry per phase that shows a popup (phases 1 and 15 show none). " +
+                 "Order in this list is irrelevant — lookup is by phase id.")]
+        [SerializeField] private PhaseContent[] phases = new PhaseContent[0];
+
+        [Header("Phase 1 — loading reveal")]
+        [Tooltip("Exact duration (seconds) of phase 1. The world's tile pop-in animates " +
+                 "independently and keeps playing past this, so lower = snappier hand-off to Azi.")]
+        [SerializeField] private float loadingRevealSeconds = 2.5f;
+
+        [Header("Highlight targets (optional — coach marks for phases 8–10.1)")]
+        [Tooltip("Day counter / stamina cluster. Phase 8 points a FidgetArrow here (skipped if null).")]
+        [SerializeField] private RectTransform dayCounterTarget;
+        [Tooltip("Weather hex icon. Phase 9 highlight (skipped if null).")]
+        [SerializeField] private RectTransform weatherHexTarget;
+        [Tooltip("Zone 1 health bar. Phase 10 highlight (skipped if null).")]
+        [SerializeField] private RectTransform zoneHealthBarTarget;
+        [Tooltip("Trait icon pips. Phase 10.1 highlight (skipped if null).")]
+        [SerializeField] private RectTransform traitPipsTarget;
+
+        [Header("References (optional — auto-found if null)")]
+        [SerializeField] private ActionBarUI actionBarUI;
+        [Tooltip("PlayLandingReveal() plays at graduation (the objective 'lands in front of the player').")]
+        [SerializeField] private ObjectiveBannerUI objectiveBannerUI;
+        [Tooltip("Used to resolve the newly-unlocked zone's centroid for the phase-16 camera pan.")]
+        [SerializeField] private RegionManager regionManager;
+
+        [Header("Debug")]
+        [Tooltip("Start from this index into the phase sequence (0 = normal start).")]
+        [SerializeField] private int debugStartPhaseIndex = 0;
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Phase sequence + preset table
+        // ─────────────────────────────────────────────────────────────────────
+
+        // The chronological order of the deck (the # column of the tutorial plan).
+        private static readonly OnboardingBeatId[] s_Sequence =
         {
-            new BeatDef
-            {
-                id           = OnboardingBeatId.Beat_0_PriorityZero,
-                cueLine      = null,   // Priority Zero = a PopupSO full-screen headline (via TriggerManager), not a Say()
-                stallFallback = null,
-                coachMark    = CoachMarkKind.None,
-            },
-
-            // ── Click-teaching cycle (repeats 3×; cue spoken on the 1st cycle only) ──
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_Click_Arm,
-                cueLine       = OnboardingContent.Beat_1_1_PickAction,
-                stallFallback = null,  // no explicit fallback — coach mark handles it
-                coachMark     = CoachMarkKind.FidgetArrow,
-            },
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_Click_Place,
-                cueLine       = OnboardingContent.Beat_1_2_PlaceOne,
-                stallFallback = OnboardingContent.Beat_1_2_StallText,
-                coachMark     = CoachMarkKind.GhostMouseClick,
-            },
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_Click_Confirm,
-                cueLine       = OnboardingContent.Beat_1_3_CommitTime,
-                stallFallback = null,
-                coachMark     = CoachMarkKind.FidgetArrow,   // arrow → Confirm button
-            },
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_1_4_PassDay,
-                cueLine       = OnboardingContent.Beat_1_4_PassDay,
-                stallFallback = null,
-                coachMark     = CoachMarkKind.None,          // no coach-mark; cue text is enough
-            },
-
-            // ── Forced group-chat kickoff (Azi & Bob) — slots before the drag cycle ──
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_2_0_GroupChat,
-                cueLine       = OnboardingContent.Beat_2_0_OpenChat,
-                stallFallback = OnboardingContent.Beat_2_0_StallText,
-                coachMark     = CoachMarkKind.FidgetArrow,   // arrow → messaging app icon
-            },
-
-            // ── Drag-teaching cycle (repeats 3×; cue spoken on the 1st cycle only) ──
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_Drag_Arm,
-                cueLine       = null,
-                stallFallback = null,
-                coachMark     = CoachMarkKind.FidgetArrow,
-            },
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_Drag_Select,
-                cueLine       = OnboardingContent.Beat_2_1_DragMany,
-                stallFallback = null,  // B4 (drag-inset ghost) owns the visual fallback
-                coachMark     = CoachMarkKind.GhostMouseDrag,
-            },
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_Drag_Confirm,
-                cueLine       = null,
-                stallFallback = null,
-                coachMark     = CoachMarkKind.FidgetArrow,   // arrow → Confirm button
-            },
-
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_2_2_TileInspector,
-                cueLine       = null,   // discovered naturally — no explicit cue
-                stallFallback = null,
-                coachMark     = CoachMarkKind.CornerReminder,
-            },
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_3_1_FirstRibbon,
-                cueLine       = OnboardingContent.Beat_3_1_FirstRibbon,
-                stallFallback = null,
-                coachMark     = CoachMarkKind.None,
-            },
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_3_2_LookAround,
-                cueLine       = OnboardingContent.Beat_3_2_LookAround,
-                stallFallback = null,
-                coachMark     = CoachMarkKind.None,
-            },
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_3_3_NewTool,
-                cueLine       = OnboardingContent.Beat_3_3_NewTool,
-                stallFallback = null,
-                coachMark     = CoachMarkKind.FidgetArrow,
-            },
-            new BeatDef
-            {
-                id            = OnboardingBeatId.Beat_3_4_Graduation,
-                cueLine       = OnboardingContent.Beat_3_4_Graduation,
-                stallFallback = null,
-                coachMark     = CoachMarkKind.None,
-            },
+            OnboardingBeatId.Phase_01_LoadingReveal,
+            OnboardingBeatId.Phase_02_MeetAzi,
+            OnboardingBeatId.Phase_03_Framing,
+            OnboardingBeatId.Phase_04_ActionBar,
+            OnboardingBeatId.Phase_05_PickCard,
+            OnboardingBeatId.Phase_06_SelectTiles,
+            OnboardingBeatId.Phase_07_Confirm,
+            OnboardingBeatId.Phase_08_TimeStamina,
+            OnboardingBeatId.Phase_09_Weather,
+            OnboardingBeatId.Phase_10_ZoneHealth,
+            OnboardingBeatId.Phase_10_1_TraitPips,
+            OnboardingBeatId.Phase_11_GoalDeadline,
+            OnboardingBeatId.Phase_12_Stakes,
+            OnboardingBeatId.Phase_13_RoleAffirm,
+            OnboardingBeatId.Phase_14_HelpAffordance,
+            OnboardingBeatId.Phase_15_FreePlay,
+            OnboardingBeatId.Phase_16_ZoneUnlock,
+            OnboardingBeatId.Phase_17_Factory,
+            OnboardingBeatId.Phase_18_Maintenance,
         };
+
+        // The popup preset each phase presents with. Dialog = intrusive + portrait + pause;
+        // Character = side bubble + portrait; Text = side bubble, no portrait (speaker-less MC box).
+        private static PopupStyle PresetFor(OnboardingBeatId id)
+        {
+            switch (id)
+            {
+                case OnboardingBeatId.Phase_02_MeetAzi:
+                case OnboardingBeatId.Phase_03_Framing:
+                case OnboardingBeatId.Phase_11_GoalDeadline:
+                case OnboardingBeatId.Phase_12_Stakes:
+                case OnboardingBeatId.Phase_13_RoleAffirm:
+                    return PopupStyle.Dialog;
+
+                case OnboardingBeatId.Phase_04_ActionBar:
+                case OnboardingBeatId.Phase_05_PickCard:
+                case OnboardingBeatId.Phase_06_SelectTiles:
+                case OnboardingBeatId.Phase_07_Confirm:
+                    return PopupStyle.Text;
+
+                default: // 8, 9, 10, 10.1, 14, 16, 17, 18
+                    return PopupStyle.Character;
+            }
+        }
 
         // ─────────────────────────────────────────────────────────────────────
         // Runtime state
         // ─────────────────────────────────────────────────────────────────────
 
-        private float _idleTimer       = 0f;
-        private bool  _stallFired      = false;
-        private bool  _beat0Fired      = false;
+        private readonly Dictionary<OnboardingBeatId, PopupSO> _phasePopups =
+            new Dictionary<OnboardingBeatId, PopupSO>();
 
-        // How many times each teaching cycle repeats before advancing to the next phase.
-        private const int ClickCyclesTarget = 3;
-        private const int DragCyclesTarget  = 3;
-        private int _clickCyclesDone = 0;   // incremented when a Click_Confirm completes
-        private int _dragCyclesDone  = 0;   // incremented when a Drag_Confirm completes
+        private int  _phaseIndex;
+        private bool _advanceRequested;   // set by a passive popup's onComplete; drained in Update
 
-        // Per-beat success gate booleans (polled or event-driven).
-        private bool _actionSelectedThisBeat   = false; // event: ActionBarUI.OnActionArmed
-        private bool _seedClickedThisBeat      = false; // event: TileSelector.OnTileSelected (click phase)
-        private bool _confirmedThisBeat        = false; // event: ActionBarUI.OnActionConfirmed
-        private bool _passDayDoneThisBeat      = false; // event: RunManager.OnDayResolved (beat 1.4)
-        private bool _groupChatReadThisBeat    = false; // event: DialogueManager.OnConversationCompleted (beat 2.0)
-        private bool _dragDoneThisBeat         = false; // polled: SelectedTileCount >= 3
-        private bool _tileInspected            = false; // event: TileSelector.OnTileSelected (after drag phase)
-        private bool _regionUnlocked           = false; // event: RunManager.OnRegionUnlocked
-        private bool _panDetected              = false; // polled: Input.GetMouseButton(1)
-        // Beat 3.3 (new tool) — no runtime unlock signal exists; auto-advance after first day post-3.1.
-        // Beat 3.4 graduation fires automatically.
+        // Per-phase success gates (reset on enter).
+        private bool _armed;              // phase 5: Plant Trees armed (event)
+        private bool _confirmed;          // phase 7: action confirmed (event)
+        private bool _dragDone;           // phase 6: drag multi-select ≥ 3 (polled)
+        private bool _regionUnlocked;     // phase 15: next zone unlocked (event)
 
-        // Day count when we entered a beat (for beats that advance on "next day").
-        private int _dayAtBeatEnter = 0;
+        private float _loadingTimer;      // phase 1 reveal timer (authoritative duration)
+
+        // Phase 6 drag ghost — shown only while an action is armed; needs growth past this baseline.
+        private bool _dragGhostShown;
+        private int  _dragBaselineCount;
+
+        // Last UI cue target sent to the arrow — re-issue only when it changes (tab → card).
+        private Transform _currentCueTarget;
+
+        // Coach marks shown this phase, hidden together on phase complete.
+        private readonly HashSet<CoachMarkKind> _activeMarks = new HashSet<CoachMarkKind>();
+
+        // Reused scratch so tile-target resolution allocates nothing per phase.
+        private readonly List<Tile> _openTileScratch = new List<Tile>();
+
+        private TileSelector _cachedSelector;
 
         // ─────────────────────────────────────────────────────────────────────
         // Lifecycle
@@ -266,469 +223,284 @@ namespace Habitales.Onboarding
 
         void Start()
         {
-            // Loud-fail all required refs (Law 3).
             bool ok = true;
 
             if (PopupManager.Instance == null)
             {
-                Debug.LogError($"{name}: PopupManager.Instance is null — OnboardingDirector cannot show cues. " +
-                               "Ensure a PopupManager is in the scene and initialized before this component.", this);
+                Debug.LogError($"{name}: PopupManager.Instance is null — OnboardingDirector cannot present phases. " +
+                               "Ensure a PopupManager is in the scene before this component.", this);
                 ok = false;
             }
 
-            if (string.IsNullOrWhiteSpace(priorityZeroEventId) && !skipBeat0)
-            {
-                Debug.LogError($"{name}: priorityZeroEventId is blank — Beat 0 (Priority Zero) will not fire. " +
-                               "Set the Priority-Zero catalog id in the Inspector, or enable skipBeat0.", this);
-                // Non-fatal: we advance past beat 0 automatically.
-            }
+            if (dialogueRegistry == null)
+                Debug.LogError($"{name}: dialogueRegistry is not assigned — Azi/Bob names fall back to literals and " +
+                               "portraits resolve null. Assign the same DialogueRegistry PopupController uses.", this);
 
-            if (aziPortrait == null)
-                Debug.LogWarning($"{name}: aziPortrait is not assigned — Azi cues will show without a portrait. Wire it in the Inspector.", this);
-
-            if (groupChatKickoffConversation == null)
-                Debug.LogError($"{name}: groupChatKickoffConversation is not assigned — beat 2.0 will deliver nothing " +
-                               "and its completion gate can never be satisfied (the player will stall forever). " +
-                               "Author the Azi & Bob kickoff ConversationSO and assign it in the Inspector.", this);
-
-            if (messagingIconCueTarget == null)
-                Debug.LogWarning($"{name}: messagingIconCueTarget is not assigned — beat 2.0's FidgetArrow will have " +
-                                 "no target. Assign the messaging icon's RectTransform in the Inspector.", this);
-
-            if (DialogueManager.Instance == null)
-                Debug.LogError($"{name}: DialogueManager.Instance is null — beat 2.0 cannot deliver the kickoff " +
-                               "conversation or detect when it's been read. Ensure a DialogueManager is in the scene.", this);
-
-            // Auto-find ActionBarUI if not assigned.
+            if (actionBarUI == null) actionBarUI = FindObjectOfType<ActionBarUI>();
             if (actionBarUI == null)
-                actionBarUI = FindObjectOfType<ActionBarUI>();
-            if (actionBarUI == null)
-                Debug.LogWarning($"{name}: ActionBarUI not found — beat 1.1 (Pick Action) polling will not work. Assign it in the Inspector.", this);
+                Debug.LogWarning($"{name}: ActionBarUI not found — interactive phases 4–7 cannot advance. Assign it in the Inspector.", this);
 
-            // Auto-find ObjectiveBannerUI if not assigned.
+            if (objectiveBannerUI == null) objectiveBannerUI = FindObjectOfType<ObjectiveBannerUI>();
             if (objectiveBannerUI == null)
-                objectiveBannerUI = FindObjectOfType<ObjectiveBannerUI>();
-            if (objectiveBannerUI == null)
-                Debug.LogWarning($"{name}: ObjectiveBannerUI not found — graduation's landing-reveal tween will not play. Assign it in the Inspector.", this);
+                Debug.LogWarning($"{name}: ObjectiveBannerUI not found — graduation's landing-reveal tween will not play.", this);
+
+            if (regionManager == null) regionManager = FindObjectOfType<RegionManager>();
+            // regionManager is optional — phase 16's camera pan is best-effort.
+
+            BuildPhaseLookup();
 
             if (!ok) { enabled = false; return; }
 
-            // Subscribe to meaning-events (Law 2).
+            // Meaning-event subscriptions (Law 2).
             if (RunManager.Instance != null)
-            {
                 RunManager.Instance.OnRegionUnlocked += HandleRegionUnlocked;
-                RunManager.Instance.OnDayResolved    += HandleDayResolved;
-            }
             else
-                Debug.LogError($"{name}: RunManager.Instance is null — region-unlock and day-resolved beats will not trigger. Ensure RunManager is in the scene.", this);
+                Debug.LogError($"{name}: RunManager.Instance is null — phase 15 (free play) can never detect the zone unlock. " +
+                               "Ensure RunManager is in the scene.", this);
 
-            if (DialogueManager.Instance != null)
-                DialogueManager.Instance.OnConversationCompleted += HandleConversationCompleted;
-            // else already loud-failed above.
-
-            // Subscribe to ActionBarUI events (replaces polling of CurrentArmedAction).
             if (actionBarUI != null)
             {
                 actionBarUI.OnActionArmed     += HandleActionArmed;
                 actionBarUI.OnActionConfirmed += HandleActionConfirmed;
             }
-            else
-                Debug.LogWarning($"{name}: ActionBarUI not found — arm and confirm beats will not fire via events.", this);
 
-            // TileSelector now has a static Instance (added in this session).
-            _cachedSelector = TileSelector.Instance;
+            _cachedSelector = TileSelector.Instance ?? FindObjectOfType<TileSelector>();
             if (_cachedSelector == null)
-                _cachedSelector = FindObjectOfType<TileSelector>(); // fallback if Awake order differs
-            if (_cachedSelector != null)
-            {
-                _cachedSelector.OnTileSelected            += HandleTileSelected;
-                _cachedSelector.OnMultiSelectionConfirmed += HandleSelectionConfirmed;
-            }
-            else
-                Debug.LogError($"{name}: No TileSelector found — tile-inspector detection will not work.", this);
+                Debug.LogWarning($"{name}: No TileSelector found — phase 6 (drag select) cannot advance.", this);
 
-            // Start from debugStartBeat (clamped into the lookup table).
-            int startIdx = Mathf.Clamp(debugStartBeat, 0, s_Beats.Length - 1);
-
+            _phaseIndex = Mathf.Clamp(debugStartPhaseIndex, 0, s_Sequence.Length - 1);
             IsActive = true;
-            EnterBeat(s_Beats[startIdx].id);
+            EnterPhase(s_Sequence[_phaseIndex]);
         }
 
         void OnDestroy()
         {
             if (RunManager.Instance != null)
-            {
                 RunManager.Instance.OnRegionUnlocked -= HandleRegionUnlocked;
-                RunManager.Instance.OnDayResolved    -= HandleDayResolved;
-            }
-
-            if (DialogueManager.Instance != null)
-                DialogueManager.Instance.OnConversationCompleted -= HandleConversationCompleted;
 
             if (actionBarUI != null)
             {
                 actionBarUI.OnActionArmed     -= HandleActionArmed;
                 actionBarUI.OnActionConfirmed -= HandleActionConfirmed;
             }
+        }
 
-            if (_cachedSelector != null)
+        void BuildPhaseLookup()
+        {
+            _phasePopups.Clear();
+            if (phases == null) return;
+            foreach (PhaseContent pc in phases)
             {
-                _cachedSelector.OnTileSelected            -= HandleTileSelected;
-                _cachedSelector.OnMultiSelectionConfirmed -= HandleSelectionConfirmed;
+                if (pc.popup == null) continue;
+                _phasePopups[pc.phase] = pc.popup;
             }
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // Update — input stall timer + polling-only success gates
+        // Update — polling-only gates
         // ─────────────────────────────────────────────────────────────────────
 
         void Update()
         {
             if (!IsActive) return;
 
-            // ── Stall detector ────────────────────────────────────────────────
-            // Reset idle timer on ANY meaningful input.
-            bool inputThisFrame =
-                Input.anyKey ||
-                Input.GetMouseButton(0) ||
-                Input.GetMouseButton(1) ||
-                Input.GetMouseButton(2) ||
-                Input.mouseScrollDelta.sqrMagnitude > 0.01f ||
-                Input.GetAxis("Mouse X") != 0f ||
-                Input.GetAxis("Mouse Y") != 0f;
-
-            if (inputThisFrame)
+            // A passive popup finished → advance (drained here to avoid re-entrancy in the callback).
+            if (_advanceRequested)
             {
-                _idleTimer = 0f;
-                _stallFired = false;
-            }
-            else
-            {
-                _idleTimer += Time.unscaledDeltaTime;
-                if (!_stallFired && _idleTimer >= stallSeconds)
-                {
-                    _stallFired = true;
-                    TryShowStallFallback();
-                }
+                _advanceRequested = false;
+                CompletePhase();
+                return;
             }
 
-            // ── Per-beat polling gates ─────────────────────────────────────────
-            OnboardingBeatId beat = CurrentBeat;
-
-            // Arm beats: the arm-cue target changes mid-beat (strip opens → card appears, or the
-            // card rebuilds). Re-point the FidgetArrow when it switches.
-            if (beat == OnboardingBeatId.Beat_Click_Arm ||
-                beat == OnboardingBeatId.Beat_Drag_Arm  ||
-                beat == OnboardingBeatId.Beat_3_3_NewTool)
-                RefreshArmCueTarget();
-
-            // Drag-select: show the drag ghost only while an action is armed.
-            if (beat == OnboardingBeatId.Beat_Drag_Select)
-                RefreshDragGhostByArmState();
-
-            switch (beat)
+            switch (CurrentBeat)
             {
-                case OnboardingBeatId.Beat_0_PriorityZero:
-                    // Beat 0 advances once Priority Zero has fired (i.e. this frame after EnterBeat).
-                    // EnterBeat fires it immediately; we advance on the next frame.
-                    if (_beat0Fired)
+                case OnboardingBeatId.Phase_01_LoadingReveal:
+                    // Timer-authoritative: phase 1 lasts exactly loadingRevealSeconds. The world's
+                    // tile pop-in animates independently (RegionManager) and keeps playing past this.
+                    _loadingTimer += Time.unscaledDeltaTime;
+                    if (_loadingTimer >= loadingRevealSeconds) CompletePhase();
+                    break;
+
+                case OnboardingBeatId.Phase_04_ActionBar:
+                    RefreshArmCueTarget();
+                    if (actionBarUI != null && actionBarUI.IsStripOpen) CompletePhase();
+                    break;
+
+                case OnboardingBeatId.Phase_05_PickCard:
+                    RefreshArmCueTarget();     // re-point the arrow tab → card as the strip builds
+                    if (_armed) CompletePhase();
+                    break;
+
+                case OnboardingBeatId.Phase_06_SelectTiles:
+                    RefreshDragGhostByArmState();
+                    if (!_dragDone)
                     {
-                        _beat0Fired = false;
-                        CompleteBeat();
-                    }
-                    break;
-
-                case OnboardingBeatId.Beat_Click_Arm:
-                case OnboardingBeatId.Beat_Drag_Arm:
-                    // Event-driven: HandleActionArmed sets _actionSelectedThisBeat when Plant Trees is armed.
-                    if (_actionSelectedThisBeat) CompleteBeat();
-                    break;
-
-                case OnboardingBeatId.Beat_1_4_PassDay:
-                    // Event-driven: HandleDayResolved sets _passDayDoneThisBeat when a day resolves.
-                    if (_passDayDoneThisBeat) CompleteBeat();
-                    break;
-
-                case OnboardingBeatId.Beat_2_0_GroupChat:
-                    // Event-driven: HandleConversationCompleted sets _groupChatReadThisBeat when
-                    // DialogueManager reports the kickoff conversation read to its END (not merely
-                    // opened — see DialogueManager.OnConversationCompleted).
-                    if (_groupChatReadThisBeat) CompleteBeat();
-                    break;
-
-                case OnboardingBeatId.Beat_Click_Place:
-                    // Event-driven (HandleTileSelected sets _seedClickedThisBeat). Using the click
-                    // event — not a GetSelectedTile() poll — so a stale selection from a prior cycle
-                    // (arming auto-enters flood-fill) can't auto-complete this beat.
-                    if (_seedClickedThisBeat) CompleteBeat();
-                    break;
-
-                case OnboardingBeatId.Beat_Drag_Select:
-                    // POLLED: SelectedTileCount grew past the arm baseline (and ≥3) in FloodFill,
-                    // so arming's auto-blob alone never satisfies the beat.
-                    if (!_dragDoneThisBeat)
-                    {
-                        var ts = GetTileSelector();
+                        TileSelector ts = GetTileSelector();
                         int need = Mathf.Max(3, _dragBaselineCount + 1);
                         if (ts != null && ts.IsFloodFillMode && ts.SelectedTileCount >= need)
                         {
-                            _dragDoneThisBeat = true;
-                            CompleteBeat();
+                            _dragDone = true;
+                            CompletePhase();
                         }
                     }
                     break;
 
-                case OnboardingBeatId.Beat_Click_Confirm:
-                case OnboardingBeatId.Beat_Drag_Confirm:
-                    // Event-driven: HandleActionConfirmed (ActionBarUI.OnActionConfirmed) sets _confirmedThisBeat.
-                    if (_confirmedThisBeat) CompleteBeat();
+                case OnboardingBeatId.Phase_07_Confirm:
+                    if (_confirmed) CompletePhase();
                     break;
 
-                case OnboardingBeatId.Beat_2_2_TileInspector:
-                    // Event-driven (HandleTileSelected fires after the drag phase completes).
-                    if (_tileInspected) CompleteBeat();
+                case OnboardingBeatId.Phase_15_FreePlay:
+                    if (_regionUnlocked) CompletePhase();
+                    break;
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Phase management
+        // ─────────────────────────────────────────────────────────────────────
+
+        void EnterPhase(OnboardingBeatId id)
+        {
+            // Reset per-phase gates.
+            _armed = _confirmed = _dragDone = _regionUnlocked = false;
+            _dragGhostShown    = false;
+            _dragBaselineCount = 0;
+            _currentCueTarget  = null;
+            _loadingTimer      = 0f;
+            _advanceRequested  = false;
+
+            CurrentBeat = id;
+            OnBeatEntered?.Invoke(id);
+
+            switch (id)
+            {
+                case OnboardingBeatId.Phase_01_LoadingReveal:
+                    // No popup — the world builds in front of the player (Update runs the timer).
                     break;
 
-                case OnboardingBeatId.Beat_3_1_FirstRibbon:
-                    // Event-driven (HandleRegionUnlocked).
-                    if (_regionUnlocked) CompleteBeat();
-                    break;
-
-                case OnboardingBeatId.Beat_3_2_LookAround:
-                    // POLLED: any right-mouse-button input = pan detected.
-                    if (!_panDetected && Input.GetMouseButton(1))
+                case OnboardingBeatId.Phase_04_ActionBar:
+                    PresentPopup(id, advanceOnComplete: false);
+                    _currentCueTarget = actionBarUI != null ? actionBarUI.GetArmCueRect(null) : null;
+                    ShowMark(new CoachMarkRequest
                     {
-                        _panDetected = true;
-                        CompleteBeat();
-                    }
+                        kind              = CoachMarkKind.FidgetArrow,
+                        trackTarget       = _currentCueTarget,   // Intervene tab
+                        screenSpaceTarget = true,
+                    });
                     break;
 
-                case OnboardingBeatId.Beat_3_3_NewTool:
-                    // No runtime unlock signal exists yet. Auto-advance on next day after entering
-                    // (documented as a missing signal below). _dayAtBeatEnter was captured on enter.
-                    if (ResourceManager.Instance != null &&
-                        ResourceManager.Instance.TotalDays > _dayAtBeatEnter)
-                        CompleteBeat();
-                    break;
-
-                case OnboardingBeatId.Beat_3_4_Graduation:
-                    // Graduation: auto-advance one frame after the cue (retire scaffolding).
-                    CompleteBeat();
-                    break;
-            }
-        }
-
-        // ─────────────────────────────────────────────────────────────────────
-        // Beat management
-        // ─────────────────────────────────────────────────────────────────────
-
-        void EnterBeat(OnboardingBeatId id)
-        {
-            if (!TryGetBeatDef(id, out BeatDef def)) return;
-
-            _idleTimer  = 0f;
-            _stallFired = false;
-
-            // Reset per-beat flags.
-            _actionSelectedThisBeat = false;
-            _seedClickedThisBeat    = false;
-            _confirmedThisBeat      = false;
-            _passDayDoneThisBeat    = false;
-            _groupChatReadThisBeat  = false;
-            _dragDoneThisBeat       = false;
-            _tileInspected          = false;
-            _regionUnlocked         = false;
-            _panDetected            = false;
-            _dragGhostShown         = false;
-            _dragBaselineCount      = 0;
-
-            CurrentBeat = def.id;
-
-            // Capture day for time-based gates.
-            _dayAtBeatEnter = ResourceManager.Instance != null ? ResourceManager.Instance.TotalDays : 0;
-
-            OnBeatEntered?.Invoke(def.id);
-
-            // Fire the coach-mark request (with a per-beat target — see BuildCoachMarkRequest).
-            // Beat_Drag_Select is excluded from the normal path because its GhostMouseDrag is
-            // arm-gated (see RefreshDragGhostByArmState). However, its CornerReminder IS sent
-            // immediately on entry via the special case below.
-            if (def.coachMark != CoachMarkKind.None && def.id != OnboardingBeatId.Beat_Drag_Select)
-                OnCoachMarkRequested?.Invoke(BuildCoachMarkRequest(def));
-
-            // Beat_Drag_Select: fire the CornerReminder immediately on enter even though the
-            // GhostMouseDrag waits for arm state. The CornerReminder has no arm dependency.
-            if (def.id == OnboardingBeatId.Beat_Drag_Select)
-            {
-                OnCoachMarkRequested?.Invoke(new CoachMarkRequest
+                case OnboardingBeatId.Phase_05_PickCard:
                 {
-                    kind      = CoachMarkKind.CornerReminder,
-                    hide      = false,
-                    labelText = OnboardingContent.Reminder_SelectMultiple,
-                });
-            }
+                    PlayerAction plant = FindPlantTreesAction();
+                    if (actionBarUI != null && plant != null)
+                    {
+                        // Ensure the Intervene cards exist, then dim all but Plant Trees.
+                        actionBarUI.SetCategoriesExpanded(true);
+                        actionBarUI.SelectCategory(ActionCategory.Intervene);
+                        actionBarUI.LockCardsExcept(plant);
+                    }
+                    PresentPopup(id, advanceOnComplete: false);
+                    _currentCueTarget = actionBarUI != null ? actionBarUI.GetArmCueRect(plant) : null;
+                    ShowMark(new CoachMarkRequest
+                    {
+                        kind              = CoachMarkKind.FidgetArrow,
+                        trackTarget       = _currentCueTarget,   // Plant Trees card (or tab if not built yet)
+                        screenSpaceTarget = true,
+                    });
+                    break;
+                }
 
-            // Show the cue line (or fire Priority Zero for beat 0). Repeating teaching beats only
-            // speak on their first cycle (ShouldSpeakThisCycle) so Azi doesn't repeat the same line.
-            if (def.id == OnboardingBeatId.Beat_0_PriorityZero)
-            {
-                if (!skipBeat0)
-                    FirePriorityZero();
-                else
-                    _beat0Fired = true; // flag so Update advances next frame
-            }
-            else if (!string.IsNullOrEmpty(def.cueLine) && ShouldSpeakThisCycle(def.id))
-            {
-                ShowAziLine(def.cueLine);
-            }
-            // Beat 2.2 has no cue — it's discovered naturally.
+                case OnboardingBeatId.Phase_06_SelectTiles:
+                    PresentPopup(id, advanceOnComplete: false);
+                    ShowMark(new CoachMarkRequest
+                    {
+                        kind      = CoachMarkKind.CornerReminder,
+                        labelText = OnboardingContent.Reminder_SelectMultiple,
+                    });
+                    // GhostMouseDrag is arm-gated — RefreshDragGhostByArmState() shows it in Update.
+                    break;
 
-            if (def.id == OnboardingBeatId.Beat_2_0_GroupChat)
-                DeliverGroupChatKickoff();
+                case OnboardingBeatId.Phase_07_Confirm:
+                    PresentPopup(id, advanceOnComplete: false);
+                    ShowMark(new CoachMarkRequest
+                    {
+                        kind              = CoachMarkKind.FidgetArrow,
+                        trackTarget       = actionBarUI != null ? actionBarUI.GetConfirmButtonRect() : null,
+                        screenSpaceTarget = true,
+                    });
+                    break;
 
-            // Graduation — the objective banner's "text lands in front of the player" reveal
-            // (arch ENDGAME_BUILD_PLAN §6.3). Fire-and-forget: PlayLandingReveal is cancel-safe
-            // and self-contained, the Director doesn't track its lifetime.
-            if (def.id == OnboardingBeatId.Beat_3_4_Graduation)
-            {
-                if (objectiveBannerUI != null)
-                    objectiveBannerUI.PlayLandingReveal();
-                else
-                    Debug.LogWarning($"{name}: objectiveBannerUI is not wired — skipping the graduation landing-reveal tween.", this);
+                case OnboardingBeatId.Phase_08_TimeStamina:
+                    ShowHighlight(dayCounterTarget);   // day counter + stamina cluster
+                    PresentPopup(id, advanceOnComplete: true);
+                    break;
+
+                case OnboardingBeatId.Phase_09_Weather:
+                    ShowHighlight(weatherHexTarget);
+                    PresentPopup(id, advanceOnComplete: true);
+                    break;
+
+                case OnboardingBeatId.Phase_10_ZoneHealth:
+                    ShowHighlight(zoneHealthBarTarget);
+                    PresentPopup(id, advanceOnComplete: true);
+                    break;
+
+                case OnboardingBeatId.Phase_10_1_TraitPips:
+                    ShowHighlight(traitPipsTarget);
+                    PresentPopup(id, advanceOnComplete: true);
+                    break;
+
+                case OnboardingBeatId.Phase_15_FreePlay:
+                    // No UI. Free play until the player restores enough to unlock the next zone.
+                    // (CornerReminder-on-stall is deferred — tutorial plan phase 15.)
+                    break;
+
+                case OnboardingBeatId.Phase_16_ZoneUnlock:
+                    if (EventCameraHandler.Instance != null && TryGetNewRegionCentroid(out Vector3 centre))
+                        EventCameraHandler.Instance.PanTo(centre);
+                    PresentPopup(id, advanceOnComplete: true);
+                    break;
+
+                case OnboardingBeatId.Phase_17_Factory:
+                    // TODO(item B): once RegionManager guarantees the factory in an ordered early
+                    // region, zoom/pan the camera to it here (EventCameraHandler.ZoomTo + PanTo).
+                    PresentPopup(id, advanceOnComplete: true);
+                    break;
+
+                default: // 2, 3, 11, 12, 13, 14, 18 — passive Dialog / Character phases
+                    PresentPopup(id, advanceOnComplete: true);
+                    break;
             }
         }
 
-        // Delivers the forced group-chat kickoff the same way any other message arrives —
-        // through DialogueManager, so MessagingAppIconUI's badge/shake and RibbonUI's preview
-        // fire for free off OnMessagesUpdated (they already subscribe; no onboarding-specific FX
-        // needed here). Beat 2.0's completion gate (Update's Beat_2_0_GroupChat case) is driven
-        // separately by DialogueManager.OnConversationCompleted / HasCompletedConversation.
-        void DeliverGroupChatKickoff()
-        {
-            if (groupChatKickoffConversation == null)
-            {
-                Debug.LogError($"{name}: groupChatKickoffConversation is not assigned — beat 2.0 cannot deliver " +
-                               "the kickoff conversation. Assign the Azi & Bob ConversationSO in the Inspector.", this);
-                return;
-            }
-
-            if (DialogueManager.Instance == null)
-            {
-                Debug.LogError($"{name}: DialogueManager.Instance is null — cannot deliver the beat 2.0 kickoff conversation.", this);
-                return;
-            }
-
-            // Already read in a prior session/graduation-skip edge case (debugStartBeat, etc.) —
-            // don't re-deliver a duplicate copy into the chat; just let Update's already-satisfied
-            // check complete the beat next frame.
-            if (DialogueManager.Instance.HasCompletedConversation(groupChatKickoffConversation.name))
-            {
-                _groupChatReadThisBeat = true;
-                return;
-            }
-
-            DialogueManager.Instance.DeliverConversation(groupChatKickoffConversation);
-        }
-
-        void CompleteBeat()
+        void CompletePhase()
         {
             if (!IsActive) return;
 
-            OnboardingBeatId completedId = CurrentBeat;
+            OnboardingBeatId completed = CurrentBeat;
 
-            // Hide any coach mark for this beat.
-            if (TryGetBeatDef(completedId, out BeatDef def) && def.coachMark != CoachMarkKind.None)
-            {
-                OnCoachMarkRequested?.Invoke(new CoachMarkRequest
-                {
-                    kind = def.coachMark,
-                    hide = true,
-                });
-            }
+            HideActiveMarks();
+            if (completed == OnboardingBeatId.Phase_05_PickCard)
+                actionBarUI?.ClearCardLock();   // never leave a card dimmed (handoff §6-E)
 
-            OnBeatCompleted?.Invoke(completedId);
+            OnBeatCompleted?.Invoke(completed);
 
-            OnboardingBeatId next = ResolveNext(completedId);
-            if (next == OnboardingBeatId.None)
-                Graduate();   // all beats done
-            else
-                EnterBeat(next);
+            _phaseIndex++;
+            if (_phaseIndex >= s_Sequence.Length) { Graduate(); return; }
+            EnterPhase(s_Sequence[_phaseIndex]);
         }
 
-        // Advance order — owns the 3× click/drag teaching loops. Returns None to graduate.
-        OnboardingBeatId ResolveNext(OnboardingBeatId completed)
+        /// <summary>
+        /// Abort the tutorial and land the player in the fully graduated state (used by the
+        /// hold-Space skip control, handoff §6-E). Dismisses any in-flight popup and releases
+        /// its sim pause BEFORE graduating — Graduate() then clears every card lock and coach
+        /// mark, so no scaffolding is left behind (a dimmed card left over is worse than none).
+        /// </summary>
+        public void SkipOnboarding()
         {
-            switch (completed)
-            {
-                case OnboardingBeatId.Beat_0_PriorityZero:    return OnboardingBeatId.Beat_Click_Arm;
-
-                case OnboardingBeatId.Beat_Click_Arm:         return OnboardingBeatId.Beat_Click_Place;
-                case OnboardingBeatId.Beat_Click_Place:       return OnboardingBeatId.Beat_Click_Confirm;
-                case OnboardingBeatId.Beat_Click_Confirm:
-                    _clickCyclesDone++;
-                    // After the FIRST click confirm: show the "pass a day" nudge.
-                    // After subsequent confirms: loop straight back to arm.
-                    if (_clickCyclesDone == 1)
-                        return OnboardingBeatId.Beat_1_4_PassDay;
-                    return _clickCyclesDone < ClickCyclesTarget
-                        ? OnboardingBeatId.Beat_Click_Arm
-                        : OnboardingBeatId.Beat_2_0_GroupChat;
-
-                case OnboardingBeatId.Beat_1_4_PassDay:
-                    return _clickCyclesDone < ClickCyclesTarget
-                        ? OnboardingBeatId.Beat_Click_Arm
-                        : OnboardingBeatId.Beat_2_0_GroupChat;
-
-                // Forced group-chat kickoff — slots after the click-teaching cycle finishes,
-                // before the drag-teaching cycle starts (arch ENDGAME_BUILD_PLAN §6.2).
-                case OnboardingBeatId.Beat_2_0_GroupChat:     return OnboardingBeatId.Beat_Drag_Arm;
-
-                case OnboardingBeatId.Beat_Drag_Arm:          return OnboardingBeatId.Beat_Drag_Select;
-                case OnboardingBeatId.Beat_Drag_Select:       return OnboardingBeatId.Beat_Drag_Confirm;
-                case OnboardingBeatId.Beat_Drag_Confirm:
-                    _dragCyclesDone++;
-                    return _dragCyclesDone < DragCyclesTarget
-                        ? OnboardingBeatId.Beat_Drag_Arm
-                        : OnboardingBeatId.Beat_2_2_TileInspector;
-
-                case OnboardingBeatId.Beat_2_2_TileInspector: return OnboardingBeatId.Beat_3_1_FirstRibbon;
-                case OnboardingBeatId.Beat_3_1_FirstRibbon:   return OnboardingBeatId.Beat_3_2_LookAround;
-                case OnboardingBeatId.Beat_3_2_LookAround:    return OnboardingBeatId.Beat_3_3_NewTool;
-                case OnboardingBeatId.Beat_3_3_NewTool:       return OnboardingBeatId.Beat_3_4_Graduation;
-                case OnboardingBeatId.Beat_3_4_Graduation:    return OnboardingBeatId.None;
-
-                default:                                      return OnboardingBeatId.None;
-            }
-        }
-
-        // Lookup the BeatDef table by id.
-        bool TryGetBeatDef(OnboardingBeatId id, out BeatDef def)
-        {
-            for (int i = 0; i < s_Beats.Length; i++)
-            {
-                if (s_Beats[i].id == id) { def = s_Beats[i]; return true; }
-            }
-            def = default;
-            return false;
-        }
-
-        // The Azi cue for a repeating teaching beat is spoken on the FIRST cycle only — coach marks
-        // still play every cycle, but we don't repeat the same spoken line three times.
-        bool ShouldSpeakThisCycle(OnboardingBeatId id)
-        {
-            switch (id)
-            {
-                case OnboardingBeatId.Beat_Click_Arm:
-                case OnboardingBeatId.Beat_Click_Place:
-                case OnboardingBeatId.Beat_Click_Confirm:
-                    return _clickCyclesDone == 0;
-                case OnboardingBeatId.Beat_Drag_Arm:
-                case OnboardingBeatId.Beat_Drag_Select:
-                case OnboardingBeatId.Beat_Drag_Confirm:
-                    return _dragCyclesDone == 0;
-                default:
-                    return true;
-            }
+            if (!IsActive) return;
+            PopupManager.Instance?.HideAll();   // release the intrusive-popup pause + clear side bubbles
+            Graduate();
         }
 
         void Graduate()
@@ -736,67 +508,58 @@ namespace Habitales.Onboarding
             IsActive    = false;
             CurrentBeat = OnboardingBeatId.None;
 
-            Debug.Log($"[OnboardingDirector] Graduation — scaffolding retired.");
+            HideAllMarks();
+            actionBarUI?.ClearCardLock();   // safety — no residual lock after onboarding
 
-            // Fire hide-all coach marks.
-            foreach (CoachMarkKind kind in Enum.GetValues(typeof(CoachMarkKind)))
-            {
-                if (kind == CoachMarkKind.None) continue;
-                OnCoachMarkRequested?.Invoke(new CoachMarkRequest { kind = kind, hide = true });
-            }
+            if (objectiveBannerUI != null)
+                objectiveBannerUI.PlayLandingReveal();
+            else
+                Debug.LogWarning($"{name}: objectiveBannerUI is not wired — skipping the graduation landing-reveal tween.", this);
 
-            // Disable self — no more Update polling.
-            enabled = false;
+            Debug.Log("[OnboardingDirector] Graduation — scaffolding retired.");
+            enabled = false;   // no more Update polling
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // Stall fallback
+        // Popup presentation
         // ─────────────────────────────────────────────────────────────────────
 
-        void TryShowStallFallback()
+        // Presents the phase's authored PopupSO with the phase's fixed preset. When
+        // advanceOnComplete is true, the popup's dismissal advances the sequence.
+        // An unwired popup logs a warning and (if passive) auto-advances so the run never soft-locks.
+        void PresentPopup(OnboardingBeatId id, bool advanceOnComplete)
         {
-            if (!TryGetBeatDef(CurrentBeat, out BeatDef def)) return;
-            if (string.IsNullOrEmpty(def.stallFallback)) return;
-            if (!ShouldSpeakThisCycle(def.id)) return;   // don't repeat the fallback every cycle
-
-            // Only show the fallback if the beat is still unsatisfied (checked by being still active).
-            ShowAziLine(def.stallFallback);
-        }
-
-        // ─────────────────────────────────────────────────────────────────────
-        // Narrative helpers
-        // ─────────────────────────────────────────────────────────────────────
-
-        void ShowAziLine(string line)
-        {
-            var popups = PopupManager.Instance;
-            if (popups == null)
+            PopupSO so = GetPopup(id);
+            if (so == null)
             {
-                Debug.LogError($"{name}: PopupManager.Instance is null — cannot show Azi line.", this);
-                return;
-            }
-            popups.Say(line, aziPortrait, "Azi", PopupStyle.Character);
-        }
-
-        void FirePriorityZero()
-        {
-            if (string.IsNullOrWhiteSpace(priorityZeroEventId))
-            {
-                Debug.LogError($"{name}: priorityZeroEventId is blank — Priority Zero will not fire. Set the catalog id in the Inspector.", this);
-                _beat0Fired = true; // still advance
+                Debug.LogWarning($"{name}: no PopupSO wired for {id} — skipping its popup" +
+                                 (advanceOnComplete ? " and auto-advancing." : "."), this);
+                if (advanceOnComplete) RequestAdvance();
                 return;
             }
 
-            if (TriggerManager.Instance == null)
+            if (PopupManager.Instance == null)
             {
-                Debug.LogError($"{name}: TriggerManager.Instance is null — cannot fire Priority Zero.", this);
-                _beat0Fired = true;
+                Debug.LogError($"{name}: PopupManager.Instance is null — cannot present {id}.", this);
+                if (advanceOnComplete) RequestAdvance();
                 return;
             }
 
-            TriggerManager.Instance.Fire(priorityZeroEventId);
-            _beat0Fired = true;
+            List<ResolvedLine> lines = so.ResolveLines(dialogueRegistry);
+            PopupStyle preset = PresetFor(id);
+
+            OnboardingBeatId captured = id;
+            Action onDone = advanceOnComplete
+                ? (Action)(() => { if (IsActive && CurrentBeat == captured) RequestAdvance(); })
+                : null;
+
+            PopupManager.Instance.PlayLines(lines, preset, onDone);
         }
+
+        void RequestAdvance() => _advanceRequested = true;
+
+        PopupSO GetPopup(OnboardingBeatId id) =>
+            _phasePopups.TryGetValue(id, out PopupSO so) ? so : null;
 
         // ─────────────────────────────────────────────────────────────────────
         // Meaning-event handlers (Law 2)
@@ -804,135 +567,126 @@ namespace Habitales.Onboarding
 
         void HandleActionArmed(PlayerAction action)
         {
-            // Fired by ActionBarUI.OnActionArmed. Satisfies the arm beats when PlantTreesAction is selected.
-            if ((CurrentBeat == OnboardingBeatId.Beat_Click_Arm ||
-                 CurrentBeat == OnboardingBeatId.Beat_Drag_Arm) &&
-                action is PlantTreesAction)
-                _actionSelectedThisBeat = true;
+            if (CurrentBeat == OnboardingBeatId.Phase_05_PickCard && action is PlantTreesAction)
+                _armed = true;
         }
 
         void HandleActionConfirmed()
         {
-            // Fired by ActionBarUI.OnActionConfirmed (Confirm pressed and action executing).
-            if (CurrentBeat == OnboardingBeatId.Beat_Click_Confirm ||
-                CurrentBeat == OnboardingBeatId.Beat_Drag_Confirm)
-                _confirmedThisBeat = true;
-        }
-
-        void HandleSelectionConfirmed(System.Collections.Generic.List<Tile> tiles)
-        {
-            // Kept for symmetry — ActionBarUI.OnActionConfirmed is now the primary signal.
-            // This handler fires from TileSelector.OnMultiSelectionConfirmed and covers the
-            // edge case where another code path calls ConfirmSelection directly.
-            if (CurrentBeat == OnboardingBeatId.Beat_Click_Confirm ||
-                CurrentBeat == OnboardingBeatId.Beat_Drag_Confirm)
-                _confirmedThisBeat = true;
-        }
-
-        void HandleDayResolved(int day)
-        {
-            // Fired by RunManager.OnDayResolved after each day fully settles.
-            if (CurrentBeat == OnboardingBeatId.Beat_1_4_PassDay)
-                _passDayDoneThisBeat = true;
+            if (CurrentBeat == OnboardingBeatId.Phase_07_Confirm)
+                _confirmed = true;
         }
 
         void HandleRegionUnlocked()
         {
-            if (CurrentBeat == OnboardingBeatId.Beat_3_1_FirstRibbon)
+            if (CurrentBeat == OnboardingBeatId.Phase_15_FreePlay)
                 _regionUnlocked = true;
         }
 
-        void HandleConversationCompleted(string conversationName)
-        {
-            // Fired by DialogueManager.OnConversationCompleted when a thread is walked to its
-            // terminal node during an actual player read — not on delivery, not on tab-open.
-            if (CurrentBeat != OnboardingBeatId.Beat_2_0_GroupChat) return;
-            if (groupChatKickoffConversation == null) return;
-            if (conversationName != groupChatKickoffConversation.name) return;
+        // ─────────────────────────────────────────────────────────────────────
+        // Coach-mark helpers
+        // ─────────────────────────────────────────────────────────────────────
 
-            _groupChatReadThisBeat = true;
+        void ShowMark(CoachMarkRequest req)
+        {
+            req.hide = false;
+            _activeMarks.Add(req.kind);
+            OnCoachMarkRequested?.Invoke(req);
         }
 
-        void HandleTileSelected(Tile tile, Vector3 worldPos)
+        void HideMark(CoachMarkKind kind)
         {
-            if (CurrentBeat == OnboardingBeatId.Beat_Click_Place)
-                _seedClickedThisBeat = true;
-
-            if (CurrentBeat == OnboardingBeatId.Beat_2_2_TileInspector)
-                _tileInspected = true;
+            _activeMarks.Remove(kind);
+            OnCoachMarkRequested?.Invoke(new CoachMarkRequest { kind = kind, hide = true });
         }
 
-        // ─────────────────────────────────────────────────────────────────────
-        // Coach-mark target resolution
-        // ─────────────────────────────────────────────────────────────────────
-        //
-        // The widgets are dumb — they point at whatever target we hand them. We resolve
-        // targets dynamically here so nothing has to be wired per-tile in the Inspector:
-        //   • Tile beats (click / drag / marker) aim at a RANDOM unoccupied tile in the
-        //     current board (entity == null). The ghost mouse flies from the live cursor
-        //     to that tile, so any first-tileset layout is handled tastefully.
-        //   • UI beats (pick-action) aim at the Plant Trees arm-cue (the card if the strip
-        //     is open, else the Intervene tab) as a screen-space target.
-
-        // Reused scratch list so target resolution allocates nothing per beat.
-        private readonly System.Collections.Generic.List<Tile> _openTileScratch =
-            new System.Collections.Generic.List<Tile>();
-
-        CoachMarkRequest BuildCoachMarkRequest(BeatDef def)
+        void HideActiveMarks()
         {
-            var req = new CoachMarkRequest { kind = def.coachMark, hide = false };
+            foreach (CoachMarkKind kind in _activeMarks)
+                OnCoachMarkRequested?.Invoke(new CoachMarkRequest { kind = kind, hide = true });
+            _activeMarks.Clear();
+        }
 
-            switch (def.id)
+        void HideAllMarks()
+        {
+            foreach (CoachMarkKind kind in Enum.GetValues(typeof(CoachMarkKind)))
             {
-                case OnboardingBeatId.Beat_Click_Arm:
-                case OnboardingBeatId.Beat_Drag_Arm:
-                case OnboardingBeatId.Beat_3_3_NewTool:
-                    // FidgetArrow → the Plant Trees arm-cue (UI, screen-space).
-                    req.trackTarget       = ResolveArmCueTarget();
-                    req.screenSpaceTarget = true;
-                    _currentCueTarget     = req.trackTarget;   // baseline for mid-beat refresh
-                    break;
-
-                case OnboardingBeatId.Beat_Click_Confirm:
-                case OnboardingBeatId.Beat_Drag_Confirm:
-                    // FidgetArrow → the Confirm button (UI, screen-space). The button is live once a
-                    // selection exists, which it is by the time we reach the confirm beat.
-                    req.trackTarget       = actionBarUI != null ? actionBarUI.GetConfirmButtonRect() : null;
-                    req.screenSpaceTarget = true;
-                    _currentCueTarget     = req.trackTarget;
-                    break;
-
-                case OnboardingBeatId.Beat_Click_Place:   // GhostMouseClick + CornerReminder (select / reselect)
-                    if (TryGetRandomOpenTileWorld(out Vector3 tileWorld))
-                        req.worldTarget = tileWorld;
-                    // Also fire a CornerReminder to persist the "Select / Reselect" label.
-                    OnCoachMarkRequested?.Invoke(new CoachMarkRequest
-                    {
-                        kind      = CoachMarkKind.CornerReminder,
-                        hide      = false,
-                        labelText = OnboardingContent.Reminder_SelectReselect,
-                    });
-                    break;
-
-                // Beat_Drag_Select is excluded from the EnterBeat coach-mark path (arm-gated via
-                // RefreshDragGhostByArmState). Its CornerReminder is sent directly in EnterBeat above.
-                // This case is never reached from BuildCoachMarkRequest but left for documentation.
-
-                case OnboardingBeatId.Beat_2_2_TileInspector: // CornerReminder
-                    req.labelText = "Select a tile to inspect it";
-                    break;
-
-                case OnboardingBeatId.Beat_2_0_GroupChat:
-                    // FidgetArrow → the messaging app icon (UI, screen-space). No auto-resolve
-                    // path exists (MessagingAppIconUI has no public rect accessor) — this is a
-                    // dedicated serialized ref the human wires directly.
-                    req.trackTarget       = messagingIconCueTarget;
-                    req.screenSpaceTarget = true;
-                    break;
+                if (kind == CoachMarkKind.None) continue;
+                OnCoachMarkRequested?.Invoke(new CoachMarkRequest { kind = kind, hide = true });
             }
-
-            return req;
+            _activeMarks.Clear();
         }
+
+        // FidgetArrow → an optional UI highlight target (phases 8–10.1). Skips silently if unwired
+        // (the popup text still teaches the feature).
+        void ShowHighlight(RectTransform target)
+        {
+            if (target == null) return;
+            ShowMark(new CoachMarkRequest
+            {
+                kind              = CoachMarkKind.FidgetArrow,
+                trackTarget       = target,
+                screenSpaceTarget = true,
+            });
+        }
+
+        // Re-issues the arm-cue arrow only when its target changes (tab → card as the strip opens).
+        void RefreshArmCueTarget()
+        {
+            Transform t = CurrentArmCueTarget();
+            if (t == _currentCueTarget) return;
+            _currentCueTarget = t;
+
+            ShowMark(new CoachMarkRequest
+            {
+                kind              = CoachMarkKind.FidgetArrow,
+                trackTarget       = t,
+                screenSpaceTarget = true,
+            });
+        }
+
+        Transform CurrentArmCueTarget()
+        {
+            if (actionBarUI == null) return null;
+            switch (CurrentBeat)
+            {
+                case OnboardingBeatId.Phase_04_ActionBar:
+                    return actionBarUI.GetArmCueRect(null);                    // Intervene tab
+                case OnboardingBeatId.Phase_05_PickCard:
+                    return actionBarUI.GetArmCueRect(FindPlantTreesAction());  // card (or tab until built)
+                default:
+                    return null;
+            }
+        }
+
+        // Phase 6: the drag ghost shows while an action is armed and hides when disarmed.
+        void RefreshDragGhostByArmState()
+        {
+            bool armed = actionBarUI != null && actionBarUI.CurrentArmedAction != null;
+            if (armed == _dragGhostShown) return;
+            _dragGhostShown = armed;
+
+            if (armed)
+            {
+                // Capture the auto-blob size so the phase completes only after the player DRAGS to
+                // grow it — not the instant arming creates the minimum selection.
+                TileSelector ts = GetTileSelector();
+                _dragBaselineCount = ts != null ? ts.SelectedTileCount : 0;
+
+                var req = new CoachMarkRequest { kind = CoachMarkKind.GhostMouseDrag };
+                if (TryGetRandomOpenTileWorld(out Vector3 world))
+                    req.worldTarget = world;
+                ShowMark(req);
+            }
+            else
+            {
+                HideMark(CoachMarkKind.GhostMouseDrag);
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Resolution helpers
+        // ─────────────────────────────────────────────────────────────────────
 
         /// <summary>Picks a random unoccupied tile (entity == null) and returns its world position.</summary>
         bool TryGetRandomOpenTileWorld(out Vector3 world)
@@ -957,66 +711,17 @@ namespace Habitales.Onboarding
             return true;
         }
 
-        /// <summary>The UI rect the FidgetArrow should point at to guide arming Plant Trees.</summary>
-        Transform ResolveArmCueTarget()
+        // Centroid of the most-recently generated region — the mean of its tiles' world positions.
+        // Best-effort: returns false (and the caller skips the pan) if it can't be resolved.
+        // (Item F: formalised as the shared TileManager.TryGetRegionCentroid helper; this just
+        // resolves WHICH region is the just-generated one and delegates.)
+        bool TryGetNewRegionCentroid(out Vector3 world)
         {
-            if (actionBarUI == null) return null;
-            return actionBarUI.GetArmCueRect(FindPlantTreesAction());
-        }
-
-        // Last UI cue target sent to the arrow; re-issues the request only when it changes
-        // (e.g. tab → card when the strip opens), so the arrow re-points without restarting
-        // every frame.
-        private Transform _currentCueTarget;
-
-        void RefreshArmCueTarget()
-        {
-            Transform t = ResolveArmCueTarget();
-            if (t == _currentCueTarget) return;
-            _currentCueTarget = t;
-
-            OnCoachMarkRequested?.Invoke(new CoachMarkRequest
-            {
-                kind              = CoachMarkKind.FidgetArrow,
-                hide              = false,
-                trackTarget       = t,
-                screenSpaceTarget = true,
-            });
-        }
-
-        // Beat 2.1: the drag ghost demo shows while an action is armed and hides when disarmed.
-        private bool _dragGhostShown;
-
-        // Selection size captured when the drag ghost is shown; the beat needs growth past this.
-        private int  _dragBaselineCount;
-
-        void RefreshDragGhostByArmState()
-        {
-            bool armed = actionBarUI != null && actionBarUI.CurrentArmedAction != null;
-            if (armed == _dragGhostShown) return;
-            _dragGhostShown = armed;
-
-            if (armed)
-            {
-                // Capture the initial blob size so the beat completes only after the player
-                // DRAGS to grow it — not the instant arming creates the minimum blob (which
-                // can already be ≥3 and would otherwise auto-complete and hide the ghost).
-                TileSelector ts = GetTileSelector();
-                _dragBaselineCount = ts != null ? ts.SelectedTileCount : 0;
-
-                var req = new CoachMarkRequest { kind = CoachMarkKind.GhostMouseDrag, hide = false };
-                if (TryGetRandomOpenTileWorld(out Vector3 world))
-                    req.worldTarget = world;
-                OnCoachMarkRequested?.Invoke(req);
-            }
-            else
-            {
-                OnCoachMarkRequested?.Invoke(new CoachMarkRequest
-                {
-                    kind = CoachMarkKind.GhostMouseDrag,
-                    hide = true,
-                });
-            }
+            world = Vector3.zero;
+            TileManager tm = TileManager.Instance;
+            if (tm == null || regionManager == null) return false;
+            int newRegionId = regionManager.NextRegionID - 1;   // the just-generated region
+            return tm.TryGetRegionCentroid(newRegionId, out world);
         }
 
         PlayerAction FindPlantTreesAction()
@@ -1028,11 +733,6 @@ namespace Habitales.Onboarding
             return null;
         }
 
-        // ─────────────────────────────────────────────────────────────────────
-        // Helpers — avoid FindObjectOfType spam
-        // ─────────────────────────────────────────────────────────────────────
-
-        private TileSelector _cachedSelector;
         TileSelector GetTileSelector()
         {
             if (_cachedSelector == null)
@@ -1043,26 +743,35 @@ namespace Habitales.Onboarding
 }
 
 // =============================================================================
-// SIGNAL STATUS (updated — all four gaps from the original list addressed):
+// INSPECTOR WIRING CHECKLIST
+// =============================================================================
 //
-// 1. OnActionArmed ✓ WIRED
-//    ActionBarUI.OnActionArmed fires inside ArmAction() the moment an action is selected.
-//    Director subscribes in Start(), unsubscribes in OnDestroy(). No more polling.
+// Content
+//   • dialogueRegistry — the same DialogueRegistry asset PopupController uses
+//     (resolves Azi/Bob names + portraits).
+//   • phases           — one entry per popup phase. Author a PopupSO per phase
+//     (words + speaker only; the director picks Dialog/Character/Text). Phases
+//     that show NO popup and need no entry: 1 (loading) and 15 (free play).
+//       Dialog phases:    2, 3, 11, 12, 13
+//       Text phases:      4, 5, 6, 7
+//       Character phases: 8, 9, 10, 10.1, 14, 16, 17, 18
 //
-// 2. OnActionConfirmed ✓ WIRED
-//    ActionBarUI.OnActionConfirmed fires inside HandleConfirmed() after ExecuteAction()
-//    reports success — a refused confirm (event pause, workforce) no longer fires it.
-//    Director subscribes in Start(), unsubscribes in OnDestroy().
-//    TileSelector.OnMultiSelectionConfirmed is kept as a secondary/fallback handler.
+// Highlight targets (optional coach marks)
+//   • dayCounterTarget / weatherHexTarget / zoneHealthBarTarget / traitPipsTarget
+//     — RectTransforms the phase-8/9/10/10.1 FidgetArrow points at. Leave null
+//     to skip the arrow (the popup text still teaches the feature).
 //
-// 3. OnNewToolUnlocked — INTENTIONALLY LEFT AS-IS (no clean runtime source)
-//    Beat 3.3 still auto-advances after the first day-resolve post-entry (ResourceManager.TotalDays).
-//    There is no ActionManager.OnActionUnlocked or similar signal in the codebase.
-//    If a real unlock system is added later, subscribe here and remove the day-count poll.
+// References (auto-found if left null)
+//   • actionBarUI       — required for interactive phases 4–7.
+//   • objectiveBannerUI — graduation landing-reveal tween.
+//   • regionManager     — phase-16 camera pan to the new zone (best-effort).
 //
-// 4. TileSelector.Instance ✓ WIRED
-//    TileSelector.Instance is now a static property set in Awake (with Law-3 duplicate warning).
-//    Director uses TileSelector.Instance in Start() and GetTileSelector(). FindObjectOfType
-//    is retained only as a fallback in case of execution-order edge cases.
-//
+// DEFERRED (see ONBOARDING_HANDOFF.md, tracked separately):
+//   • Phase 1: timer-authoritative — advances after loadingRevealSeconds. (Formerly gated on
+//     RegionManager.OnInitialRegionRevealed / item D; that signal no longer drives advancement.)
+//   • Phase 17 shows its popup only until item B guarantees the factory + adds the camera move.
+//   • Phase 11 deadline text stays literal until item G adds token substitution.
+//   • Skip control (item E — WIRED): SkipOnboarding() is the public entry point; the
+//     hold-Space fill-bar UI lives in the separate OnboardingSkipControl component
+//     (see its own Inspector-wiring block).
 // =============================================================================

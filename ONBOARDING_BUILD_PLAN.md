@@ -1,5 +1,13 @@
 # Habitales — Alpha Onboarding: Build Plan & Swarm Work-Orders
 
+> ## ⛔ DEPRECATED (2026-07-21)
+> This plan's **beat model is superseded** by the 18-phase rebuild. The current
+> source of truth is [`ONBOARDING_HANDOFF.md`](ONBOARDING_HANDOFF.md) +
+> [`ONBOARDING_TUTORIAL_PLAN.md`](ONBOARDING_TUTORIAL_PLAN.md). The legacy 11-beat
+> `OnboardingDirector` is retired; the two juice systems (drag inset, delta-tip
+> chain) are **dormant**. Kept only for historical context — the **façade work**
+> (layer 1, Narrative Popup) is still live and in use.
+
 **Companion to:** `Downloads/habitales_onboarding_alpha.md` (the Hodent onboarding sequence) and `HABITALES_ARCHITECTURE.md` (the Laws).
 **Status:** The **Narrative Popup façade** (layer 1) is built — see "What's already done." Layers 2–3 below are the delegatable work.
 

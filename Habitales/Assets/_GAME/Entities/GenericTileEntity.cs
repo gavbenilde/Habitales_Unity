@@ -112,16 +112,21 @@ namespace Habitales.Entities
             s.contamination      = Clamp(s.contamination      + d.contamination);
         }
 
+        // A satisfied death condition IS a death — cause "environment" (the tile's own stats
+        // killed it, as opposed to a weather kill roll). Remove uses TileManager.RemoveEntity's
+        // cause param; TransformTo uses KillAndTransform so OnEntityDied fires BEFORE the swap
+        // into transformTarget (DeadTree, etc.) — the same "fire the death event first, then
+        // transform" mechanics the weather-death debris path reuses (TileManager.ApplyWeatherStress).
         private void ResolveOutcome(Tile tile, in TickContext ctx, StatCondition c)
         {
             switch (c.outcome)
             {
                 case OutcomeKind.Remove:
-                    ctx.Tiles.RemoveEntity(tile);
+                    ctx.Tiles.RemoveEntity(tile, cause: "environment");
                     break;
                 case OutcomeKind.TransformTo:
-                    if (c.transformTarget != null) ctx.Tiles.ReplaceWithSO(tile, c.transformTarget);
-                    else { Debug.LogError($"[{entityId}] death outcome=TransformTo but transformTarget is null."); ctx.Tiles.RemoveEntity(tile); }
+                    if (c.transformTarget != null) ctx.Tiles.KillAndTransform(tile, c.transformTarget, "environment");
+                    else { Debug.LogError($"[{entityId}] death outcome=TransformTo but transformTarget is null."); ctx.Tiles.RemoveEntity(tile, cause: "environment"); }
                     break;
                 case OutcomeKind.None:
                     break; // condition with no outcome — used as a pure gate; no-op here

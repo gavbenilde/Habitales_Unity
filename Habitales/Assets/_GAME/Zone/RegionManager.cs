@@ -21,6 +21,10 @@ public class RegionManager : MonoBehaviour
     [Tooltip("Profile used exclusively for the first zone. If null, falls back to the random pool.")]
     [UnityEngine.Serialization.FormerlySerializedAs("zone1Profile")]
     [SerializeField] private RegionProfile zone1Profile;
+    [Tooltip("Per-tile stagger (seconds) for the Zone-1 loading-screen reveal animation. Larger = more watchable/slower.")]
+    [SerializeField] private float zone1RevealStagger = 0.08f;
+    [Tooltip("Per-tile stagger (seconds) for every SUBSEQUENT region's unlock reveal (not Zone 1). Larger = slower.")]
+    [SerializeField] private float regionRevealStagger = 0.02f;
 
     [Header("Zone Profiles")]
     [Tooltip("Profiles used in order as regions unlock. Index 0 = Region 2, Index 1 = Region 3, etc.")]
@@ -52,6 +56,9 @@ public class RegionManager : MonoBehaviour
     /// Subscribers: DialogueManager (Azi), camera controller, UI notifications.
     /// </summary>
     public event System.Action<RegionGenerationResult> OnRegionGenerated;
+
+    /// <summary>Fires when the Zone-1 (initial region) reveal animation finishes. Onboarding phase 1 advances on this.</summary>
+    public event System.Action OnInitialRegionRevealed;
 
     // =====================================================================
     // LIFECYCLE
@@ -206,7 +213,7 @@ public class RegionManager : MonoBehaviour
         }
 
         // Step 3: Spawn tiles with profile-scaled stats
-        List<Tile> regionTiles = SpawnRegionTiles(positions, regionID, profile, 0.05f);
+        List<Tile> regionTiles = SpawnRegionTiles(positions, regionID, profile);
 
         // Step 4: Resolve theme
         RegionTheme dominantTheme = profile.forceTheme ? profile.forcedTheme : RollTheme(profile);
@@ -221,12 +228,7 @@ public class RegionManager : MonoBehaviour
         if (profile.forceSpecificEntities)
             ApplyForcedEntities(seed.Value, profile);
 
-        foreach (Tile tile in regionTiles)
-        {
-            GameObject tileGO = tileManager.GetTileGameObject(tile);
-            tileGO.transform.localScale = Vector3.zero;
-        }
-        StartCoroutine(AnimateTiles(regionTiles, 0.05f));
+        AnimateRegionReveal(regionTiles, regionRevealStagger);
 
         // Step 8: Worker reward
         if (resourceManager != null && profile.workerReward > 0)
@@ -453,54 +455,31 @@ public class RegionManager : MonoBehaviour
         return spawned;
     }
 
-    public List<Tile> SpawnRegionTiles(List<Vector2Int> positions, int regionID, RegionProfile profile, float tweenDelay)
+    /// <summary>
+    /// Zeroes out every tile's scale then kicks off the shared pop-in reveal coroutine. Used by
+    /// both GenerateNewRegion and GenerateInitialRegion (Zone 1) so every region — including the
+    /// very first — reveals through the same animated path instead of popping in instantly.
+    /// </summary>
+    private void AnimateRegionReveal(List<Tile> regionTiles, float stagger, System.Action onComplete = null)
     {
-        List<Tile> spawned = new List<Tile>();
-
-        foreach (Vector2Int pos in positions)
+        foreach (Tile tile in regionTiles)
         {
-            // Create TileStats based on the profile for this position
-            TileStats stats = new TileStats
-            {
-                nutrientBalance    = Random.Range(profile.nutrientBalanceRange.x,    profile.nutrientBalanceRange.y),
-                soilOrganicMatter  = Random.Range(profile.soilOrganicMatterRange.x,  profile.soilOrganicMatterRange.y),
-                soilStructure      = Random.Range(profile.soilStructureRange.x,      profile.soilStructureRange.y),
-                biologicalActivity = Random.Range(profile.biologicalActivityRange.x, profile.biologicalActivityRange.y),
-                waterDynamics      = Random.Range(profile.waterDynamicsRange.x,      profile.waterDynamicsRange.y),
-                erosionResistance  = Random.Range(profile.erosionResistanceRange.x,  profile.erosionResistanceRange.y),
-                vegetationCover    = Random.Range(profile.vegetationCoverRange.x,    profile.vegetationCoverRange.y),
-                contamination      = Random.Range(profile.contaminationRange.x,      profile.contaminationRange.y)
-            };
-
-            // Spawn the tile with the generated stats
-            Tile tile = tileManager.SpawnTile(pos.x, pos.y, stats, regionID);
-
-            if (tile != null)
-            {
-                tile.issues = new List<TileIssue>();  // Initialize the issues list
-                tile.tv = new List<TileOverlayType>();  // Initialize the overlays list
-                tileManager.UpdateTileVisual(tile);
-
-                // GameObject tileGO = tileManager.GetTileGameObject(tile);
-                // tileGO.transform.localScale = Vector3.zero;
-                // tileManager.GetTileGameObject(tile).SetActive(true);
-                spawned.Add(tile);
-            }
+            GameObject tileGO = tileManager.GetTileGameObject(tile);
+            if (tileGO != null)
+                tileGO.transform.localScale = Vector3.zero;
         }
-
-        // StartCoroutine(AnimateTiles(spawned, tweenDelay));
-        return spawned;
+        StartCoroutine(AnimateTiles(regionTiles, stagger, onComplete));
     }
 
     // Run animation separately
-    private System.Collections.IEnumerator AnimateTiles(List<Tile> tiles, float delay)
+    private System.Collections.IEnumerator AnimateTiles(List<Tile> tiles, float delay, System.Action onComplete = null)
     {
         foreach (Tile tile in tiles)
         {
             GameObject t = tileManager.GetTileGameObject(tile);
-            Vector3 targetScale = t.gameObject.transform.localScale;
+            if (t == null) continue;
+
             t.gameObject.transform.localScale = Vector3.one;
-            // t.gameObject.SetActive(true);
 
             // Use LeanTween to animate the scaling of the tile
             LeanTween.scale(t.gameObject, new Vector3(0.55f,0.55f,0.55f), 0.27f)
@@ -509,6 +488,10 @@ public class RegionManager : MonoBehaviour
             // Yield to wait for the specified delay before continuing to the next tile
             yield return new WaitForSeconds(delay);
         }
+
+        // Let the final tile's pop finish before signalling completion.
+        yield return new WaitForSeconds(0.27f);
+        onComplete?.Invoke();
     }
 
     // =====================================================================
@@ -826,6 +809,25 @@ public class RegionManager : MonoBehaviour
 
     private RegionProfile GetProfileForNextRegion()
     {
+        // Ordered-early / random-after split: honor the defaultProfiles tooltip ("Index 0 =
+        // Region 2, Index 1 = Region 3, etc.") for the first defaultProfiles.Count regions, so an
+        // authored zone (e.g. the onboarding factory zone) always lands on a fixed ordinal instead
+        // of waiting on a random roll. Called BEFORE nextRegionID++, so nextRegionID IS the id of
+        // the region currently being generated.
+        int orderedIndex = nextRegionID - 2;
+        if (defaultProfiles != null && orderedIndex >= 0 && orderedIndex < defaultProfiles.Count && defaultProfiles[orderedIndex] != null)
+        {
+            RegionProfile ordered = defaultProfiles[orderedIndex];
+            lastUsedProfile = ordered;
+
+            if (showDebugInfo)
+                Debug.Log($"RegionManager: ordered profile '{ordered.name}' for Region {nextRegionID} (index {orderedIndex}).");
+
+            return ordered;
+        }
+
+        // Past the authored sequence (orderedIndex >= defaultProfiles.Count) — fall back to the
+        // existing random-pool selection below, unchanged.
         // Build the candidate pool — fallback is always included as a safety net
         List<RegionProfile> pool = new List<RegionProfile>();
 
@@ -889,6 +891,10 @@ public class RegionManager : MonoBehaviour
 
         if (profile.forceSpecificEntities)
             ApplyForcedEntities(seed, profile);
+
+        // Zone-1 reveal — entities are placed first (mirrors GenerateNewRegion's ordering), THEN
+        // the tiles animate in. Onboarding's phase-1 advance is gated on OnInitialRegionRevealed.
+        AnimateRegionReveal(regionTiles, zone1RevealStagger, () => OnInitialRegionRevealed?.Invoke());
 
         if (resourceManager != null && profile.workerReward > 0)
             resourceManager.IncreaseTotalPeople(profile.workerReward);

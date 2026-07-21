@@ -121,6 +121,45 @@ namespace Habitales.UI.Actions
             }
         }
 
+        // ─── Onboarding card lock (phase 5) ───────────────────────────────────
+
+        // Alpha applied to a dimmed (locked-out) card. 1 = fully visible.
+        private const float LockedCardAlpha = 0.35f;
+
+        /// <summary>
+        /// Dims and disables every built card EXCEPT <paramref name="keep"/>, so the onboarding
+        /// player can only pick the one taught action. Disables the card's Button and drops its
+        /// alpha via a CanvasGroup (get-or-added). Idempotent — safe to call every rebuild.
+        /// Undo with <see cref="ClearCardLock"/>.
+        /// </summary>
+        public void SetCardsLockedExcept(PlayerAction keep)
+        {
+            foreach (var kvp in cardObjects)
+            {
+                if (kvp.Value == null) continue;
+                bool locked = kvp.Key != keep;
+                ApplyCardLock(kvp.Value, locked);
+            }
+        }
+
+        /// <summary>Restores every card to full alpha + interactable (undoes <see cref="SetCardsLockedExcept"/>).</summary>
+        public void ClearCardLock()
+        {
+            foreach (var kvp in cardObjects)
+            {
+                if (kvp.Value == null) continue;
+                ApplyCardLock(kvp.Value, false);
+            }
+        }
+
+        private static void ApplyCardLock(GameObject card, bool locked)
+        {
+            var cg = card.GetComponent<CanvasGroup>();
+            if (cg == null) cg = card.AddComponent<CanvasGroup>();
+            cg.alpha        = locked ? LockedCardAlpha : 1f;
+            cg.interactable = !locked;   // blocks the Button underneath without touching its colours
+        }
+
         // ─── Rect resolution ─────────────────────────────────────────────────
 
         /// <summary>

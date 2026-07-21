@@ -21,7 +21,10 @@ namespace Habitales.Onboarding
     ///   2. Add that SO to the PopupCatalogSO that TriggerManager references.
     ///   3. Put this component in the scene — openingEventId already defaults to "priority_zero".
     ///
-    /// The OnboardingDirector (swarm work) will absorb this as its beat-0 step.
+    /// <para><b>Deprecated 2026-07-21:</b> the 18-phase <see cref="OnboardingDirector"/> now owns
+    /// the opening beat (phase 2) from its own authored PopupSO. This component self-suppresses when
+    /// the director is present (see FireAfterWarmup). Prefer removing it from the scene; it is kept
+    /// only for scenes/tests that run without the director.</para>
     /// </summary>
     public class OnboardingBootstrap : MonoBehaviour
     {
@@ -50,6 +53,17 @@ namespace Habitales.Onboarding
         {
             for (int i = 0; i < Mathf.Max(0, warmupFrames); i++)
                 yield return null;
+
+            // 2026-07-21: superseded by OnboardingDirector, which now owns the opening beat
+            // (phase 2) from its own authored PopupSO. If the director is present, do NOT also
+            // fire the legacy Priority Zero — that would double up the opening popup. The warmup
+            // frame above guarantees the director's Awake has run, so Instance is set by now.
+            if (OnboardingDirector.Instance != null)
+            {
+                Debug.Log($"{name}: OnboardingDirector present — skipping legacy '{openingEventId}' " +
+                          "(the director owns the opening beat).", this);
+                yield break;
+            }
 
             if (fireOnce && s_fired) yield break;
 

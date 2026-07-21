@@ -141,6 +141,22 @@ namespace Habitales.UI.Actions
         public RectTransform GetFlowerCueRect()
             => flower != null ? flower.GetFlowerRect() : null;
 
+        /// <summary>
+        /// True when the action strip (category cards) is currently open. Law-1 read-only getter —
+        /// consumed by OnboardingDirector's phase-4 gate to detect the player opening the Intervene strip.
+        /// </summary>
+        public bool IsStripOpen => strip != null && strip.IsVisible;
+
+        /// <summary>
+        /// Onboarding phase-5 lock: dims and disables every action card EXCEPT <paramref name="keep"/>,
+        /// steering the player toward the single taught action (Plant Trees). Delegates to the strip view.
+        /// Always pair with <see cref="ClearCardLock"/> — a card left dimmed after onboarding is a soft-lock.
+        /// </summary>
+        public void LockCardsExcept(PlayerAction keep) => strip?.SetCardsLockedExcept(keep);
+
+        /// <summary>Restores every card to its normal interactive state (undoes <see cref="LockCardsExcept"/>).</summary>
+        public void ClearCardLock() => strip?.ClearCardLock();
+
         // ─── State ────────────────────────────────────────────────────────────
 
         private ActionCategory? currentCategory;

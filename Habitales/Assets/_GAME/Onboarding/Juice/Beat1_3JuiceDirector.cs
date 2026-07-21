@@ -9,7 +9,7 @@ using Habitales.Onboarding;
 //
 //  WHAT IT DOES
 //  ─────────────────────────────────────────────────────────────────────────────
-//  On OnboardingDirector.OnBeatEntered(Beat_1_3_CommitTime), arms a one-shot
+//  On OnboardingDirector.OnBeatEntered(Phase_07_Confirm), arms a one-shot
 //  listener on TileManager.OnEntitySpawned. The FIRST entity spawned after that
 //  fires a three-signal causal chain:
 //
@@ -46,6 +46,12 @@ namespace Habitales.Onboarding
     public class Beat1_3JuiceDirector : MonoBehaviour
     {
         // ── Inspector ─────────────────────────────────────────────────────────
+
+        [Header("Dormancy")]
+        [Tooltip("DORMANT by default — the 1.3 delta-tip / score-bubble juice is parked pending a design " +
+                 "decision (ONBOARDING_HANDOFF §3). While true the component disables itself in Start and " +
+                 "never subscribes. Flip false to revive it (fires on phase 7 confirm).")]
+        [SerializeField] private bool dormant = true;
 
         [Header("Tile Flash")]
         [Tooltip("Colour the tile briefly flashes to signal 'committed time'.")]
@@ -85,6 +91,8 @@ namespace Habitales.Onboarding
 
         void Start()
         {
+            if (dormant) { enabled = false; return; }   // parked — see the `dormant` tooltip
+
             // Law 3 — loud-fail every required ref.
             bool ok = true;
 
@@ -152,7 +160,7 @@ namespace Habitales.Onboarding
 
         void HandleBeatEntered(OnboardingBeatId beat)
         {
-            if (beat == OnboardingBeatId.Beat_Click_Confirm)
+            if (beat == OnboardingBeatId.Phase_07_Confirm)
             {
                 _firedOnce = false;
                 ArmForNextSpawn();
@@ -162,7 +170,7 @@ namespace Habitales.Onboarding
         void HandleBeatCompleted(OnboardingBeatId beat)
         {
             // Disarm if the beat completes without a spawn (edge-case safety).
-            if (beat == OnboardingBeatId.Beat_Click_Confirm)
+            if (beat == OnboardingBeatId.Phase_07_Confirm)
                 _armed = false;
         }
 

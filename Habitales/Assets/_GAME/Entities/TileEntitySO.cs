@@ -16,6 +16,36 @@ using ArtificeToolkit.Attributes;
 // the runtime TileEntity only.
 namespace Habitales.Entities
 {
+    // AuthoredContent — reusable Azi-voice content block, used twice on TileEntitySO: tier1Intro
+    // (T1 first-inspect bubble) and tier4JournalEntry (T4 journal card).
+    // Resolution rules (enforced by EntityRegistry.ResolveContent, NOT here — this asset has no
+    // knowledge of the rest of the entity graph):
+    //   Default          -> use `text` directly.
+    //   FirstStageInChain -> resolve via EntityRegistry's reverse stage map to the chain's first
+    //                        stage, then use THAT stage's own field (which must itself be Default).
+    //   FromEntitySO      -> borrow the SAME field from `sourceSO`, ONE hop only (sourceSO's own
+    //                        field must be Default — no borrow-chains, no cycles).
+    [System.Serializable]
+    public class AuthoredContent
+    {
+        public enum Source { Default, FirstStageInChain, FromEntitySO }
+
+        [Tooltip("Default = author `text` directly below. FirstStageInChain = reuse the FIRST stage " +
+                 "of this entity's stage chain (e.g. a mature tree's tier1Intro reuses the seedling's " +
+                 "own Default text). FromEntitySO = borrow this SAME field from another SO, one hop only.")]
+        public Source source = Source.Default;
+
+        [TextArea(2, 5)]
+        [EnableIf(nameof(source), Source.Default)]
+        [Tooltip("Used when Source == Default. This is what Azi says / what the Journal entry reads.")]
+        public string text;
+
+        [EnableIf(nameof(source), Source.FromEntitySO)]
+        [Tooltip("Used when Source == FromEntitySO. Borrows THIS SAME FIELD from the referenced SO — " +
+                 "that SO's own field must itself be Default (one hop only; no borrow-chains).")]
+        public TileEntitySO sourceSO;
+    }
+
     [CreateAssetMenu(menuName = "Habitales/Entities/Entity Definition")]
     public class TileEntitySO : ScriptableObject
     {
@@ -109,6 +139,17 @@ namespace Habitales.Entities
         [Tooltip("Null for pure-data entities; set for bespoke ones (Fire, Village).")]
         public EntityBehaviourHook behaviour;
 
+        [BoxGroup("Azi Tier Content")]
+        [Tooltip("Azi's line the FIRST time the player inspects a tile holding this species (T1 — " +
+                 "TriggerManager dedups per entityId per run). Plant SOs must resolve this (OnValidate " +
+                 "shouts if not); other categories may leave it Default/empty.")]
+        public AuthoredContent tier1Intro;
+
+        [BoxGroup("Azi Tier Content")]
+        [Tooltip("Journal app entry logged the first time this species dies with a tracked cause in a " +
+                 "check-in window (T4). Same resolution rules as tier1Intro. Plant SOs must resolve this.")]
+        public AuthoredContent tier4JournalEntry;
+
         // Per-asset loud-fail validation (arch Law 3). Duplicate/registry-wide checks are NOT
         // done here — EntityRegistry.ValidateAll() owns those at boot. `nextStage == null` is
         // deliberately NOT flagged: it's meaningful (entity is REMOVED after promoteAfterDays).
@@ -132,6 +173,55 @@ namespace Habitales.Entities
                  plantDailyDeltas.vegetationCover != 0f    || plantDailyDeltas.contamination != 0f))
                 Debug.LogWarning($"TileEntitySO '{name}': category is not Plant but plantDailyDeltas has nonzero fields — " +
                                  "non-plants must use dailyEffects.", this);
+
+            // Azi tier content — Plant SOs must resolve tier1Intro/tier4JournalEntry. Only what's
+            // checkable WITHOUT the full entity graph is done here: Default -> non-empty text;
+            // FromEntitySO -> sourceSO wired AND its own field is Default non-empty (one hop).
+            // FirstStageInChain needs the reverse stage map (EntityRegistry owns that graph) —
+            // ambiguous/cyclic chains are loud-failed by EntityRegistry.ValidateAll() at boot
+            // instead, not here.
+            if (category == EntityCategory.Plant)
+            {
+                ValidateAuthoredContent(tier1Intro, nameof(tier1Intro));
+                ValidateAuthoredContent(tier4JournalEntry, nameof(tier4JournalEntry));
+            }
+        }
+
+        private void ValidateAuthoredContent(AuthoredContent content, string fieldName)
+        {
+            if (content == null)
+            {
+                Debug.LogError($"TileEntitySO '{name}': {fieldName} is null — Plant entities must author Azi tier content.", this);
+                return;
+            }
+
+            switch (content.source)
+            {
+                case AuthoredContent.Source.Default:
+                    if (string.IsNullOrWhiteSpace(content.text))
+                        Debug.LogError($"TileEntitySO '{name}': {fieldName} is empty (Source.Default with blank text) — " +
+                                       "Plant entities must author this (Azi tier content).", this);
+                    break;
+
+                case AuthoredContent.Source.FromEntitySO:
+                    if (content.sourceSO == null)
+                    {
+                        Debug.LogError($"TileEntitySO '{name}': {fieldName} is Source.FromEntitySO but sourceSO is unassigned.", this);
+                        break;
+                    }
+                    AuthoredContent borrowed = fieldName == nameof(tier1Intro)
+                        ? content.sourceSO.tier1Intro
+                        : content.sourceSO.tier4JournalEntry;
+                    if (borrowed == null || borrowed.source != AuthoredContent.Source.Default || string.IsNullOrWhiteSpace(borrowed.text))
+                        Debug.LogError($"TileEntitySO '{name}': {fieldName} borrows from '{content.sourceSO.name}' via FromEntitySO, " +
+                                       "but that SO's own field is not Default non-empty text — only a ONE-HOP borrow off directly-authored text is allowed.", this);
+                    break;
+
+                case AuthoredContent.Source.FirstStageInChain:
+                    // Deliberately not validated here — see method doc above. EntityRegistry.ValidateAll()
+                    // catches an ambiguous/cyclic chain loudly at boot.
+                    break;
+            }
         }
     }
 }

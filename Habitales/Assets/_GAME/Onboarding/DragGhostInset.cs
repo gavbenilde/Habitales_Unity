@@ -10,7 +10,8 @@ namespace Habitales.Onboarding
     /// a ghost-mouse sprite tweens horizontally; a "pressed" sprite swaps in at drag-start;
     /// 3–4 ghost tile sprites swap their shape sprite as the cursor x passes each tile.
     ///
-    /// Subscribes to OnboardingDirector.OnBeatEntered / OnBeatCompleted for beat 2.1.
+    /// Subscribes to OnboardingDirector.OnBeatEntered / OnBeatCompleted for phase 6
+    /// (Phase_06_SelectTiles — the hold-drag multi-select teaching phase).
     ///
     /// Rule of Three:
     ///   - Only starts the demo when 3+ valid (unoccupied) target tiles exist in the world.
@@ -27,6 +28,12 @@ namespace Habitales.Onboarding
         // ─────────────────────────────────────────────────────────────────────
         // Inspector
         // ─────────────────────────────────────────────────────────────────────
+
+        [Header("Dormancy")]
+        [Tooltip("DORMANT by default — this onboarding-juice demo is parked pending a design decision " +
+                 "(ONBOARDING_HANDOFF §3). While true the component disables itself in Awake and never " +
+                 "subscribes to beat/action events. Flip false to revive it (re-points to phase 6).")]
+        [SerializeField] private bool dormant = true;
 
         [Header("UI References")]
         [Tooltip("The corner panel GameObject, hidden by default.")]
@@ -92,7 +99,7 @@ namespace Habitales.Onboarding
         // True once the replay budget is exhausted — prevents the demo from ever showing again.
         private bool _exhausted = false;
 
-        // True while we are inside Beat_Drag_Select (between OnBeatEntered and OnBeatCompleted).
+        // True while we are inside Phase_06_SelectTiles (between OnBeatEntered and OnBeatCompleted).
         private bool _beatActive = false;
 
         // CanvasGroup used to show/hide the inset WITHOUT deactivating the GameObject.
@@ -107,6 +114,8 @@ namespace Habitales.Onboarding
 
         void Awake()
         {
+            if (dormant) { enabled = false; return; }   // parked — see the `dormant` tooltip
+
             // Loud-fail on missing refs.
             bool ok = true;
 
@@ -276,7 +285,7 @@ namespace Habitales.Onboarding
 
         void HandleBeatEntered(OnboardingBeatId beat)
         {
-            if (beat != OnboardingBeatId.Beat_Drag_Select) return;
+            if (beat != OnboardingBeatId.Phase_06_SelectTiles) return;
 
             _beatActive = true;
 
@@ -287,7 +296,7 @@ namespace Habitales.Onboarding
 
         void HandleBeatCompleted(OnboardingBeatId beat)
         {
-            if (beat != OnboardingBeatId.Beat_Drag_Select) return;
+            if (beat != OnboardingBeatId.Phase_06_SelectTiles) return;
 
             _beatActive = false;
             StopDemoLoop();
@@ -360,7 +369,7 @@ namespace Habitales.Onboarding
         ///
         /// Assumption: every OnActionCompleted fired while _beatActive is treated as a
         /// drag-eligible action. OnActionCompleted does not carry the action type, so we
-        /// cannot filter by SelectionMode.FloodFill here. In practice Beat_Drag_Select
+        /// cannot filter by SelectionMode.FloodFill here. In practice Phase_06_SelectTiles
         /// is only live while the player is executing drag (FloodFill) actions.
         /// </summary>
         void HandleActionCompleted(Tile _, int __)

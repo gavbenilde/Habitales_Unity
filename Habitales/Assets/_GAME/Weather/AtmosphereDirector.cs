@@ -13,14 +13,15 @@ using UnityEngine.Rendering.Universal;
 ///
 /// Owns, per frame:
 ///  • TimeFlowSignal smoothing + integration → `_WeatherTime` shader global (all scrolling FX),
-///  • per-weather directional-light intensity/color + URP Volume weight crossfade
-///    (<see cref="AmbienceProfile"/> table, same data-driven pattern as WeatherProfile),
+///  • per-weather directional-light intensity/color + the active weather's grade
+///    VolumeProfile swapped into the SINGLE scene Global Volume (<see cref="AmbienceProfile"/>
+///    table, same data-driven pattern as WeatherProfile),
 ///  • cloud-shadow globals (`_CloudShadowStrength`, `_CloudPhase`, `_CloudDir`, `_CloudScale`)
 ///    — phase is INTEGRATED here (speed × smoothed factor), never computed as time × speed,
 ///  • heat-haze gating: `_HazeStrength` global + renderer-feature toggle. Active only while
 ///    Sunny × Dry season; escalates while a drought is active,
-///  • `_HorizonColor` global + camera clear color (one source — the hinterland fade can never
-///    drift from the backdrop),
+///  • `_HorizonColor` global (the fog color) and the camera clear color (the backdrop),
+///    now two INDEPENDENT fields — the edge fog and the sky behind it can be tuned apart,
 ///  • lightning flash boost (<see cref="FlashLight"/> — LightningDirector calls in; the boost
 ///    decays HERE, on top of the lerped intensity, so the ambience lerp and the flash never
 ///    fight over Light.intensity).
@@ -28,8 +29,9 @@ using UnityEngine.Rendering.Universal;
 /// Division of labour with DayNightCycleHandler: the cycle handler ROTATES the directional
 /// light; this director owns its INTENSITY and COLOR. Neither may touch the other's channel.
 ///
-/// Wire-up (Law 3): one per scene. Assign the directional light, main camera, four
-/// AmbienceProfiles (each with its own scene Volume), and the HeatHaze renderer feature.
+/// Wire-up (Law 3): one per scene. Assign the directional light, main camera, the single
+/// scene Global Volume, four AmbienceProfiles (each with its own grade VolumeProfile asset),
+/// and the HeatHaze renderer feature.
 /// Missing profiles fall back to coded defaults with a warning; missing refs warn once.
 /// </summary>
 [DefaultExecutionOrder(-50)] // after the -200/-150 managers, before default-order scripts
@@ -46,9 +48,10 @@ public class AtmosphereDirector : MonoBehaviour
         [Tooltip("Directional light intensity while this weather is active (director-owned channel).")]
         public float lightIntensity = 1f;
         public Color lightColor = Color.white;
-        [Tooltip("URP Volume whose weight crossfades to 1 for this weather (all others go to 0). " +
-                 "One Volume per weather in the scene; blend post-exposure/saturation/temperature there.")]
-        public Volume volume;
+        [Tooltip("VolumeProfile (Color Adjustments etc.) swapped into the single scene Global Volume " +
+                 "while this weather is active. Author one profile asset per weather; blend " +
+                 "post-exposure/saturation/temperature there.")]
+        public VolumeProfile grade;
 
         [Header("Cloud shadows")]
         [Range(0f, 1f)]
@@ -61,14 +64,22 @@ public class AtmosphereDirector : MonoBehaviour
     [Header("Scene refs")]
     [SerializeField] private Light directionalLight;
     [SerializeField] private Camera mainCamera;
+    [Tooltip("The single scene 'Global Volume'. This director swaps the active weather's grade " +
+             "profile into it and fades its weight — one volume, one profile at a time.")]
+    [SerializeField] private Volume gradeVolume;
 
     [Header("Ambience (one profile per WeatherState — coded defaults fill gaps, with a warning)")]
     [SerializeField] private List<AmbienceProfile> profiles = new List<AmbienceProfile>();
     [Tooltip("Seconds for the light/Volume crossfade after a weather change.")]
     [SerializeField] private float transitionSeconds = 1.5f;
 
-    [Header("Horizon (one source for backdrop + hinterland fade)")]
+    [Header("Horizon & backdrop (two independent colors)")]
+    [Tooltip("Fog color — the fully-fogged pixels of the FogOfWar quad render in this (via the " +
+             "_HorizonColor shader global). This is the 'vision ends here' color at the world's edge.")]
     [SerializeField] private Color horizonColor = new Color(0.76f, 0.78f, 0.80f);
+    [Tooltip("Camera background (clear) color — the sky/backdrop behind everything, seen above the " +
+             "fog horizon. Kept separate from the fog so the two can be tuned apart.")]
+    [SerializeField] private Color backgroundColor = new Color(0.76f, 0.78f, 0.80f);
 
     [Header("Time flow")]
     [Tooltip("Seconds to ease SmoothedSpeedFactor toward the raw factor — the 2× steps read as acceleration.")]
@@ -111,6 +122,8 @@ public class AtmosphereDirector : MonoBehaviour
     private float _flashDecayRate;
     private bool  _hazeFeatureActive;
     private bool  _warnedNoLight;
+    private VolumeProfile _assignedGrade;   // profile currently on the Global Volume
+    private bool  _gradeInit;
 
     void Awake()
     {
@@ -136,8 +149,14 @@ public class AtmosphereDirector : MonoBehaviour
         _currentCloudStrength = p.cloudShadowStrength;
         _currentCloudSpeed    = p.cloudSpeed;
 
-        foreach (var kv in ResolveVolumeTargets())
-            kv.Key.weight = kv.Value;
+        // Snap the Global Volume to the current weather's grade — no start-of-scene fade.
+        if (gradeVolume != null)
+        {
+            _assignedGrade = p.grade;
+            gradeVolume.sharedProfile = _assignedGrade;
+            gradeVolume.weight = _assignedGrade != null ? 1f : 0f;
+            _gradeInit = true;
+        }
 
         ApplyLight();
         PushHorizon();
@@ -169,8 +188,7 @@ public class AtmosphereDirector : MonoBehaviour
         _currentCloudStrength = Mathf.MoveTowards(_currentCloudStrength, p.cloudShadowStrength, rate);
         _currentCloudSpeed    = Mathf.MoveTowards(_currentCloudSpeed, p.cloudSpeed, rate * 2f);
 
-        foreach (var kv in ResolveVolumeTargets())
-            kv.Key.weight = Mathf.MoveTowards(kv.Key.weight, kv.Value, rate);
+        UpdateGradeVolume(p, rate);
 
         // ── 3. Lightning flash decay (applied on top of the lerped intensity) ──
         if (_flashBoost > 0f)
@@ -237,30 +255,44 @@ public class AtmosphereDirector : MonoBehaviour
             mainCamera.clearFlags = CameraClearFlags.SolidColor;
             // Linear color space: Camera.backgroundColor's clear is NOT sRGB-encoded the way a
             // shader's rendered pixel is, so the same Color value clears visibly darker than it
-            // renders on the fog quad. Gamma-correct the clear so it matches what geometry shows.
-            mainCamera.backgroundColor = horizonColor.gamma;
+            // renders on a shader quad. Gamma-correct the clear so the Inspector color is what shows.
+            mainCamera.backgroundColor = backgroundColor.gamma;
         }
     }
 
-    // One weight target per DISTINCT Volume. Several profiles may legitimately share one
-    // Volume (a single global grade until all four are authored) — naive per-profile writes
-    // would have every inactive state drag the shared Volume back toward 0, fighting the
-    // active state's 1 within the same frame (last writer wins). Max target wins instead:
-    // a Volume is up whenever ANY of its states is active.
-    private readonly Dictionary<Volume, float> _volumeTargets = new Dictionary<Volume, float>();
-
-    private Dictionary<Volume, float> ResolveVolumeTargets()
+    // A single Volume can hold only ONE profile at a time, so we can't weight-crossfade between
+    // two grades on it (that needs two prepared volumes). Instead: hold the active weather's grade
+    // up at weight 1; when the weather changes to a DIFFERENT grade, dip the weight to 0, swap the
+    // profile in, then let it rise back — a clean transition through neutral grade. Weathers whose
+    // grade is null hold the volume at weight 0 (no grading).
+    private void UpdateGradeVolume(AmbienceProfile active, float rate)
     {
-        _volumeTargets.Clear();
-        WeatherState active = CurrentWeather();
-        foreach (var kv in _byState)
+        if (gradeVolume == null) return;
+
+        VolumeProfile want = active.grade;
+
+        if (!_gradeInit)
         {
-            if (kv.Value.volume == null) continue;
-            float target = kv.Key == active ? 1f : 0f;
-            _volumeTargets.TryGetValue(kv.Value.volume, out float existing);
-            _volumeTargets[kv.Value.volume] = Mathf.Max(existing, target);
+            _assignedGrade = want;
+            gradeVolume.sharedProfile = want;
+            _gradeInit = true;
         }
-        return _volumeTargets;
+
+        if (want == _assignedGrade)
+        {
+            float up = want != null ? 1f : 0f;
+            gradeVolume.weight = Mathf.MoveTowards(gradeVolume.weight, up, rate);
+        }
+        else
+        {
+            // Fade the outgoing grade out first, then swap the new one in at weight 0 so it rises.
+            gradeVolume.weight = Mathf.MoveTowards(gradeVolume.weight, 0f, rate);
+            if (gradeVolume.weight <= 0.0001f)
+            {
+                _assignedGrade = want;
+                gradeVolume.sharedProfile = want;
+            }
+        }
     }
 
     private WeatherState CurrentWeather() =>

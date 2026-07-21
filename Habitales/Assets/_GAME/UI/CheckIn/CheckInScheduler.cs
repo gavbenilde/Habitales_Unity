@@ -62,6 +62,9 @@ namespace Habitales.UI
         [Tooltip("A check-in fires every Nth resolved day (default 60). Never fires once days-left reaches 0; the End Conversation owns the final day. Also the graph window, projection span, and delta window — everything derives from this one field.")]
         [SerializeField] private int checkInIntervalDays = 60;
 
+        /// <summary>The check-in cadence in days (read-only). Consumed by PopupTokens for the {checkinDay} token.</summary>
+        public int CheckInIntervalDays => checkInIntervalDays;
+
         [Header("Significant tile deltas")]
         [Tooltip("Health-points a tile must gain/lose since the previous check-in to count as significantly improved/decayed.")]
         [SerializeField] private float significantDeltaThreshold = 10f;
@@ -69,6 +72,17 @@ namespace Habitales.UI
         [Header("Check-in dialogue")]
         [Tooltip("Variant list played inside CheckInPanelUI. Bodies may use {days}, {improved}, {decayed}. Unwired → LogError once per run, check-in skipped.")]
         [SerializeField] private CheckInConversationSO checkInDialogue;
+
+        /// <summary>
+        /// Fires immediately after a check-in successfully presents. Marks the boundary of a
+        /// check-in "window": TriggerManager's window-scoped T3sp/T4 dedup store clears on this
+        /// signal. Deliberately fires at PRESENTATION time (when FireCheckIn actually shows the
+        /// panel), not on the panel's later dismissal, since a check-in window's graph range,
+        /// projection span, and delta window all derive from when the check-in actually fires.
+        /// Does NOT fire when a check-in is skipped (missing wiring, see the loud-fail block
+        /// below) — only on a real presentation.
+        /// </summary>
+        public event System.Action OnCheckInCompleted;
 
         private bool _erroredThisRun; // error-once guard — a broken wire shouldn't spam every interval
 
@@ -198,6 +212,7 @@ namespace Habitales.UI
             }
 
             CheckInPanelUI.Instance.Show(data, improved, decayed, slopePerDay, checkInIntervalDays, conversation);
+            OnCheckInCompleted?.Invoke();
         }
 
         /// <summary>
