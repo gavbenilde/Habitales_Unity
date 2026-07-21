@@ -194,7 +194,8 @@ namespace Habitales.UI.Actions
             // Start with both panels collapsed and the category flower closed (Hidden state).
             strip.SetVisible(false);
             estimatePanel.SetVisible(false);
-            if (flower != null) flower.SetBloomed(false);
+            if (flower != null);
+            // flower.SetBloomed(false);
         }
 
         void OnEnable()

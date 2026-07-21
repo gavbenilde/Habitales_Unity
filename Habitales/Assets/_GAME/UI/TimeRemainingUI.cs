@@ -88,9 +88,11 @@ namespace Habitales.UI
 
             if (useSeasons)
             {
-                int seasons = Mathf.FloorToInt(daysLeft / DaysPerSeason);
-                int days    = daysLeft - Mathf.RoundToInt(seasons * DaysPerSeason);
-                timeText.text = $"{Unit(seasons, "season")} and {Unit(days, "day")} left";
+                // int seasons = Mathf.FloorToInt(daysLeft / DaysPerSeason);
+                // int days    = daysLeft - Mathf.RoundToInt(seasons * DaysPerSeason);
+                // timeText.text = $"{Unit(seasons, "season")} and {Unit(days, "day")} left";
+                
+                timeText.text = $"{daysLeft} {(daysLeft == 1 ? "day" : "days")} left";
             }
             else
             {

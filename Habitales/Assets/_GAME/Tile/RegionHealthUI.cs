@@ -67,7 +67,7 @@ public class RegionHealthUI : MonoBehaviour
             healthSlider.value = avgHealth;
 
         if (fillImage != null)
-            fillImage.color = color;
+            // fillImage.color = color;
 
         if (healthText != null)
         {
