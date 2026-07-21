@@ -25,7 +25,7 @@ namespace Habitales.Onboarding
         Phase_02_MeetAzi        = 2,    // Dialog (worried Azi): "Oh yikes. It's really bad out here…"
         Phase_03_Framing        = 3,    // Dialog: framing device — "Let's recall what we're here to do"
         Phase_04_ActionBar      = 4,    // Text + arrow → Intervene icon; teach the Action Bar
-        Phase_05_PickCard       = 5,    // Text; cards dimmed except Plant Trees (arm PlantTreesAction)
+        Phase_05_PickCard       = 5,    // Text; cards dimmed except Plant Trees (arm the plant_trees action)
         Phase_06_SelectTiles    = 6,    // Text + GhostMouseDrag; hold-drag multi-select 3+ (DragGhostInset)
         Phase_07_Confirm        = 7,    // Text + arrow → Confirm; commit the action (Beat1_3JuiceDirector)
         Phase_08_TimeStamina    = 8,    // Character: actions cost days; workers rest — highlight counters

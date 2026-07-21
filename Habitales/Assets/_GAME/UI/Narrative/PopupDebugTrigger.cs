@@ -161,7 +161,8 @@ namespace Habitales.UI
                     onComplete?.Invoke();
                 },
                 autoDismissSeconds = sideAutoAdvanceSeconds,
-                anchor             = sideAnchor
+                anchor             = sideAnchor,
+                position           = new Vector2(popup.posX, popup.posY)   // used only when intrusiveness == Positioned
             };
 
             Debug.Log($"[PopupDebugTrigger] Firing {label} popup ('{popup.name}', {popup.intrusiveness}).", this);

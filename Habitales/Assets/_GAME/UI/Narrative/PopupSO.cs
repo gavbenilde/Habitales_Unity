@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Habitales.Dialogue;
+using ArtificeToolkit.Attributes;
 
 namespace Habitales.UI
 {
@@ -85,8 +86,22 @@ namespace Habitales.UI
                  "Also shows in the Inspector header and error logs.")]
         public string eventName;
 
-        [Tooltip("Intrusive = modal dim + input block (sim paused by UIManager). NonIntrusive = side bubble, game keeps running.")]
+        [Tooltip("Intrusive = modal dim + input block (sim paused by UIManager). " +
+                 "NonIntrusive = corner side bubble, game keeps running. " +
+                 "Positioned = non-intrusive bubble placed at an explicit Pos X / Pos Y on the canvas.")]
         public PopupIntrusiveness intrusiveness;
+
+        // ── Explicit placement (Positioned only) ──────────────────────────────
+        // Shown ONLY when intrusiveness == Positioned (Artifice EnableIf hides these
+        // fields for Intrusive / NonIntrusive). Offset from the canvas centre:
+        // (0, 0) = dead centre, +X = right, +Y = up.
+        [EnableIf(nameof(intrusiveness), PopupIntrusiveness.Positioned)]
+        [Tooltip("Positioned only: horizontal offset from the canvas centre, in canvas units (+ = right).")]
+        public float posX;
+
+        [EnableIf(nameof(intrusiveness), PopupIntrusiveness.Positioned)]
+        [Tooltip("Positioned only: vertical offset from the canvas centre, in canvas units (+ = up).")]
+        public float posY;
 
         [Tooltip("The sequence of lines to page through. At least one line required.")]
         public List<PopupLine> lines = new List<PopupLine>();

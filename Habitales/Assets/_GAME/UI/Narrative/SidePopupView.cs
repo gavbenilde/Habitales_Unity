@@ -60,14 +60,46 @@ namespace Habitales.UI
         }
 
         /// <summary>
-        /// Show this side bubble for <paramref name="line"/>.
-        /// <paramref name="onTap"/> is called when the player taps the bubble
+        /// Show this side bubble for <paramref name="line"/>, anchored to a screen
+        /// corner. <paramref name="onTap"/> is called when the player taps the bubble
         /// (PopupController advances to the next line or dismisses).
         /// Portrait visibility is driven per-line by <c>line.portrait</c>.
         /// </summary>
         public void Show(ResolvedLine line, ScreenAnchor anchor, Action onTap)
         {
-            if (!_refsOk) { onTap?.Invoke(); return; }
+            if (!BindContent(line, onTap)) return;
+
+            ApplyAnchor(anchor);
+            if (_root) _root.gameObject.SetActive(true);
+            PlayEntrance(anchor);
+        }
+
+        /// <summary>
+        /// Show this side bubble for <paramref name="line"/> at an explicit canvas
+        /// position (the <see cref="PopupIntrusiveness.Positioned"/> path) instead of a
+        /// corner anchor. <paramref name="anchoredPosition"/> is an offset from the canvas
+        /// centre, fed straight into the <c>RectTransform.anchoredPosition</c>.
+        /// Same content/tap behaviour as <see cref="Show"/>; entrance is a plain fade
+        /// (no directional slide, since there is no corner to slide from).
+        /// </summary>
+        public void ShowAt(ResolvedLine line, Vector2 anchoredPosition, Action onTap)
+        {
+            if (!BindContent(line, onTap)) return;
+
+            ApplyPosition(anchoredPosition);
+            if (_root) _root.gameObject.SetActive(true);
+            PlayEntranceFade();
+        }
+
+        /// <summary>
+        /// Shared setup for both <see cref="Show"/> and <see cref="ShowAt"/>: guards the
+        /// refs/hierarchy, binds line text + portrait, and wires the tap handler.
+        /// Returns <c>false</c> (and fires <paramref name="onTap"/> so callers aren't
+        /// softlocked) when the bubble cannot present; placement is left to the caller.
+        /// </summary>
+        private bool BindContent(ResolvedLine line, Action onTap)
+        {
+            if (!_refsOk) { onTap?.Invoke(); return false; }
 
             if (!gameObject.activeSelf) gameObject.SetActive(true);
             if (!gameObject.activeInHierarchy)
@@ -76,7 +108,7 @@ namespace Habitales.UI
                     $"{name}: a PARENT is inactive — SidePopupView can't show. " +
                     "Enable the parent GameObject in the scene.", this);
                 onTap?.Invoke();
-                return;
+                return false;
             }
 
             _onTap = onTap;
@@ -91,9 +123,7 @@ namespace Habitales.UI
             _tapTarget.onClick.RemoveAllListeners();
             _tapTarget.onClick.AddListener(() => _onTap?.Invoke());
 
-            ApplyAnchor(anchor);
-            if (_root) _root.gameObject.SetActive(true);
-            PlayEntrance(anchor);
+            return true;
         }
 
         /// <summary>Hide the side bubble.</summary>
@@ -127,6 +157,17 @@ namespace Habitales.UI
             _root.anchoredPosition = new Vector2(mx, my);
         }
 
+        // Positioned path: centre-anchor the bubble so posX/posY read as an offset from
+        // the canvas centre, then drop it exactly where the designer asked.
+        private void ApplyPosition(Vector2 anchoredPosition)
+        {
+            var c = new Vector2(0.5f, 0.5f);
+            _root.anchorMin = c;
+            _root.anchorMax = c;
+            _root.pivot     = c;
+            _root.anchoredPosition = anchoredPosition;
+        }
+
         private void PlayEntrance(ScreenAnchor anchor)
         {
             if (_root) _root.gameObject.SetActive(true);
@@ -138,6 +179,21 @@ namespace Habitales.UI
 
             LeanTween.cancel(_root.gameObject);
             LeanTween.move(_root, target, _animTime).setEaseOutCubic().setIgnoreTimeScale(true);
+            if (_canvasGroup)
+            {
+                _canvasGroup.alpha = 0f;
+                LeanTween.alphaCanvas(_canvasGroup, 1f, _animTime).setIgnoreTimeScale(true);
+            }
+        }
+
+        // Positioned entrance: a plain fade-in that leaves anchoredPosition untouched
+        // (no corner to slide from). Falls back to an instant show when animation is off.
+        private void PlayEntranceFade()
+        {
+            if (_root) _root.gameObject.SetActive(true);
+            if (!_animateIn) { if (_canvasGroup) _canvasGroup.alpha = 1f; return; }
+
+            LeanTween.cancel(_root.gameObject);
             if (_canvasGroup)
             {
                 _canvasGroup.alpha = 0f;

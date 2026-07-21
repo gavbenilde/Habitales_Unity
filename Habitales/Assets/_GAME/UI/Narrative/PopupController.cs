@@ -71,6 +71,12 @@ namespace Habitales.UI
         [Tooltip("LAYOUT B — SideNarrativeBubble-style side bubble (portrait toggled per-line).")]
         [SerializeField] private SidePopupView _sideBubble;
 
+        [Header("Positioned bubble layout (optional)")]
+        [Tooltip("LAYOUT C — bubble placed at an explicit Pos X / Pos Y for Positioned popups. " +
+                 "Its own prefab instance so it can live anywhere on the canvas. " +
+                 "OPTIONAL: if unwired, Positioned popups fall back to the side bubble (Layout B).")]
+        [SerializeField] private SidePopupView _positionedBubble;
+
         [Header("Character identity resolver")]
         [Tooltip("Required for Show(PopupSO). Provides Azi/Bob display name + portrait. " +
                  "Loud-fails in the resolver overload when null.")]
@@ -98,7 +104,7 @@ namespace Habitales.UI
         private Action                       _intrusiveOnConfirm;
         private PopupHandle                  _intrusivePendingHandle;
 
-        // ── Paging state — side path ──────────────────────────────────────────
+        // ── Paging state — side path (NonIntrusive + Positioned) ──────────────
 
         private readonly List<ResolvedLine> _sideLines  = new List<ResolvedLine>();
         private int                          _sideIndex;
@@ -106,6 +112,14 @@ namespace Habitales.UI
         private Action                       _sideOnConfirm;
         private PopupHandle                  _sidePendingHandle;
         private Coroutine                    _sideAutoCoroutine;
+
+        // Which view the current side sequence renders into, plus its placement —
+        // carried in state so every line (not just the first) keeps the same anchor /
+        // position across advances. _sideIsPositioned selects corner-anchor vs Pos X/Y.
+        private SidePopupView                _activeSideView;
+        private ScreenAnchor                 _sideAnchor;
+        private Vector2                      _sidePosition;
+        private bool                         _sideIsPositioned;
 
         // ── Button labels ─────────────────────────────────────────────────────
 
@@ -138,11 +152,14 @@ namespace Habitales.UI
                 ok = false;
             }
             // _registry is soft-optional here — it's validated at resolve-time.
+            // _positionedBubble is soft-optional too — Positioned popups fall back to
+            // the side bubble when it's unwired (see StartSide).
 
             if (!ok) { enabled = false; return; }
 
             _intrusiveView.Hide();
             _sideBubble.Hide();
+            if (_positionedBubble != null) _positionedBubble.Hide();
         }
 
         // ─── Public API ───────────────────────────────────────────────────────
@@ -220,7 +237,8 @@ namespace Habitales.UI
                 confirmLabel       = "OK",
                 onConfirm          = onConfirm,
                 autoDismissSeconds = 0f,
-                anchor             = ScreenAnchor.BottomLeft
+                anchor             = ScreenAnchor.BottomLeft,
+                position           = new Vector2(seq.posX, seq.posY)
             };
 
             return Show(in request);
@@ -240,6 +258,11 @@ namespace Habitales.UI
             // Iterate a snapshot backwards — DismissSide mutates _activeSide.
             for (int i = _activeSide.Count - 1; i >= 0; i--)
                 DismissSide(_activeSide[i], fireCallback: false);
+
+            // Belt-and-suspenders: force both side views hidden regardless of the
+            // shared _activeSideView pointer (a NonIntrusive + Positioned overlap).
+            _sideBubble.Hide();
+            if (_positionedBubble != null) _positionedBubble.Hide();
         }
 
         /// <summary>
@@ -328,7 +351,13 @@ namespace Habitales.UI
             OnPopupDismissed?.Invoke(handle, PopupIntrusiveness.Intrusive);
         }
 
-        // ─── Non-intrusive (side bubble) path ─────────────────────────────────
+        // ─── Non-intrusive + Positioned (side bubble) path ────────────────────
+        //
+        // Both NonIntrusive and Positioned flow through here — they are identical
+        // except for placement: NonIntrusive anchors to a screen corner (req.anchor),
+        // Positioned drops the bubble at req.position via a dedicated prefab
+        // (_positionedBubble). When that prefab is unwired, Positioned degrades to the
+        // side bubble at its authored position (Law 3 tolerant path).
 
         private void StartSide(in PopupRequest req, PopupHandle handle)
         {
@@ -343,18 +372,26 @@ namespace Habitales.UI
             _sideOnConfirm      = req.onConfirm;
             _sidePendingHandle  = handle;
 
-            RenderSideCurrent(req.anchor);
+            // Resolve placement + target view once, then hold them in state so every
+            // line in the sequence renders the same way (not just the first).
+            _sideIsPositioned = req.intrusiveness == PopupIntrusiveness.Positioned;
+            _sideAnchor       = req.anchor;
+            _sidePosition     = req.position;
+            _activeSideView   = (_sideIsPositioned && _positionedBubble != null)
+                ? _positionedBubble
+                : _sideBubble;
+
+            RenderSideCurrent();
         }
 
-        private void RenderSideCurrent(ScreenAnchor anchor = ScreenAnchor.BottomLeft)
+        private void RenderSideCurrent()
         {
             ResolvedLine line = _sideLines[_sideIndex];
 
-            _sideBubble.Show(
-                line:      line,
-                anchor:    anchor,
-                onTap:     OnSideTapped
-            );
+            if (_sideIsPositioned)
+                _activeSideView.ShowAt(line, _sidePosition, OnSideTapped);
+            else
+                _activeSideView.Show(line, _sideAnchor, OnSideTapped);
 
             if (_sideAutoDismissSecs > 0f)
                 _sideAutoCoroutine = StartCoroutine(SideAutoAdvance(_sideAutoDismissSecs));
@@ -406,7 +443,9 @@ namespace Habitales.UI
             _activeSide.Remove(handle);
 
             StopSideAuto();
-            _sideBubble.Hide();
+            // Hide whichever view this sequence rendered into (side or positioned);
+            // fall back to the side bubble if state was never set.
+            (_activeSideView ?? _sideBubble).Hide();
 
             if (fireCallback)
             {
@@ -415,7 +454,9 @@ namespace Habitales.UI
                 cb?.Invoke();
             }
 
-            OnPopupDismissed?.Invoke(handle, PopupIntrusiveness.NonIntrusive);
+            // Report the handle's real flavour so listeners can distinguish
+            // Positioned from NonIntrusive (UIManager only acts on Intrusive anyway).
+            OnPopupDismissed?.Invoke(handle, handle.intrusiveness);
         }
     }
 
@@ -444,7 +485,7 @@ namespace Habitales.UI
 // ── COMPLETE WIRING GUIDE ─────────────────────────────────────────────────────
 //
 // 1. POPUP PREFAB VARIANTS
-//    Build two GameObjects (one modal card, one side bubble).
+//    Build up to three GameObjects (modal card, side bubble, positioned bubble).
 //
 //    Layout A — Intrusive Modal Card
 //      GameObject "PopupCard_Intrusive"
@@ -469,11 +510,27 @@ namespace Habitales.UI
 //        │    └─ Button "TapTarget"
 //      Add component: SidePopupView. Wire every field.
 //
+//    Layout C — Positioned Bubble (OPTIONAL)
+//      A second SidePopupView prefab instance, used for Positioned popups. Same
+//      structure as Layout B — the controller places it at the PopupSO's Pos X / Pos Y
+//      (offset from the canvas centre) instead of anchoring it to a corner.
+//      GameObject "PositionedBubble"
+//        ├─ RectTransform "Root"
+//        │    ├─ CanvasGroup            (optional — fade-in juice)
+//        │    ├─ GameObject "PortraitBox"  ← toggled per-line
+//        │    │    ├─ Image "Portrait"
+//        │    │    └─ TextMeshPro "SpeakerLabel"
+//        │    ├─ TextMeshPro "BodyText"
+//        │    └─ Button "TapTarget"
+//      Add component: SidePopupView. Wire every field.
+//      If you skip this, Positioned popups fall back to the Layout B side bubble.
+//
 // 2. POPUP CONTROLLER SLOTS (on the PopupController component in the scene)
-//      _root          ← parent GameObject holding both layouts
-//      _intrusiveView ← drag the IntrusivePopupView from Layout A
-//      _sideBubble    ← drag the SidePopupView from Layout B
-//      _registry      ← drag the DialogueRegistry ScriptableObject asset
+//      _root             ← parent GameObject holding every layout
+//      _intrusiveView    ← drag the IntrusivePopupView from Layout A
+//      _sideBubble       ← drag the SidePopupView from Layout B
+//      _positionedBubble ← drag the SidePopupView from Layout C (OPTIONAL — falls back to Layout B)
+//      _registry         ← drag the DialogueRegistry ScriptableObject asset
 //
 // 3. UI MANAGER REGISTRATION
 //      subsystems list ← add the PopupController MonoBehaviour

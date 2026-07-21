@@ -18,6 +18,7 @@ public class GenericPlayerAction : PlayerAction
         _def = def;
     }
 
+    public override string ActionId                => _def.actionId;
     public override string ActionName              => _def.displayName;
     public override string Description             => _def.description;
     public override SelectionMode selectionMode    => _def.selectionMode;

@@ -20,6 +20,14 @@ public abstract class PlayerAction
     public abstract int BaseDays             { get; }
     public abstract int MinDays              { get; }
 
+    // Stable machine id for this action (ActionSO.actionId). Null for legacy code-defined
+    // actions; GenericPlayerAction surfaces its ActionSO.actionId. Systems that must single out
+    // a specific authored action (e.g. the onboarding director's "arm Plant Trees" gate) match on
+    // this data id — post-Action-Creator every action is a GenericPlayerAction, so a concrete
+    // `is PlantTreesAction` type check no longer identifies anything (mirrors the entityId
+    // migration below that replaced `is FireEntity`).
+    public virtual string ActionId => null;
+
     public virtual float FatigueMultiplierPerTile => 2.0f;
 
     public virtual string VariantGroupName => null;

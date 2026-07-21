@@ -115,6 +115,12 @@ namespace Habitales.Onboarding
         [Tooltip("Trait icon pips. Phase 10.1 highlight (skipped if null).")]
         [SerializeField] private RectTransform traitPipsTarget;
 
+        [Header("Interactive targets")]
+        [Tooltip("Stable ActionSO.actionId of the action phase 5 teaches — the card the coach-mark " +
+                 "arrow points at and the arm that completes the phase. Matched on the data id (not a " +
+                 "C# type) because every authored action is a GenericPlayerAction. Defaults to Plant Trees.")]
+        [SerializeField] private string plantTreesActionId = "plant_trees";
+
         [Header("References (optional — auto-found if null)")]
         [SerializeField] private ActionBarUI actionBarUI;
         [Tooltip("PlayLandingReveal() plays at graduation (the objective 'lands in front of the player').")]
@@ -567,7 +573,7 @@ namespace Habitales.Onboarding
 
         void HandleActionArmed(PlayerAction action)
         {
-            if (CurrentBeat == OnboardingBeatId.Phase_05_PickCard && action is PlantTreesAction)
+            if (CurrentBeat == OnboardingBeatId.Phase_05_PickCard && IsTaughtAction(action))
                 _armed = true;
         }
 
@@ -724,12 +730,22 @@ namespace Habitales.Onboarding
             return tm.TryGetRegionCentroid(newRegionId, out world);
         }
 
+        // The stable actionId phase 5 teaches. Falls back to the Plant Trees literal if a designer
+        // clears the field, so the phase never silently soft-locks on an empty id.
+        string TaughtActionId =>
+            string.IsNullOrEmpty(plantTreesActionId) ? "plant_trees" : plantTreesActionId;
+
+        // Matches the taught action by its data-driven actionId (not a concrete C# type — every
+        // authored action is a GenericPlayerAction, so `is PlantTreesAction` never matches).
+        bool IsTaughtAction(PlayerAction action) =>
+            action != null && action.ActionId == TaughtActionId;
+
         PlayerAction FindPlantTreesAction()
         {
             ActionManager am = ActionManager.Instance;
             if (am == null) return null;
             foreach (PlayerAction a in am.GetAvailableActions())
-                if (a is PlantTreesAction) return a;
+                if (IsTaughtAction(a)) return a;
             return null;
         }
 

@@ -408,7 +408,8 @@ namespace Habitales.Triggers
                     confirmLabel       = "OK",
                     onConfirm          = ResumeAfterEvent,   // advances the queue on dismiss
                     autoDismissSeconds = 0f,
-                    anchor             = ScreenAnchor.BottomCenter
+                    anchor             = ScreenAnchor.BottomCenter,
+                    position           = new Vector2(p.posX, p.posY)   // used only when intrusiveness == Positioned
                 };
 
                 // manageSimState:false — TriggerManager owns the batch pause,

@@ -35,8 +35,17 @@ namespace Habitales.UI
         /// <summary>
         /// Non-modal: side bubble, no dim, no input block, sim keeps running.
         /// Clears on tap or after <see cref="PopupRequest.autoDismissSeconds"/>.
+        /// Anchors to a screen corner via <see cref="PopupRequest.anchor"/>.
         /// </summary>
-        NonIntrusive
+        NonIntrusive,
+
+        /// <summary>
+        /// Non-modal like <see cref="NonIntrusive"/> (no dim, no input block, sim keeps
+        /// running) — but placed at an explicit canvas position via
+        /// <see cref="PopupRequest.position"/> instead of a corner anchor. Use when a
+        /// popup must point at a specific spot on screen (a tile, a HUD widget).
+        /// </summary>
+        Positioned
     }
 
     // ── Request value-type ────────────────────────────────────────────────────
@@ -113,9 +122,20 @@ namespace Habitales.UI
         // ── Screen placement (NonIntrusive only) ─────────────────────────
         /// <summary>
         /// Corner anchor for non-intrusive side bubbles.
-        /// Ignored for Intrusive popups (they centre + dim).
+        /// Ignored for Intrusive popups (they centre + dim) and for
+        /// <see cref="PopupIntrusiveness.Positioned"/> popups (they use
+        /// <see cref="position"/>).
         /// </summary>
         public ScreenAnchor anchor;
+
+        // ── Explicit placement (Positioned only) ─────────────────────────
+        /// <summary>
+        /// Anchored canvas position for <see cref="PopupIntrusiveness.Positioned"/>
+        /// popups, as an offset from the canvas centre (0,0 = centre). Fed straight
+        /// into the bubble's <c>RectTransform.anchoredPosition</c>. Ignored for
+        /// Intrusive and NonIntrusive popups.
+        /// </summary>
+        public Vector2 position;
     }
 
     // ── Handle ────────────────────────────────────────────────────────────────
