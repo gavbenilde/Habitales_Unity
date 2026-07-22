@@ -14,10 +14,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   eventName: Phase_02_MeetAzi
   intrusiveness: 0
+  posX: 0
+  posY: 0
   lines:
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 0}
+    portraitOverride: {fileID: 21300000, guid: 03efae62146028145b5c57653a188b3b, type: 3}
     body: Oh yikes. It's really bad out here...
   fireOnce: 0
   linkedThread: {fileID: 0}

@@ -15,4 +15,10 @@ MonoBehaviour:
   character: 1
   displayName: Azi
   portrait: {fileID: 21300000, guid: 70d307955d328e0468742aebddd7b381, type: 3}
-  expressions: []
+  expressions:
+  - expressionID: azi_default
+    sprite: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
+  - expressionID: azi_nervous
+    sprite: {fileID: 21300000, guid: 03efae62146028145b5c57653a188b3b, type: 3}
+  - expressionID: azi_happy
+    sprite: {fileID: 21300000, guid: 001dd9f17d9137c41bd14078f68137c6, type: 3}

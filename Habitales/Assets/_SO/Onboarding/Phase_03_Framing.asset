@@ -14,11 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   eventName: Phase_03_Framing
   intrusiveness: 0
+  posX: 0
+  posY: 0
   lines:
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 0}
-    body: Let's reecall what we're here to do....
+    portraitOverride: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
+    body: Let's recall what we're here to do....
   fireOnce: 0
   linkedThread: {fileID: 0}
   focusCameraOnTarget: 0
