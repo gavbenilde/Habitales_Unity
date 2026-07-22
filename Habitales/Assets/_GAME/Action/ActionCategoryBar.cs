@@ -12,6 +12,9 @@ namespace Habitales.UI.Actions
     /// </summary>
     public class ActionCategoryBar : MonoBehaviour
     {
+        [Tooltip("The container holding the category tabs, toggled off while the action strip is open. " +
+                 "Falls back to this GameObject if unwired (wire the CategoryTabs grid here).")]
+        [SerializeField] private GameObject categoryRoot;
         [SerializeField] private Button examineTab;
         [SerializeField] private Button interveneTab;
         [SerializeField] private Button cleanupTab;
@@ -34,6 +37,17 @@ namespace Habitales.UI.Actions
             if (examineTab   != null) examineTab.onClick.RemoveAllListeners();
             if (interveneTab != null) interveneTab.onClick.RemoveAllListeners();
             if (cleanupTab   != null) cleanupTab.onClick.RemoveAllListeners();
+        }
+
+        /// <summary>
+        /// Shows or hides the category tab container. The controller hides the tabs while the
+        /// action strip is open (the strip's Back button re-shows them), so the two never overlap.
+        /// Toggles <see cref="categoryRoot"/> if wired, otherwise this GameObject.
+        /// </summary>
+        public void SetVisible(bool visible)
+        {
+            GameObject target = categoryRoot != null ? categoryRoot : gameObject;
+            target.SetActive(visible);
         }
 
         /// <summary>

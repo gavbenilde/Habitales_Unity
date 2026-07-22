@@ -29,6 +29,12 @@ namespace Habitales.Onboarding
         protected bool        ScreenSpaceTarget { get; private set; }
         protected string      LabelText     { get; private set; }
 
+        /// <summary>
+        /// The full request that drove the current <see cref="Show"/>. Subclasses read this for
+        /// kind-specific fields (e.g. FidgetArrow's orbit override) that the base doesn't surface.
+        /// </summary>
+        protected CoachMarkRequest Request { get; private set; }
+
         private bool _refsOk;
 
         // ── Injection (called by CoachMarkLayer) ──────────────────────────
@@ -47,6 +53,7 @@ namespace Habitales.Onboarding
         /// </summary>
         public void Show(CoachMarkRequest request)
         {
+            Request           = request;
             WorldTarget       = request.worldTarget;
             TrackTarget       = request.trackTarget;
             ScreenSpaceTarget = request.screenSpaceTarget;

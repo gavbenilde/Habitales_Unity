@@ -17,6 +17,8 @@ namespace Habitales.UI.Actions
         [Tooltip("Brush-size slider — shown only while a FloodFill action has a live blob; mirrors Ctrl+Scroll.")]
         [SerializeField] private Slider brushSizeSlider;
         [SerializeField] private Button confirmButton;
+        [Tooltip("Cancel button — disarms the action and returns to the action strip view.")]
+        [SerializeField] private Button cancelButton;
         [SerializeField] private TMP_Text armedActionNameText;
         [SerializeField] private TMP_Text tileCountText;
         [SerializeField] private TMP_Text daysEstimateText;
@@ -24,6 +26,10 @@ namespace Habitales.UI.Actions
 
         /// <summary>Raised when the player presses Confirm. Law-2: on the click.</summary>
         public event Action OnConfirmClicked;
+
+        /// <summary>Raised when the player presses Cancel. Law-2: on the click. The controller disarms
+        /// the action, which hides this panel and returns the player to the action strip.</summary>
+        public event Action OnCancelClicked;
 
         /// <summary>
         /// Raised when the player drags the brush-size slider (whole tile counts). The controller
@@ -48,6 +54,9 @@ namespace Habitales.UI.Actions
             if (confirmButton != null)
                 confirmButton.onClick.AddListener(() => OnConfirmClicked?.Invoke());
 
+            if (cancelButton != null)
+                cancelButton.onClick.AddListener(() => OnCancelClicked?.Invoke());
+
             if (brushSizeSlider != null)
                 brushSizeSlider.onValueChanged.AddListener(HandleSliderChanged);
         }
@@ -55,6 +64,7 @@ namespace Habitales.UI.Actions
         void OnDisable()
         {
             confirmButton?.onClick.RemoveAllListeners();
+            cancelButton?.onClick.RemoveAllListeners();
 
             if (brushSizeSlider != null)
                 brushSizeSlider.onValueChanged.RemoveListener(HandleSliderChanged);

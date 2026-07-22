@@ -283,6 +283,62 @@ public class RegionManager : MonoBehaviour
     }
 
     /// <summary>
+    /// Aggregated (mean) TileStats across every tile in a region — a single pass over
+    /// GetTilesInRegion, mirroring GetRegionHealth's structure/logging. Averages all eight
+    /// fields (the 6 soil substats + vegetationCover + contamination) so a CalculateHealth-style
+    /// readout works on the returned instance (soilComposite / CalculateHealth are derived).
+    /// Returns a fully ZEROED TileStats for an empty or unknown region (added 2026-07-22 for the
+    /// Selected Info Panel's Region mode).
+    /// </summary>
+    public TileStats GetRegionStats(int regionID)
+    {
+        TileStats agg = new TileStats
+        {
+            nutrientBalance    = 0f,
+            soilOrganicMatter  = 0f,
+            soilStructure      = 0f,
+            biologicalActivity = 0f,
+            waterDynamics      = 0f,
+            erosionResistance  = 0f,
+            vegetationCover    = 0f,
+            contamination      = 0f
+        };
+
+        List<Tile> tiles = tileManager.GetTilesInRegion(regionID);
+        if (tiles == null || tiles.Count == 0)
+        {
+            if (showDebugInfo) Debug.LogWarning($"RegionManager: No tiles found in region {regionID} for stats!");
+            return agg;
+        }
+
+        foreach (Tile tile in tiles)
+        {
+            TileStats s = tile.stats;
+            agg.nutrientBalance    += s.nutrientBalance;
+            agg.soilOrganicMatter  += s.soilOrganicMatter;
+            agg.soilStructure      += s.soilStructure;
+            agg.biologicalActivity += s.biologicalActivity;
+            agg.waterDynamics      += s.waterDynamics;
+            agg.erosionResistance  += s.erosionResistance;
+            agg.vegetationCover    += s.vegetationCover;
+            agg.contamination      += s.contamination;
+        }
+
+        float n = tiles.Count;
+        agg.nutrientBalance    /= n;
+        agg.soilOrganicMatter  /= n;
+        agg.soilStructure      /= n;
+        agg.biologicalActivity /= n;
+        agg.waterDynamics      /= n;
+        agg.erosionResistance  /= n;
+        agg.vegetationCover    /= n;
+        agg.contamination      /= n;
+
+        if (showDebugInfo) Debug.Log($"Region {regionID} Stats aggregated over {tiles.Count} tiles.");
+        return agg;
+    }
+
+    /// <summary>
     /// Smoothed per-day change in this region's average health, in health-points — the
     /// average daily change over the last RunManager.TrendWindowDays days (fewer early on).
     /// 0 until two days have resolved or if the region is unknown. Read-only (Law 1) — drives

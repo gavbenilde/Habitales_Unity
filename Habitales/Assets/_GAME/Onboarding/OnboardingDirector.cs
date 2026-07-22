@@ -91,6 +91,32 @@ namespace Habitales.Onboarding
             public PopupSO popup;
         }
 
+        /// <summary>
+        /// Per-phase FidgetArrow orbit override. Lets a designer seat the arrow at a different
+        /// angle (and nudge its pivot / sprite) for each phase that shows a FidgetArrow — without
+        /// touching the shared widget's defaults. Phases with no entry keep the widget defaults.
+        /// </summary>
+        [Serializable]
+        public struct FidgetArrowTuning
+        {
+            [Tooltip("Which phase's FidgetArrow this tunes (phases 4, 5, 7, 8, 9, 10, 10.1 show one).")]
+            public OnboardingBeatId phase;
+
+            [Tooltip("Where the arrow sits around the target, in degrees. 0 = right, 90 = up, " +
+                     "180 = left, 270 = below. The arrowhead always points inward at the target.")]
+            [Range(0f, 360f)]
+            public float orbitAngleDeg;
+
+            [Tooltip("Distance from pivot to arrow, in canvas pixels. 0 = keep the FidgetArrow's own radius.")]
+            public float orbitRadius;
+
+            [Tooltip("Nudge the pivot (the point the arrow orbits + points at) off the target, in canvas pixels.")]
+            public Vector2 pivotOffsetPx;
+
+            [Tooltip("Final fine-tune of the arrow sprite's position after orbit, in canvas pixels.")]
+            public Vector2 arrowPosOffsetPx;
+        }
+
         [Header("Content")]
         [Tooltip("Resolves Azi/Bob display names + portraits when presenting a PopupSO. " +
                  "Assign the same DialogueRegistry PopupController uses. Falls back to literal names if null.")]
@@ -105,6 +131,12 @@ namespace Habitales.Onboarding
                  "independently and keeps playing past this, so lower = snappier hand-off to Azi.")]
         [SerializeField] private float loadingRevealSeconds = 2.5f;
 
+        [Header("Phase 6 — select tiles")]
+        [Tooltip("Seconds after entering phase 6 before the GhostMouseDrag coach mark may show, even " +
+                 "if the action is already armed. Without this, an action armed on phase 5 carries " +
+                 "straight into phase 6 and the ghost drag jumps out on the very first frame.")]
+        [SerializeField] private float dragGhostDelaySeconds = 3f;
+
         [Header("Highlight targets (optional — coach marks for phases 8–10.1)")]
         [Tooltip("Day counter / stamina cluster. Phase 8 points a FidgetArrow here (skipped if null).")]
         [SerializeField] private RectTransform dayCounterTarget;
@@ -114,6 +146,11 @@ namespace Habitales.Onboarding
         [SerializeField] private RectTransform zoneHealthBarTarget;
         [Tooltip("Trait icon pips. Phase 10.1 highlight (skipped if null).")]
         [SerializeField] private RectTransform traitPipsTarget;
+
+        [Tooltip("Optional per-phase FidgetArrow orbit tuning. One entry per phase whose arrow " +
+                 "needs a different seat/pivot than the widget default. Order is irrelevant — " +
+                 "lookup is by phase id; phases with no entry use the FidgetArrow's own defaults.")]
+        [SerializeField] private FidgetArrowTuning[] fidgetArrowTuning = new FidgetArrowTuning[0];
 
         [Header("Interactive targets")]
         [Tooltip("Stable ActionSO.actionId of the action phase 5 teaches — the card the coach-mark " +
@@ -191,6 +228,9 @@ namespace Habitales.Onboarding
         private readonly Dictionary<OnboardingBeatId, PopupSO> _phasePopups =
             new Dictionary<OnboardingBeatId, PopupSO>();
 
+        private readonly Dictionary<OnboardingBeatId, FidgetArrowTuning> _arrowTuning =
+            new Dictionary<OnboardingBeatId, FidgetArrowTuning>();
+
         private int  _phaseIndex;
         private bool _advanceRequested;   // set by a passive popup's onComplete; drained in Update
 
@@ -203,8 +243,9 @@ namespace Habitales.Onboarding
         private float _loadingTimer;      // phase 1 reveal timer (authoritative duration)
 
         // Phase 6 drag ghost — shown only while an action is armed; needs growth past this baseline.
-        private bool _dragGhostShown;
-        private int  _dragBaselineCount;
+        private bool  _dragGhostShown;
+        private int   _dragBaselineCount;
+        private float _dragGhostDelayTimer;   // counts up from phase-enter; ghost gated until it clears dragGhostDelaySeconds
 
         // Last UI cue target sent to the arrow — re-issue only when it changes (tab → card).
         private Transform _currentCueTarget;
@@ -294,11 +335,20 @@ namespace Habitales.Onboarding
         void BuildPhaseLookup()
         {
             _phasePopups.Clear();
-            if (phases == null) return;
-            foreach (PhaseContent pc in phases)
+            if (phases != null)
             {
-                if (pc.popup == null) continue;
-                _phasePopups[pc.phase] = pc.popup;
+                foreach (PhaseContent pc in phases)
+                {
+                    if (pc.popup == null) continue;
+                    _phasePopups[pc.phase] = pc.popup;
+                }
+            }
+
+            _arrowTuning.Clear();
+            if (fidgetArrowTuning != null)
+            {
+                foreach (FidgetArrowTuning t in fidgetArrowTuning)
+                    _arrowTuning[t.phase] = t;
             }
         }
 
@@ -338,7 +388,8 @@ namespace Habitales.Onboarding
                     break;
 
                 case OnboardingBeatId.Phase_06_SelectTiles:
-                    RefreshDragGhostByArmState();
+                    _dragGhostDelayTimer += Time.unscaledDeltaTime;
+                    if (_dragGhostDelayTimer >= dragGhostDelaySeconds) RefreshDragGhostByArmState();
                     if (!_dragDone)
                     {
                         TileSelector ts = GetTileSelector();
@@ -369,8 +420,9 @@ namespace Habitales.Onboarding
         {
             // Reset per-phase gates.
             _armed = _confirmed = _dragDone = _regionUnlocked = false;
-            _dragGhostShown    = false;
-            _dragBaselineCount = 0;
+            _dragGhostShown      = false;
+            _dragBaselineCount   = 0;
+            _dragGhostDelayTimer = 0f;
             _currentCueTarget  = null;
             _loadingTimer      = 0f;
             _advanceRequested  = false;
@@ -400,9 +452,13 @@ namespace Habitales.Onboarding
                     PlayerAction plant = FindPlantTreesAction();
                     if (actionBarUI != null && plant != null)
                     {
-                        // Ensure the Intervene cards exist, then dim all but Plant Trees.
-                        actionBarUI.SetCategoriesExpanded(true);
-                        actionBarUI.SelectCategory(ActionCategory.Intervene);
+                        // Reveal the Intervene strip idempotently, then dim all but Plant Trees.
+                        // NOT SelectCategory: the player just opened Intervene to clear phase 4, and
+                        // SelectCategory is a user TOGGLE — re-calling it on the open category collapses
+                        // the strip (and SetCategoriesExpanded would replay the flower reveal tween),
+                        // which read as "the action bar resets". RevealCategory is the non-toggling,
+                        // no-replay force-open.
+                        actionBarUI.RevealCategory(ActionCategory.Intervene);
                         actionBarUI.LockCardsExcept(plant);
                     }
                     PresentPopup(id, advanceOnComplete: false);
@@ -423,7 +479,8 @@ namespace Habitales.Onboarding
                         kind      = CoachMarkKind.CornerReminder,
                         labelText = OnboardingContent.Reminder_SelectMultiple,
                     });
-                    // GhostMouseDrag is arm-gated — RefreshDragGhostByArmState() shows it in Update.
+                    // GhostMouseDrag is arm-gated (and delayed dragGhostDelaySeconds after phase-enter)
+                    // — RefreshDragGhostByArmState() shows it in Update.
                     break;
 
                 case OnboardingBeatId.Phase_07_Confirm:
@@ -596,8 +653,23 @@ namespace Habitales.Onboarding
         void ShowMark(CoachMarkRequest req)
         {
             req.hide = false;
+            ApplyArrowTuning(ref req);
             _activeMarks.Add(req.kind);
             OnCoachMarkRequested?.Invoke(req);
+        }
+
+        // Stamps the current phase's FidgetArrow orbit override onto the request (if one is wired).
+        // No-op for non-arrow marks and for phases with no tuning entry (the widget uses its defaults).
+        void ApplyArrowTuning(ref CoachMarkRequest req)
+        {
+            if (req.kind != CoachMarkKind.FidgetArrow) return;
+            if (!_arrowTuning.TryGetValue(CurrentBeat, out FidgetArrowTuning t)) return;
+
+            req.applyOrbit       = true;
+            req.orbitAngleDeg    = t.orbitAngleDeg;
+            req.orbitRadius      = t.orbitRadius;
+            req.pivotOffsetPx    = t.pivotOffsetPx;
+            req.arrowPosOffsetPx = t.arrowPosOffsetPx;
         }
 
         void HideMark(CoachMarkKind kind)
@@ -776,6 +848,10 @@ namespace Habitales.Onboarding
 //   • dayCounterTarget / weatherHexTarget / zoneHealthBarTarget / traitPipsTarget
 //     — RectTransforms the phase-8/9/10/10.1 FidgetArrow points at. Leave null
 //     to skip the arrow (the popup text still teaches the feature).
+//   • fidgetArrowTuning — optional per-phase orbit overrides for the FidgetArrow
+//     (angle 0-360 around the target + pivot / arrow-position x-y nudges). Add an
+//     entry only for a phase whose arrow needs a different seat than the widget
+//     default; phases with no entry use the FidgetArrow's own serialized values.
 //
 // References (auto-found if left null)
 //   • actionBarUI       — required for interactive phases 4–7.

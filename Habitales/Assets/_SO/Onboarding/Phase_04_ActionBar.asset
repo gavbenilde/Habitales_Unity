@@ -13,7 +13,9 @@ MonoBehaviour:
   m_Name: Phase_04_ActionBar
   m_EditorClassIdentifier: 
   eventName: Phase_04_ActionBar
-  intrusiveness: 1
+  intrusiveness: 2
+  posX: 0
+  posY: 0
   lines:
   - speaker: 2
     customName: 

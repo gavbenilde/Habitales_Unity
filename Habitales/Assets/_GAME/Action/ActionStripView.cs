@@ -17,11 +17,30 @@ namespace Habitales.UI.Actions
         [SerializeField] private Transform content;
         [SerializeField] private GameObject cardPrefab;
         [SerializeField] private Color defaultCardColor = new Color(0.75f, 0.75f, 0.75f);
+        [Tooltip("Exit button that closes the strip and returns to the category tabs.")]
+        [SerializeField] private Button backButton;
 
         /// <summary>Raised when the player clicks an action card. Law-2: on the click.</summary>
         public event Action<PlayerAction> OnActionCardClicked;
 
+        /// <summary>Raised when the player clicks the strip's Back/exit button. Law-2: on the click.</summary>
+        public event Action OnBackClicked;
+
         private readonly Dictionary<PlayerAction, GameObject> cardObjects = new Dictionary<PlayerAction, GameObject>();
+
+        void OnEnable()
+        {
+            if (backButton != null)
+                backButton.onClick.AddListener(HandleBackClicked);
+        }
+
+        void OnDisable()
+        {
+            if (backButton != null)
+                backButton.onClick.RemoveListener(HandleBackClicked);
+        }
+
+        private void HandleBackClicked() => OnBackClicked?.Invoke();
 
         // ─── Strip visibility ─────────────────────────────────────────────────
 

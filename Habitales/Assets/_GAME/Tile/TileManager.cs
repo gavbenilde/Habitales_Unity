@@ -91,6 +91,12 @@ public class TileManager : MonoBehaviour
     private Dictionary<Tile, GameObject> tileGameObjects; // Links data to GameObjects
     private Dictionary<Tile, VisualEffect> activeVFX = new Dictionary<Tile, VisualEffect>();
 
+    // Per-tile SHORT rolling health-trend window (added 2026-07-22 for the Selected Info Panel's
+    // Tile mode). Sampled once per resolved day; drives GetTileHealthTrend's arrow, NOT a
+    // progress record — mirrors RegionManager's per-region trend window (both use TrendWindow).
+    private readonly Dictionary<Tile, Habitales.Core.TrendWindow> _tileTrendWindows =
+        new Dictionary<Tile, Habitales.Core.TrendWindow>();
+
     // ── Entity meaning-event seams (arch §6.1 HOOK) ─────────────────────────────
     // Law 2: a NEW entity appearing or an entity DYING is meaning, not mutation. In-place
     // promotion/transform (ReplaceWithSO) is NOT a spawn/death — it does not fire these.
@@ -124,6 +130,47 @@ public class TileManager : MonoBehaviour
         if (entityRegistry != null) entityRegistry.ValidateAll();
         else Debug.LogError("TileManager: entityRegistry is not assigned — data-driven entity spawning will fail. Wire the EntityRegistry asset.", this);
     }
+
+    private void Start()
+    {
+        // RunManager (-100) initialises after TileManager (-200), so subscribe in Start (not
+        // Awake) when its Instance is guaranteed set — mirrors RegionManager's cadence.
+        if (RunManager.Instance != null)
+            RunManager.Instance.OnDayResolved += HandleDayResolved;
+    }
+
+    private void OnDestroy()
+    {
+        if (RunManager.Instance != null)
+            RunManager.Instance.OnDayResolved -= HandleDayResolved;
+    }
+
+    /// <summary>
+    /// Snapshots every tile's health once per resolved day into its rolling trend window
+    /// (Habitales.Core.TrendWindow, capped at RunManager.TrendWindowDays + 1 samples). Read via
+    /// GetTileHealthTrend (Law 1). A short recent-trend signal, NOT a run-progress record.
+    /// </summary>
+    private void HandleDayResolved(int day)
+    {
+        foreach (Tile tile in tileCache.Values)
+        {
+            if (tile == null) continue;
+            if (!_tileTrendWindows.TryGetValue(tile, out Habitales.Core.TrendWindow window))
+                _tileTrendWindows[tile] = window = new Habitales.Core.TrendWindow();
+            window.Enqueue(tile.CalculateHealth());
+        }
+    }
+
+    /// <summary>
+    /// Smoothed per-day change in this tile's health, in health-points — the average daily change
+    /// over the last RunManager.TrendWindowDays days (fewer early on). 0 until two days have
+    /// resolved for the tile, or if it is untracked. Read-only (Law 1) — drives the Selected Info
+    /// Panel's Tile-mode trend arrow.
+    /// </summary>
+    public float GetTileHealthTrend(Tile tile)
+        => tile != null && _tileTrendWindows.TryGetValue(tile, out Habitales.Core.TrendWindow window)
+            ? window.Trend
+            : 0f;
 
     /// <summary>
     /// Creates empty grid structure. Call this before spawning tiles.

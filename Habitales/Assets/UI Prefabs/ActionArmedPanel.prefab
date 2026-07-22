@@ -1985,6 +1985,7 @@ MonoBehaviour:
   panelRoot: {fileID: 6504779619784257505}
   brushSizeSlider: {fileID: 620417220189323354}
   confirmButton: {fileID: 21003598384713562}
+  cancelButton: {fileID: 4269952451401618908}
   armedActionNameText: {fileID: 8127719696561378261}
   tileCountText: {fileID: 2002077080188738928}
   daysEstimateText: {fileID: 5183160090672232289}

@@ -157,6 +157,35 @@ namespace Habitales.UI.Actions
         /// <summary>Restores every card to its normal interactive state (undoes <see cref="LockCardsExcept"/>).</summary>
         public void ClearCardLock() => strip?.ClearCardLock();
 
+        /// <summary>
+        /// Onboarding-only: guarantees <paramref name="category"/> is revealed with its card strip open,
+        /// WITHOUT the side-effects of a user gesture. Blooms the flower only if it isn't already bloomed
+        /// (so the reveal tween never replays) and opens the strip only if it isn't already open on this
+        /// category (so it never toggles closed and never rebuilds/flickers the cards). Idempotent — safe
+        /// to re-call on phase re-entry.
+        ///
+        /// <para>Deliberately NOT <see cref="SelectCategory"/>: that method is a user TOGGLE — re-invoking
+        /// it on the already-open category collapses the strip. Phase 5 runs right after the player opened
+        /// Intervene to clear phase 4, so calling SelectCategory there reset the bar (2026-07-22 fix).</para>
+        /// </summary>
+        public void RevealCategory(ActionCategory category)
+        {
+            // Bloom only on a real state change — re-blooming replays FlowerBudToggle's reveal tween.
+            if (flower != null && !flower.IsBloomed)
+                SetCategoriesExpanded(true);
+
+            bool alreadyOpen = currentCategory == category && strip != null && strip.IsVisible;
+            if (alreadyOpen) return;   // leave the player's open strip exactly as-is (no rebuild/flicker)
+
+            if (currentAction != null) Disarm();
+            currentCategory = category;
+            if (strip       != null) strip.Render(GetActionsFor(category));
+            if (strip       != null) strip.SetVisible(true);
+            if (categoryBar != null) categoryBar.SetActiveCategory(category);
+            // Match SelectCategory: opening a strip hides the category tabs (Back re-shows them).
+            if (categoryBar != null) categoryBar.SetVisible(false);
+        }
+
         // ─── State ────────────────────────────────────────────────────────────
 
         private ActionCategory? currentCategory;
@@ -194,11 +223,8 @@ namespace Habitales.UI.Actions
                 Debug.LogError($"{name}: estimatePanel is not wired — assign the ActionEstimatePanel component in the Inspector.", this);
                 ok = false;
             }
-            if (flower == null)
-            {
-                Debug.LogError($"{name}: flower is not wired — assign the FlowerBudToggle component in the Inspector.", this);
-                ok = false;
-            }
+            // Flower bloom is DEPRECATED — the category tabs are shown directly now. A missing flower
+            // is fine (warn only), so removing it from the scene never disables the whole action bar.
             if (tileSelector == null)
             {
                 Debug.LogError($"{name}: tileSelector is not found — ensure a TileSelector is in the scene or wire it in the Inspector.", this);
@@ -207,11 +233,11 @@ namespace Habitales.UI.Actions
 
             if (!ok) { enabled = false; return; }
 
-            // Start with both panels collapsed and the category flower closed (Hidden state).
+            // Start on the category-tabs state: strip + estimate hidden, tabs shown.
+            // (Flower bloom is deprecated, so the tabs are no longer gated behind it.)
             strip.SetVisible(false);
             estimatePanel.SetVisible(false);
-            if (flower != null);
-            // flower.SetBloomed(false);
+            if (categoryBar != null) categoryBar.SetVisible(true);
         }
 
         void OnEnable()
@@ -229,11 +255,13 @@ namespace Habitales.UI.Actions
             if (strip != null)
             {
                 strip.OnActionCardClicked += ArmAction;
+                strip.OnBackClicked       += ShowCategories;
             }
 
             if (estimatePanel != null)
             {
                 estimatePanel.OnConfirmClicked   += HandleConfirmClicked;
+                estimatePanel.OnCancelClicked    += HandleCancelClicked;
                 estimatePanel.OnBrushSizeChanged += HandleBrushSliderChanged;
             }
 
@@ -256,11 +284,13 @@ namespace Habitales.UI.Actions
             if (strip != null)
             {
                 strip.OnActionCardClicked -= ArmAction;
+                strip.OnBackClicked       -= ShowCategories;
             }
 
             if (estimatePanel != null)
             {
                 estimatePanel.OnConfirmClicked   -= HandleConfirmClicked;
+                estimatePanel.OnCancelClicked    -= HandleCancelClicked;
                 estimatePanel.OnBrushSizeChanged -= HandleBrushSliderChanged;
             }
 
@@ -290,6 +320,14 @@ namespace Habitales.UI.Actions
             if (tileSelector != null) tileSelector.ConfirmSelection();
         }
 
+        /// <summary>
+        /// Cancel pressed on the estimate panel: disarm the action (which cancels any in-progress
+        /// selection and hides the estimate panel) so the player drops back to the still-open action
+        /// strip to pick a different card. The strip is never hidden while an action is armed, so no
+        /// re-show is needed here.
+        /// </summary>
+        private void HandleCancelClicked() => Disarm();
+
         // ─── Brush-size mediation (flood-fill slider ↔ TileSelector) ──────────
 
         /// <summary>Blob resized by drag/Ctrl+Scroll/initial flood → sync (and reveal) the slider.</summary>
@@ -307,27 +345,35 @@ namespace Habitales.UI.Actions
         // ─── Category selection ───────────────────────────────────────────────
 
         /// <summary>
-        /// Selects a category, rebuilding the action strip. Toggling the same open category
-        /// collapses the strip. Called by the controller itself (category bar event) and may be
-        /// called externally to force a category open.
+        /// Selects a category: hides the category tabs and opens the action strip for that category.
+        /// The strip's Back button (see <see cref="ShowCategories"/>) returns the player to the tabs.
+        /// Called by the controller itself (category bar event) and may be called externally to force
+        /// a category open.
         /// </summary>
         public void SelectCategory(ActionCategory category)
         {
             if (currentAction != null) Disarm();
 
-            bool sameOpen = currentCategory == category && strip != null && strip.IsVisible;
-            if (sameOpen)
-            {
-                currentCategory = null;
-                if (strip        != null) strip.SetVisible(false);
-                if (categoryBar  != null) categoryBar.SetActiveCategory(null);
-                return;
-            }
-
             currentCategory = category;
             if (strip       != null) strip.Render(GetActionsFor(category));
             if (strip       != null) strip.SetVisible(true);
             if (categoryBar != null) categoryBar.SetActiveCategory(category);
+            // Hide the category tabs so only the strip (+ its Back button) is shown.
+            if (categoryBar != null) categoryBar.SetVisible(false);
+        }
+
+        /// <summary>
+        /// Closes the action strip and returns to the category tabs (the strip's Back/exit button).
+        /// Disarms any armed action first so the estimate panel doesn't linger over the tabs.
+        /// </summary>
+        public void ShowCategories()
+        {
+            if (currentAction != null) Disarm();
+
+            currentCategory = null;
+            if (strip       != null) strip.SetVisible(false);
+            if (categoryBar != null) categoryBar.SetActiveCategory(null);
+            if (categoryBar != null) categoryBar.SetVisible(true);
         }
 
         private IEnumerable<PlayerAction> GetActionsFor(ActionCategory category)
@@ -348,7 +394,16 @@ namespace Habitales.UI.Actions
         {
             if (flower != null) flower.SetBloomed(wantBloom);
 
-            if (!wantBloom)
+            if (wantBloom)
+            {
+                // Blooming always lands on the category-tabs state: no strip open, tabs shown.
+                if (currentAction != null) Disarm();
+                currentCategory = null;
+                if (strip       != null) strip.SetVisible(false);
+                if (categoryBar != null) categoryBar.SetActiveCategory(null);
+                if (categoryBar != null) categoryBar.SetVisible(true);
+            }
+            else
             {
                 if (currentAction != null) Disarm();
                 currentCategory = null;
@@ -377,7 +432,9 @@ namespace Habitales.UI.Actions
             // Hide any lingering brush slider from a previously armed FloodFill action;
             // a FloodFill entry re-shows it via TileSelector.OnBrushSizeChanged.
             if (estimatePanel != null) estimatePanel.HideBrush();
-            if (strip         != null) strip.Highlight(action);
+            // Arming swaps the strip out for the estimate panel — the two are stacked states, not
+            // shown together. Disarm/Cancel/Confirm re-show the strip via Disarm().
+            if (strip         != null) strip.SetVisible(false);
 
             // Law-2: fire the armed event now that the action is meaningfully selected.
             OnActionArmed?.Invoke(currentAction);
@@ -414,6 +471,11 @@ namespace Habitales.UI.Actions
             if (estimatePanel != null) estimatePanel.SetVisible(false);
             if (estimatePanel != null) estimatePanel.HideBrush();
             if (strip         != null) strip.Highlight(null);
+
+            // Return to the strip view (the estimate panel replaced it on Arm). Only when a category
+            // is still open — callers that leave the strip entirely (ShowCategories / bloom collapse)
+            // null out currentCategory first, then hide the strip again after this returns.
+            if (currentCategory != null && strip != null) strip.SetVisible(true);
         }
 
         // ─── Tile event handlers ──────────────────────────────────────────────

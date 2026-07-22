@@ -88,5 +88,25 @@ namespace Habitales.Onboarding
 
         /// <summary>True → hide this kind of mark (hide-request convention).</summary>
         public bool hide;
+
+        // ── FidgetArrow orbit override (ignored by every other kind) ──────────
+        // The director stamps these per-phase (see OnboardingDirector.FidgetArrowTuning) so one
+        // shared FidgetArrow can sit at a different angle around each target. When applyOrbit is
+        // false the widget keeps its own serialized orbit defaults.
+
+        /// <summary>True → the orbit fields below replace the FidgetArrow's serialized defaults for this Show.</summary>
+        public bool applyOrbit;
+
+        /// <summary>Where the arrow sits around the target, in degrees (0 = right, 90 = up, 180 = left, 270 = below).</summary>
+        [Range(0f, 360f)] public float orbitAngleDeg;
+
+        /// <summary>Distance from the pivot to the arrow, in canvas pixels. &lt;= 0 keeps the widget's serialized radius.</summary>
+        public float orbitRadius;
+
+        /// <summary>Nudges the pivot (the point the arrow orbits and points at) off the tracked target, in canvas pixels.</summary>
+        public Vector2 pivotOffsetPx;
+
+        /// <summary>Final fine-tune of the arrow sprite's position after the orbit is applied, in canvas pixels.</summary>
+        public Vector2 arrowPosOffsetPx;
     }
 }

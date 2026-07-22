@@ -32,7 +32,7 @@ RectTransform:
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 4224078843284301076}
-  m_Father: {fileID: 3452581417827382026}
+  m_Father: {fileID: 7868834987505742521}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
@@ -153,7 +153,7 @@ RectTransform:
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 4877624938727373161}
-  m_Father: {fileID: 3452581417827382026}
+  m_Father: {fileID: 7868834987505742521}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
@@ -633,7 +633,7 @@ RectTransform:
   m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 4429226209066142453}
-  m_Father: {fileID: 3452581417827382026}
+  m_Father: {fileID: 7868834987505742521}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
@@ -688,7 +688,6 @@ GameObject:
   m_Component:
   - component: {fileID: 3452581417827382026}
   - component: {fileID: 6167495847161979733}
-  - component: {fileID: 5176763260756865236}
   m_Layer: 5
   m_Name: 'ActionCategoryBar '
   m_TagString: Untagged
@@ -708,9 +707,7 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 5198395253427008343}
-  - {fileID: 5186069937894336906}
-  - {fileID: 1008333392862260399}
+  - {fileID: 7868834987505742521}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0}
@@ -730,16 +727,56 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 676d34e45e843a04bb14d3200fd7eb06, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  categoryRoot: {fileID: 0}
   examineTab: {fileID: 4621935921968942680}
   interveneTab: {fileID: 6395592761487945258}
   cleanupTab: {fileID: 1423889948366574839}
---- !u!114 &5176763260756865236
+--- !u!1 &8360908776258845310
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7868834987505742521}
+  - component: {fileID: 8405587865597081014}
+  m_Layer: 5
+  m_Name: Container
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &7868834987505742521
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8360908776258845310}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 5198395253427008343}
+  - {fileID: 5186069937894336906}
+  - {fileID: 1008333392862260399}
+  m_Father: {fileID: 3452581417827382026}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: 150, y: -25}
+  m_SizeDelta: {x: 300, y: 50}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &8405587865597081014
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6753694607756939605}
+  m_GameObject: {fileID: 8360908776258845310}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 30649d3a9faa99c48a7b1166b86bf2a0, type: 3}

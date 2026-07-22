@@ -5,13 +5,16 @@ using System.Text;
 using Habitales.UI;   // IUISubsystem
 
 /// <summary>
-/// Selection-driven side panel. Listens to TileSelector: the panel is visible
-/// only while a tile is selected, and hides itself on deselect (changed
-/// 2026-07-15 — it was previously always-on with an empty state).
-/// Health is always displayed. Substats are gated on tile.isAnalyzed (defaults
-/// true in the prototype). The issues section is DORMANT (2026-07-15 region/
-/// inspector pass) — it is force-hidden and never populated; code kept for revival.
-/// Each substat row has a pre-built Image that lerps green → red via LerpHSV,
+/// Body of the Selected Info Panel — the health + 6-substat readout. As of 2026-07-22 this is
+/// MODE-AWARE and no longer selection-driven: <c>SelectedInfoPanelController</c> owns visibility
+/// and pushes either a single Tile (<see cref="Populate"/>) or its parent region
+/// (<see cref="PopulateRegion"/>). The retired auto-show/auto-hide (subscribe TileSelector →
+/// self-show on select, self-hide on deselect, 2026-07-15) is gone; the net "no selection →
+/// panel closed" behaviour is preserved by the controller's tween.
+/// Health is always displayed. Substats are gated on tile.isAnalyzed (region path: ALL tiles in
+/// the region analyzed — defaults true in the prototype → effectively always shown). The issues
+/// section is DORMANT (2026-07-15 region/inspector pass) — force-hidden, never populated; code
+/// kept for revival. Each substat row has a pre-built Image that lerps green → red via LerpHSV,
 /// plus an optional StatTooltipTrigger that receives the live value.
 /// </summary>
 public class InspectPanelUI : MonoBehaviour, IUISubsystem
@@ -33,10 +36,9 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
     }
 
     [Header("Panel Root")]
+    [Tooltip("The BODY subtree root (distinct from the controller's shared sliding root). " +
+             "IUISubsystem.SetVisible toggles THIS for the screenshot hide-all master switch.")]
     [SerializeField] private GameObject panelRoot;
-
-    [Header("Systems")]
-    [SerializeField] private TileSelector tileSelector;
 
     [Header("Empty State")]
     [SerializeField] private GameObject emptyStateRoot;
@@ -77,20 +79,10 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
     private static readonly Color SubstatGreen  = new Color(0.26f, 0.72f, 0.20f);
     private static readonly Color SubstatRed    = new Color(0.85f, 0.18f, 0.12f);
 
-    // ── Selection state ──────────────────────────────────────────────────────
-
-    // The tile currently driving the panel; null == nothing selected == panel hidden.
-    // Tracked here because TileSelector.currentTile is private with no accessor, and
-    // it lets Show() re-assert the real selection instead of forcing an empty panel on.
-    private Tile _currentTile;
-
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
     void Awake()
     {
-        if (tileSelector == null)
-            tileSelector = FindObjectOfType<TileSelector>();
-
         // Auto-fill empty tooltip slots from the indicator's own GameObject so the
         // common case (trigger sits on the icon Image) needs no extra wiring.
         for (int i = 0; i < substatTooltips.Length && i < substatIndicators.Length; i++)
@@ -99,76 +91,49 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
                 substatTooltips[i] = substatIndicators[i].GetComponent<StatTooltipTrigger>();
         }
 
-        // Subscribe in Awake/OnDestroy, NOT OnEnable/OnDisable: in the Vertical Slice
-        // scene this component sits on panelRoot itself, so hiding the panel deactivates
-        // its own GameObject. Under OnEnable/OnDisable that would unsubscribe us the
-        // moment we hid, and no later selection could ever bring the panel back —
-        // a permanent deadlock. Plain C# delegates keep firing on an inactive
-        // GameObject, so Awake-scoped subscription survives the panel hiding itself.
-        // (This is also why Hide() used to be a no-op.)
-        if (tileSelector != null)
-        {
-            tileSelector.OnTileSelected   += HandleTileSelected;
-            tileSelector.OnTileDeselected += HandleTileDeselected;
-        }
-        else
-        {
-            Debug.LogError($"{name}: InspectPanelUI found no TileSelector — the panel is "
-                         + "selection-driven and will never show. Wire the Tile Selector ref.", this);
-        }
+        // VISIBILITY & SELECTION are owned by SelectedInfoPanelController now (2026-07-22): this
+        // body no longer subscribes to TileSelector, and no longer auto-shows on select or
+        // auto-hides on deselect. It is a passive view — the controller calls Populate /
+        // PopulateRegion to fill it and slides the shared root to reveal/hide it.
+        //
+        // Historical reasoning preserved (why the RETIRED subscription used Awake, not OnEnable):
+        // this component sits on its own panelRoot, so hiding the panel deactivates its own
+        // GameObject. Under OnEnable/OnDisable a subscription would have unsubscribed the moment
+        // the panel hid, deadlocking it shut — no later selection could re-show it. Plain C#
+        // delegates keep firing on an inactive GameObject, so Awake-scoped subscription survived
+        // the panel hiding itself. The controller now applies that same Awake rule for selection.
 
-        // Nothing is selected at boot, so start hidden.
+        // Nothing is selected at boot, so start cleared/hidden.
         ShowEmpty();
     }
 
-    void OnDestroy()
-    {
-        if (tileSelector != null)
-        {
-            tileSelector.OnTileSelected   -= HandleTileSelected;
-            tileSelector.OnTileDeselected -= HandleTileDeselected;
-        }
-    }
-
-    private void HandleTileSelected(Tile tile, Vector3 _) => Populate(tile);
-    private void HandleTileDeselected() => ShowEmpty();
-
-    // ── Panel lifecycle ──────────────────────────────────────────────────────
-
     /// <summary>
-    /// Re-asserts the panel for the current selection. Because visibility is
-    /// selection-driven, this shows a populated panel iff a tile is selected —
-    /// it will NOT force an empty panel on-screen (InspectModeManager.EnterInspectMode
-    /// calls this before the player has picked a tile).
+    /// Legacy no-arg show — kept for the older InspectModeManager driver's compat. Visibility is
+    /// owned by SelectedInfoPanelController now; this just re-activates the body root. Do NOT wire
+    /// both drivers (InspectModeManager and SelectedInfoPanelController) against this panel at once.
     /// </summary>
     public void Show()
     {
-        if (_currentTile != null) Populate(_currentTile);
-        else                      ShowEmpty();
+        if (panelRoot != null) panelRoot.SetActive(true);
     }
 
     /// <summary>
-    /// Hides the panel and drops the selection reference. Real as of 2026-07-15
-    /// (was a no-op while the panel was always-on) — this is what makes
-    /// InspectModeManager.ExitInspectMode actually dismiss the panel, since
-    /// TileSelector.ClearSelection() only touches the multi-select list and
-    /// never fires OnTileDeselected.
+    /// Hides the body and clears its fields. No longer selection-coupled — the controller closes
+    /// the whole panel by sliding the shared root out; call this to blank the body directly.
     /// </summary>
     public void Hide()
     {
-        _currentTile = null;
         if (panelRoot != null) panelRoot.SetActive(false);
     }
 
     /// <summary>
-    /// The "nothing selected" state: the panel hides entirely. Fields are still
+    /// The "nothing selected" state: the body hides entirely. Fields are still
     /// cleared and emptyStateRoot re-armed so the panel can't flash stale values
     /// on its next show, and so the empty-state visuals still work if the panel
     /// is ever reverted to always-on.
     /// </summary>
     public void ShowEmpty()
     {
-        _currentTile = null;
         if (panelRoot != null) panelRoot.SetActive(false);
 
         emptyStateRoot.SetActive(true);
@@ -183,28 +148,59 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
 
     // ── Main populate ────────────────────────────────────────────────────────
 
+    /// <summary>TILE path: renders the selected tile's health + substats.</summary>
     public void Populate(Tile tile)
     {
         if (tile == null) { ShowEmpty(); return; }
 
-        // Selecting a tile is what brings the panel on-screen.
-        _currentTile = tile;
         if (panelRoot != null) panelRoot.SetActive(true);
-
         emptyStateRoot.SetActive(false);
 
-        PopulateHealth(tile);
+        PopulateHealthValue(tile.stats.CalculateHealth());
         PopulateEntity(tile);
         // Issues section is dormant — force-hidden instead of populated.
         if (issuesSectionRoot != null) issuesSectionRoot.SetActive(false);
-        PopulateSubstats(tile);
+
+        TileStats s = tile.stats;
+        PopulateSubstatsValues(SubstatValues(s), tile.isAnalyzed);
+    }
+
+    /// <summary>
+    /// REGION path (added 2026-07-22): renders the parent region's AGGREGATED health + substats,
+    /// pulled from <see cref="RegionManager.GetRegionStats"/>. Drives the same 6 substat Images +
+    /// StatTooltipTrigger + LerpHSV path as a tile. Substat reveal gate: ALL tiles in the region
+    /// isAnalyzed (defaults true → effectively always shown now).
+    /// </summary>
+    public void PopulateRegion(int regionID)
+    {
+        RegionManager rm = RegionManager.Instance;
+        if (rm == null)
+        {
+            Debug.LogError($"{name}: InspectPanelUI.PopulateRegion needs RegionManager.Instance — none in scene.", this);
+            ShowEmpty();
+            return;
+        }
+
+        TileStats agg = rm.GetRegionStats(regionID);
+
+        if (panelRoot != null) panelRoot.SetActive(true);
+        emptyStateRoot.SetActive(false);
+
+        PopulateHealthValue(agg.CalculateHealth());
+
+        // A region has no single occupant — clear the entity label.
+        if (entityNameText != null) entityNameText.text = "";
+
+        // Issues section is dormant — force-hidden instead of populated.
+        if (issuesSectionRoot != null) issuesSectionRoot.SetActive(false);
+
+        PopulateSubstatsValues(SubstatValues(agg), AllTilesAnalyzed(regionID));
     }
 
     // ── Section builders ─────────────────────────────────────────────────────
 
-    private void PopulateHealth(Tile tile)
+    private void PopulateHealthValue(float health)
     {
-        float health = tile.stats.CalculateHealth();
         healthValueText.text = $"{health:F1}%";
 
         if (health < 33f)
@@ -225,6 +221,31 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
 
         if (healthBarFill != null)
             healthBarFill.fillAmount = Mathf.Clamp01(health / 100f);
+    }
+
+    // Order must match substatIndicators array in the Inspector:
+    // [0] NutrientBalance  [1] SoilOrganicMatter  [2] SoilStructure
+    // [3] BiologicalActivity  [4] WaterDynamics  [5] ErosionResistance
+    private static float[] SubstatValues(TileStats s) => new[]
+    {
+        s.nutrientBalance,
+        s.soilOrganicMatter,
+        s.soilStructure,
+        s.biologicalActivity,
+        s.waterDynamics,
+        s.erosionResistance
+    };
+
+    // Region substat reveal gate: shown iff EVERY tile in the region is analyzed
+    // (defaults true in the prototype → effectively always shown).
+    private static bool AllTilesAnalyzed(int regionID)
+    {
+        if (TileManager.Instance == null) return true;
+        var tiles = TileManager.Instance.GetTilesInRegion(regionID);
+        if (tiles == null) return true;
+        foreach (Tile t in tiles)
+            if (t != null && !t.isAnalyzed) return false;
+        return true;
     }
 
     // The designated runtime consumer of TileEntitySO.displayName: the panel names
@@ -270,28 +291,15 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
         }
     }
 
-    private void PopulateSubstats(Tile tile)
+    // Shared substat renderer for both the tile path and the region path — fed the 6 values
+    // (same order as substatIndicators) plus whether they should be revealed.
+    private void PopulateSubstatsValues(float[] values, bool analyzed)
     {
         substatsSectionRoot.SetActive(true);
 
-        if (tile.isAnalyzed)
+        if (analyzed)
         {
             substatsLockedText.gameObject.SetActive(false);
-
-            TileStats s = tile.stats;
-
-            // Order must match substatIndicators array in the Inspector:
-            // [0] NutrientBalance  [1] SoilOrganicMatter  [2] SoilStructure
-            // [3] BiologicalActivity  [4] WaterDynamics  [5] ErosionResistance
-            float[] values =
-            {
-                s.nutrientBalance,
-                s.soilOrganicMatter,
-                s.soilStructure,
-                s.biologicalActivity,
-                s.waterDynamics,
-                s.erosionResistance
-            };
 
             for (int i = 0; i < substatIndicators.Length; i++)
             {
