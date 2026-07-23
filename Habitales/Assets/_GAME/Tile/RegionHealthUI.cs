@@ -29,6 +29,10 @@ public class RegionHealthUI : MonoBehaviour
     [Header("Health Bar (0–100)")]
     [SerializeField] private Slider healthSlider;           // min 0 / max 100
     [SerializeField] private Image  fillImage;              // optional — tinted by state
+    [Tooltip("Optional — standalone percentage readout beside the bar (e.g. \"74%\"), " +
+             "mirroring the body's per-substat value texts so the macro readout isn't less " +
+             "detailed than the micro one. Tinted by state like healthText.")]
+    [SerializeField] private TextMeshProUGUI healthValueText; // optional — e.g. "74%"
 
     [Header("Trend")]
     [SerializeField] private TrendIndicatorUI trendIndicator;          // optional — tiered up/down arrow
@@ -97,6 +101,15 @@ public class RegionHealthUI : MonoBehaviour
         // tint fillImage when present; ALWAYS update healthText.
         if (fillImage != null)
             fillImage.color = color;
+
+        // Standalone percentage readout (parity with the body's per-substat value texts). F0 to
+        // match those ("74%" vs the row "56%"), so the macro readout isn't less detailed than the
+        // micro rows below it.
+        if (healthValueText != null)
+        {
+            healthValueText.text  = $"{health:F0}%";
+            healthValueText.color = color;
+        }
 
         if (healthText != null)
         {

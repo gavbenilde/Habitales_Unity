@@ -14,8 +14,15 @@ using Habitales.UI;   // IUISubsystem
 /// Health is always displayed. Substats are gated on tile.isAnalyzed (region path: ALL tiles in
 /// the region analyzed — defaults true in the prototype → effectively always shown). The issues
 /// section is DORMANT (2026-07-15 region/inspector pass) — force-hidden, never populated; code
-/// kept for revival. Each substat row has a pre-built Image that lerps green → red via LerpHSV,
-/// plus an optional StatTooltipTrigger that receives the live value.
+/// kept for revival. Each substat row has a pre-built Image icon (substatIndicators) — as of
+/// 2026-07-23 this is a STATIC sprite, no longer value-tinted — plus an optional StatTooltipTrigger
+/// that receives the live value. Each row can also drive an optional static name label
+/// (substatLabels, assigned once in Awake), an optional per-row progress bar (substatBars,
+/// Image.fillAmount — same pattern as healthBarFill, itself untinted), an optional percentage
+/// value text (substatValueTexts, e.g. "22%"), and an optional wrapper Graphic
+/// (substatBarWrappers) that visually contains the bar + value text and carries the ONLY
+/// green→red LerpHSV value tint left in the row. All are null-guarded like substatIndicators
+/// and shared by both Populate (tile) and PopulateRegion.
 /// </summary>
 public class InspectPanelUI : MonoBehaviour, IUISubsystem
 {
@@ -69,6 +76,32 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
     [Tooltip("Optional: StatTooltipTrigger per substat icon; receives the live value on populate. Empty slots are auto-filled from the matching indicator's GameObject in Awake.")]
     [SerializeField] private StatTooltipTrigger[] substatTooltips = new StatTooltipTrigger[6];
 
+    [Header("Substat Row Labels (same order as indicators)")]
+    [Tooltip("OPTIONAL, null-guarded. Static stat NAME per row (NOT a tooltip) — order: " +
+             "NutrientBalance, SoilOrganicMatter, SoilStructure, BiologicalActivity, WaterDynamics, ErosionResistance. " +
+             "Assigned once from SubstatNames in Awake and never touched again by populate.")]
+    [SerializeField] private TextMeshProUGUI[] substatLabels = new TextMeshProUGUI[6];
+
+    [Header("Substat Row Bars (same order as indicators)")]
+    [Tooltip("OPTIONAL, null-guarded. Per-row progress bar Slider (min 0 / max 100, driven via .value), " +
+             "order: NutrientBalance, SoilOrganicMatter, SoilStructure, BiologicalActivity, WaterDynamics, " +
+             "ErosionResistance. Min/max are forced to 0–100 in Awake, same pattern as the header healthSlider.")]
+    [SerializeField] private Slider[] substatBars = new Slider[6];
+
+    [Header("Substat Row Value Texts (same order as indicators)")]
+    [Tooltip("OPTIONAL, null-guarded. Percentage readout per row (e.g. \"22%\"), order: NutrientBalance, " +
+             "SoilOrganicMatter, SoilStructure, BiologicalActivity, WaterDynamics, ErosionResistance.")]
+    [SerializeField] private TextMeshProUGUI[] substatValueTexts = new TextMeshProUGUI[6];
+
+    [Header("Substat Row Bar Wrappers (same order as indicators)")]
+    [Tooltip("OPTIONAL, null-guarded. The element visually WRAPPING each row's bar + value text " +
+             "(so tinting it colors that whole readout together) — order: NutrientBalance, " +
+             "SoilOrganicMatter, SoilStructure, BiologicalActivity, WaterDynamics, ErosionResistance. " +
+             "Graphic (not Image) so it can be either an Image container or a TMP_Text — both derive " +
+             "from Graphic. Carries the green→red LerpHSV value tint; the icon and bar themselves are " +
+             "no longer tinted.")]
+    [SerializeField] private Graphic[] substatBarWrappers = new Graphic[6];
+
     // ── Colors ───────────────────────────────────────────────────────────────
 
     private static readonly Color ColorThriving = new Color(0.26f, 0.48f, 0.13f);
@@ -78,6 +111,18 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
 
     private static readonly Color SubstatGreen  = new Color(0.26f, 0.72f, 0.20f);
     private static readonly Color SubstatRed    = new Color(0.85f, 0.18f, 0.12f);
+
+    // Human-readable names, same fixed order as substatIndicators/substatLabels/substatBars/
+    // substatValueTexts — matches the StatTooltipTrigger._statName convention.
+    private static readonly string[] SubstatNames =
+    {
+        "Nutrient Balance",
+        "Soil Organic Matter",
+        "Soil Structure",
+        "Biological Activity",
+        "Water Dynamics",
+        "Erosion Resistance"
+    };
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -89,6 +134,23 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
         {
             if (substatTooltips[i] == null && substatIndicators[i] != null)
                 substatTooltips[i] = substatIndicators[i].GetComponent<StatTooltipTrigger>();
+        }
+
+        // Static row name labels — assigned once, never touched by populate. Stay present even
+        // when substats are locked (only the bar/value reflect the locked state).
+        for (int i = 0; i < substatLabels.Length && i < SubstatNames.Length; i++)
+        {
+            if (substatLabels[i] != null)
+                substatLabels[i].text = SubstatNames[i];
+        }
+
+        // Force every substat bar Slider onto the 0–100 scale (mirrors the header healthSlider),
+        // so populate can push the raw stat value straight into .value.
+        foreach (var bar in substatBars)
+        {
+            if (bar == null) continue;
+            bar.minValue = 0;
+            bar.maxValue = 100;
         }
 
         // VISIBILITY & SELECTION are owned by SelectedInfoPanelController now (2026-07-22): this
@@ -306,12 +368,22 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
                 if (i < substatTooltips.Length && substatTooltips[i] != null)
                     substatTooltips[i].SetValue(values[i]);
 
-                if (substatIndicators[i] == null) continue;
-
                 // t = 1 → green (healthy), t = 0 → red (degraded)
                 float t = Mathf.Clamp01(values[i] / 100f);
-                substatIndicators[i].color = ColorUtils.LerpHSV(SubstatRed, SubstatGreen, t);
-                substatIndicators[i].gameObject.SetActive(true);
+
+                // Icon is a STATIC sprite as of 2026-07-23 — no value tint, just ensure it's shown.
+                if (substatIndicators[i] != null)
+                    substatIndicators[i].gameObject.SetActive(true);
+
+                if (i < substatBars.Length && substatBars[i] != null)
+                    substatBars[i].value = values[i]; // 0–100 Slider
+
+                if (i < substatValueTexts.Length && substatValueTexts[i] != null)
+                    substatValueTexts[i].text = $"{values[i]:F0}%";
+
+                // The wrapper (bar + value text container) carries the ONLY value tint left in the row.
+                if (i < substatBarWrappers.Length && substatBarWrappers[i] != null)
+                    substatBarWrappers[i].color = ColorUtils.LerpHSV(SubstatRed, SubstatGreen, t);
             }
         }
         else
@@ -320,17 +392,32 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
             substatsLockedText.text  = "Run <b>Soil Analysis</b> to reveal substats.";
             substatsLockedText.color = ColorLocked;
 
-            // Grey out all indicators while locked; tooltips fall back to "Name - ?"
-            foreach (var indicator in substatIndicators)
-            {
-                if (indicator == null) continue;
-                indicator.color = ColorLocked;
-            }
+            // Icon stays a static sprite while locked too — no grey-out anymore.
 
             foreach (var tooltip in substatTooltips)
             {
                 if (tooltip == null) continue;
                 tooltip.SetUnknown();
+            }
+
+            // Bars/value texts mirror the tooltip's locked fallback: emptied bar, "?" readout.
+            // Labels are left alone — the name stays visible even while locked.
+            for (int i = 0; i < substatBars.Length; i++)
+            {
+                if (substatBars[i] == null) continue;
+                substatBars[i].value = 0f;
+            }
+
+            for (int i = 0; i < substatValueTexts.Length; i++)
+            {
+                if (substatValueTexts[i] == null) continue;
+                substatValueTexts[i].text = "?";
+            }
+
+            for (int i = 0; i < substatBarWrappers.Length; i++)
+            {
+                if (substatBarWrappers[i] == null) continue;
+                substatBarWrappers[i].color = ColorLocked;
             }
         }
     }

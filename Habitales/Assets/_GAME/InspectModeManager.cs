@@ -6,6 +6,13 @@ using System;
 /// Scene-wiring shell for Inspect Mode.
 /// Owns the inspector references (panel, selector, button) and the public API
 /// surface. Inspect-mode state (_inspectMode) is self-contained here.
+///
+/// DORMANT as of 2026-07-23 — SUPERSEDED by <c>Habitales.UI.SelectedInfoPanelController</c>, which
+/// is the de-facto driver of the InspectPanelUI body. Do NOT wire both against the same
+/// InspectPanelUI: they would fight over the body's content and visibility. Kept on disk (all its
+/// InspectPanelUI calls are null-guarded, so an unwired <see cref="inspectPanel"/> makes it inert)
+/// for possible revival of a dedicated "inspect mode" toggle. To keep it dormant, leave
+/// <see cref="inspectPanel"/> unwired in-scene (or disable the component).
 /// </summary>
 public class InspectModeManager : MonoBehaviour
 {

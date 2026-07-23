@@ -12,7 +12,10 @@ public class RegionOutlineRenderer : MonoBehaviour
     [SerializeField] private TileManager tileManager;
     [UnityEngine.Serialization.FormerlySerializedAs("zoneManager")]
     [SerializeField] private RegionManager regionManager;
-    [SerializeField] private RegionHealthUI regionHealthUI;
+    // NOTE (2026-07-23): the RegionHealthUI header ref was REMOVED. The Selected Info Panel's
+    // header is owned exclusively by SelectedInfoPanelController now; a daily push from here
+    // would clobber the controller's Tile-mode content. This renderer only draws the boundary
+    // mesh and tints it by region health — do NOT re-add a RegionHealthUI reference here.
 
     [Header("Outline Settings")]
     [Tooltip("Assign a Material asset here that uses the 'Unlit/Color' or equivalent URP unlit shader.")]
@@ -47,10 +50,10 @@ public class RegionOutlineRenderer : MonoBehaviour
 
     void OnEnable()
     {
-        // Mirror the World Trend cadence: RegionManager recomputes each region's health
-        // and trend on OnDayResolved, but this panel is only pushed on selection. Subscribe
-        // so the *currently-selected* region's bar + trend arrow refresh every resolved day
-        // instead of freezing at their select-time value (Law 2 — push on meaning).
+        // RegionManager recomputes each region's health on OnDayResolved. Subscribe so the
+        // *currently-selected* region's OUTLINE COLOUR tracks live health every resolved day
+        // instead of freezing at its select-time value (Law 2 — push on meaning). The header
+        // panel's own daily refresh is owned by SelectedInfoPanelController, not here.
         if (RunManager.Instance != null)
             RunManager.Instance.OnDayResolved += HandleDayResolved;
     }
@@ -63,9 +66,9 @@ public class RegionOutlineRenderer : MonoBehaviour
 
     private void HandleDayResolved(int day)
     {
-        // Only the selected region has a visible panel to refresh.
+        // Only the selected region's outline is on-screen to refresh.
         if (isActive && currentRegionID >= 0)
-            RefreshRegionUI(currentRegionID);
+            RefreshRegionOutline(currentRegionID);
     }
 
     void BuildRenderObjects()
@@ -121,16 +124,16 @@ public class RegionOutlineRenderer : MonoBehaviour
 
         outlineGO.SetActive(true);
 
-        RefreshRegionUI(regionID);
+        RefreshRegionOutline(regionID);
     }
 
     /// <summary>
-    /// Recomputes the region's current health + trend and pushes them to the outline
-    /// color and the RegionHealthUI panel (bar + trend arrow). Called on selection and
-    /// on every resolved day while the region stays selected, so the panel tracks live
-    /// values instead of freezing at its select-time snapshot.
+    /// Recomputes the region's current health and tints the outline mesh by it (red 0 → green 100).
+    /// Called on selection and on every resolved day while the region stays selected, so the outline
+    /// tracks live health instead of freezing at its select-time snapshot. The RegionHealthUI header
+    /// panel is NOT driven from here — SelectedInfoPanelController owns it (2026-07-23).
     /// </summary>
-    private void RefreshRegionUI(int regionID)
+    private void RefreshRegionOutline(int regionID)
     {
         if (regionManager == null) return;
 
@@ -143,12 +146,6 @@ public class RegionOutlineRenderer : MonoBehaviour
             float t = Mathf.Pow(avgHealth / 100f, 2f); // try 2, 2.5, or 3
             outlineMaterial.color = Color.Lerp(Color.red, Color.green, t);
         }
-
-        if (regionHealthUI != null)
-        {
-            float trend = regionManager.GetRegionHealthTrend(regionID);
-            regionHealthUI.Show(regionID, avgHealth, trend);
-        }
     }
 
     /// <summary>
@@ -159,7 +156,6 @@ public class RegionOutlineRenderer : MonoBehaviour
         if (!isActive) return;
 
         outlineGO.SetActive(false);
-        regionHealthUI?.Hide();
         currentRegionID = -1;
         isActive = false;
     }
