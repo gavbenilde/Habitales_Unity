@@ -34,9 +34,36 @@ public class WalkerManager : MonoBehaviour
     [SerializeField] private float walkerY = 0f;
     [Tooltip("Duration of the card-flip spawn / card-fold despawn tween, in seconds.")]
     [SerializeField] private float lifecycleTweenDuration = 0.4f;
+    [Tooltip("Seconds to lerp each initial worker from its hidden, turned-away pose to facing the " +
+             "camera when RevealInitialWorkers runs (onboarding's Phase_07_ShowWorkers).")]
+    [SerializeField] private float workerRevealDuration = 0.6f;
 
     /// <summary>Every Walker reads this for its constant ground height.</summary>
     public float WalkerY => walkerY;
+
+    /// <summary>World positions of every live WorkerWalker — a read-only view used by onboarding to
+    /// ping the crew. Enumerates lazily and skips any that were destroyed.</summary>
+    public IEnumerable<Vector3> WorkerWalkerPositions
+    {
+        get
+        {
+            for (int i = 0; i < workerWalkers.Count; i++)
+                if (workerWalkers[i] != null) yield return workerWalkers[i].transform.position;
+        }
+    }
+
+    /// <summary>World positions of the WorkerWalkers whose bound Worker is currently fatigued.</summary>
+    public IEnumerable<Vector3> FatiguedWorkerWalkerPositions
+    {
+        get
+        {
+            for (int i = 0; i < workerWalkers.Count; i++)
+            {
+                WorkerWalker ww = workerWalkers[i];
+                if (ww != null && ww.IsFatigued) yield return ww.transform.position;
+            }
+        }
+    }
 
     // ── The claim map (lives here — Tile.cs is untouched) ──────────────────────────────────
     // One walker per tile is a roaming policy (Walker.PickRoamDestination checks IsClaimEmpty),
@@ -145,7 +172,17 @@ public class WalkerManager : MonoBehaviour
 
         ww.Bind(worker);
         ww.Initialize(workerProfile, startTile);
+        ww.HideForReveal(); // stays hidden, turned away, until RevealInitialWorkers (Phase_07_ShowWorkers)
         workerWalkers.Add(ww);
+    }
+
+    /// <summary>Onboarding's Phase_07_ShowWorkers cue: shows every initial worker and lerps it from
+    /// its hidden, turned-away pose to facing the camera (Walker.HideForReveal / RevealFacingCamera).
+    /// Idempotent — a worker that's already revealed, or mid-reveal, is skipped.</summary>
+    public void RevealInitialWorkers()
+    {
+        for (int i = 0; i < workerWalkers.Count; i++)
+            workerWalkers[i]?.RevealFacingCamera(workerRevealDuration);
     }
 
     // ── Fan-out to walkers ──────────────────────────────────────────────────────────────────

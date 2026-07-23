@@ -10,25 +10,33 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c3a940bee44d3f4db380ef7f747e0a9, type: 3}
-  m_Name: Phase_03_Framing
+  m_Name: Phase_07_ShowWorkers
   m_EditorClassIdentifier: 
-  eventName: Phase_03_Framing
-  intrusiveness: 0
+  eventName: Phase_07_ShowWorkers
+  intrusiveness: 1
   posX: 0
   posY: 0
   lines:
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 21300000, guid: 001dd9f17d9137c41bd14078f68137c6, type: 3}
-    body: Ah, yeah!!
+    portraitOverride: {fileID: 0}
+    body: These are your workers!
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
-    body: Let's recall what we're here to do.
+    portraitOverride: {fileID: 0}
+    body: They're people you can rely on when you need them!
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
-    body: We're here to rehabilitate whatever's left after all these years.
+    portraitOverride: {fileID: 0}
+    body: When you want something planted, they'll come over and do that for you.
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 0}
+    body: Just give them a holler!
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 0}
+    body: Do you remember?
   fireOnce: 0
   linkedThread: {fileID: 0}
   focusCameraOnTarget: 0

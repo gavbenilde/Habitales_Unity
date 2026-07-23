@@ -33,18 +33,17 @@ namespace Habitales.UI
 
         [Header("Confirm / Next button")]
         [SerializeField] private Button          _confirmButton;
-        [SerializeField] private TextMeshProUGUI _confirmLabel;
 
         private bool _refsOk;
 
         void Awake()
         {
-            _refsOk = _overlayBlocker && _card && _bodyText && _confirmButton && _confirmLabel;
+            _refsOk = _overlayBlocker && _card && _bodyText && _confirmButton;
             if (!_refsOk)
             {
                 Debug.LogError(
                     $"{name}: IntrusivePopupView is missing required serialized refs — " +
-                    "wire _overlayBlocker / _card / _bodyText / _confirmButton / _confirmLabel " +
+                    "wire _overlayBlocker / _card / _bodyText / _confirmButton " +
                     "in the Inspector.", this);
                 enabled = false;
             }
@@ -54,7 +53,9 @@ namespace Habitales.UI
         /// <summary>
         /// Populate and show this modal layout for <paramref name="line"/>.
         /// The confirm/next button is re-wired to <paramref name="onConfirm"/> for
-        /// this showing only; previous listeners are cleared.
+        /// this showing only; previous listeners are cleared. The button has no
+        /// label (it covers the full screen), so <paramref name="confirmLabel"/>
+        /// is accepted but ignored — kept so callers don't need to change.
         /// Portrait box visibility is driven by whether <c>line.portrait</c> is
         /// non-null — no separate portrait/no-portrait prefab needed.
         /// </summary>
@@ -62,8 +63,7 @@ namespace Habitales.UI
         {
             if (!_refsOk) { onConfirm?.Invoke(); return; }
 
-            _bodyText.text     = line.body ?? string.Empty;
-            _confirmLabel.text = confirmLabel;
+            _bodyText.text = line.body ?? string.Empty;
 
             bool hasPortrait = line.portrait != null;
             bool hasSpeaker  = !string.IsNullOrEmpty(line.displayName);

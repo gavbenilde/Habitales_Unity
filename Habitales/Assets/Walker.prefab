@@ -212,7 +212,7 @@ MonoBehaviour:
   flipDuration: 0.2
   invertFrontBack: 0
   invertFlip: 1
-  billboard: 1
+  billboard: 2
   desaturatedTint: {r: 0.3490566, g: 0.3490566, b: 0.3490566, a: 1}
 --- !u!1 &3918885154263250919
 GameObject:

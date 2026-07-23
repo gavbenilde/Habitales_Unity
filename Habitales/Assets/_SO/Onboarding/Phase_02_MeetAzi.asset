@@ -20,7 +20,19 @@ MonoBehaviour:
   - speaker: 0
     customName: 
     portraitOverride: {fileID: 21300000, guid: 03efae62146028145b5c57653a188b3b, type: 3}
-    body: Oh yikes. It's really bad out here...
+    body: Oh, yikes. It's really bad out here...
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 03efae62146028145b5c57653a188b3b, type: 3}
+    body: I received reports that it was bad but not this bad.
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 03efae62146028145b5c57653a188b3b, type: 3}
+    body: It feels so barren, I can't believe this is the same country we live in.
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 03efae62146028145b5c57653a188b3b, type: 3}
+    body: There's so much we need to do.
   fireOnce: 0
   linkedThread: {fileID: 0}
   focusCameraOnTarget: 0

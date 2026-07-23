@@ -5,16 +5,31 @@ using Habitales.Entities;
 
 // PingDirector — Azi tier system.
 //
-// Owns ONE giant ground-projected quad and bursts expanding "ring" pings from every dying
-// (Critical-tier, Plant-category) tile at day-resolution / action-landing, plus one-shot pings
-// for stream A's T3 death popups. The quad's MeshRenderer is disabled whenever no ping is
-// currently animating — zero idle cost.
+// Owns expanding "ring" ping surfaces and bursts them from every dying (Critical-tier,
+// Plant-category) tile at day-resolution / action-landing, plus one-shot pings for stream A's T3
+// death popups and onboarding's worker pings. Each surface's MeshRenderer is disabled whenever no
+// ping is currently animating on it — zero idle cost.
 //
-// UNCAPPED PING COUNT: every active ping (center + start time) lives in a plain List that grows
-// as bursts/one-shots add to it and shrinks as pings finish their lifetime. The GPU-side
-// StructuredBuffer is (re)sized to that list's actual count on every change — never a fixed
-// array. The Shader Graph ring shader loops the buffer per-pixel and combines overlapping rings
-// with max() (never +) — see PingRingShaderSpec.md / PingRingFunction.hlsl.
+// TWO SURFACES (2026-07-23): the same struct/stride/shader drives two independent quads.
+//   • GROUND  — a world-covering ground-projected quad. Critical-tile pings (BurstSweep) and the
+//     color-less/colored PingAt(...) one-shots render here; the shader measures ring distance in
+//     world XZ (its material keeps _PingPlaneMode = 0).
+//   • OVERLAY — an optional quad strapped to the FRONT of the camera (parented to it, facing the
+//     lens). PingOverlay(...) routes here; PingSurface keeps the ping's WORLD anchor and
+//     re-projects it into the quad's own local plane EVERY frame (not just once at ping-start), so
+//     the quad can keep riding the camera while the ring still tracks the anchor instead of
+//     freezing at the screen position the camera happened to be at when the ping began. The shader
+//     measures distance in local XY (material sets _PingPlaneMode = 1), so a camera-glued quad reads
+//     as flat, un-skewed UI rings at any camera angle. Used by onboarding's white "here's your crew"
+//     / red "these are tired" worker pings.
+// The two never share a buffer — the overlay's buffer just gets re-projected to local space on
+// upload instead of being stored that way.
+//
+// UNCAPPED PING COUNT: every active ping (center + start time + color) lives in a plain List that
+// grows as bursts/one-shots add to it and shrinks as pings finish their lifetime. Each surface's
+// GPU-side StructuredBuffer is (re)sized to that list's actual count on every change — never a
+// fixed array. The Shader Graph ring shader loops the buffer per-pixel and combines overlapping
+// rings with max() (never +) — see PingRingShaderSpec.md / PingRingFunction.hlsl.
 //
 // SCRIPT-OWNED CLOCK: RunManager's pause (IsEventPaused) is a flag, not a time-scale — Time.time
 // / shader _Time NEVER stop. This component accumulates its own float clock in Update(), halted
@@ -27,12 +42,20 @@ public class PingDirector : MonoBehaviour
 {
     public static PingDirector Instance { get; private set; }
 
-    [Header("Ground Quad (required)")]
-    [Tooltip("The single oversized ground-projected quad that renders every active ping ring. " +
-             "Its MeshRenderer is disabled whenever no ping is animating (zero idle cost).")]
+    [Header("Ground Quad (world-space Critical pings)")]
+    [Tooltip("The oversized ground-projected quad that renders the Critical-tile / PingAt world-space " +
+             "rings. Its material keeps _PingPlaneMode = 0 (world XZ). Its MeshRenderer is disabled " +
+             "whenever no ping is animating (zero idle cost). At least one of ground/overlay is required.")]
     [SerializeField] private MeshRenderer groundQuadRenderer;
 
-    [Header("Stagger (burst sweeps only — PingAt is never staggered)")]
+    [Header("Overlay Quad (optional — lens/UI worker pings)")]
+    [Tooltip("Second quad strapped to the FRONT of the camera (parented to it, facing the lens), sized " +
+             "to fill the frustum. Pings routed via PingOverlay(...) render here in the quad's own local " +
+             "plane, so they read as flat, un-skewed UI rings regardless of camera angle. Its material " +
+             "must set _PingPlaneMode = 1 (object-space XY). Leave null if unused.")]
+    [SerializeField] private MeshRenderer overlayQuadRenderer;
+
+    [Header("Stagger (burst sweeps only — PingAt / PingOverlay are never staggered)")]
     [Tooltip("Base seconds between one burst-ping's start and the next, in director-clock time.")]
     [SerializeField] private float baseStaggerInterval = 0.12f;
     [Tooltip("Random +/- jitter added to each burst-ping's start offset, in director-clock seconds.")]
@@ -40,38 +63,149 @@ public class PingDirector : MonoBehaviour
 
     [Header("Lifecycle")]
     [Tooltip("How long (director-clock seconds) a single ping stays in the active buffer before " +
-             "this script prunes it and (if it was the last one) disables the ground quad. This is " +
-             "a C#-side bookkeeping value only — it does not draw anything itself. Keep it roughly " +
+             "this script prunes it and (if it was the last one on that surface) disables the quad. This " +
+             "is a C#-side bookkeeping value only — it does not draw anything itself. Keep it roughly " +
              "matched to the shader material's own Ring Max Radius / Ring Speed (radius / speed = " +
              "seconds for the ring to finish) so the quad doesn't go dark mid-fade or stay lit idle " +
              "after the shader's own ring math has already faded to nothing. Tune in play mode " +
              "alongside the material — see PingRingShaderSpec.md.")]
     [SerializeField] private float pingLifetimeSeconds = 2.5f;
 
-    // ── GPU buffer ───────────────────────────────────────────────────────────────────────────
+    [Header("Color")]
+    [Tooltip("Ring color used by the color-less PingAt(pos) path AND every day-resolution / " +
+             "action-landing burst sweep — the Critical-warning red. Callers that want a different " +
+             "hue (e.g. onboarding's white 'here's your crew' and red 'these are tired' worker pings) " +
+             "use the PingAt(pos, Color) / PingOverlay(pos, Color) overloads instead.")]
+    [SerializeField] private Color defaultPingColor = new Color(1f, 0.25f, 0.1f, 1f); // hot red-orange
+
+    // ── GPU buffer (shared shape for both surfaces) ───────────────────────────────────────────
     [StructLayout(LayoutKind.Sequential)]
     private struct PingBufferEntry
     {
-        public Vector3 center;     // world-space ring origin
+        public Vector3 center;     // ring origin — WORLD space (ground) or quad-LOCAL space (overlay)
         public float   startTime;  // director-clock time this ping begins expanding
+        public Vector4 color;      // per-ping RGBA hue — the shader tints each pixel by its winning (max-intensity) ring's color
     }
-    private const int PingBufferStride = 16; // 3 floats + 1 float = 16 bytes, matches the .hlsl struct
+    private const int PingBufferStride = 32; // 3 + 1 + 4 floats = 32 bytes, matches the .hlsl PingData struct
 
     private static readonly int PingBufferId = Shader.PropertyToID("_PingBuffer");
     private static readonly int PingCountId  = Shader.PropertyToID("_PingCount");
     private static readonly int ClockId      = Shader.PropertyToID("_HabitalesClock"); // GLOBAL — shared with the glow shader
-
-    private ComputeBuffer pingBuffer;
-    private MaterialPropertyBlock propertyBlock;
 
     private struct PingRuntime
     {
         public Vector3 center;
         public float   startTime;
         public float   endTime;
+        public Vector4 color;
     }
-    private readonly List<PingRuntime> activePings = new List<PingRuntime>();
-    private bool bufferDirty;
+
+    // One render surface = one quad + its own ComputeBuffer + active-ping list. PingDirector owns two
+    // (ground world-space + overlay object-space); they never share a buffer because their centers
+    // are in different spaces. The distance metric is a per-material toggle (_PingPlaneMode), so the
+    // same shader draws both — this class only feeds each quad the centers already in its space.
+    private sealed class PingSurface
+    {
+        private readonly MeshRenderer renderer;
+        private readonly MaterialPropertyBlock mpb = new MaterialPropertyBlock();
+        private readonly List<PingRuntime> pings = new List<PingRuntime>();
+        private readonly bool reprojectLocal;
+        private ComputeBuffer buffer;
+        private bool dirty;
+
+        /// <param name="reprojectLocal">True for the overlay surface: pings store a WORLD anchor and
+        /// get re-projected into the quad's CURRENT local space on every upload (not just once at
+        /// Add-time), so the quad can ride the camera every frame while the ring still tracks its
+        /// world anchor instead of drifting once the camera pans/zooms mid-ping. False for the ground
+        /// surface, whose quad never moves, so the world center it's given is uploaded as-is.</param>
+        public PingSurface(MeshRenderer renderer, bool reprojectLocal = false)
+        {
+            this.renderer = renderer;
+            this.reprojectLocal = reprojectLocal;
+            if (renderer != null) renderer.enabled = false; // zero idle cost until something animates
+        }
+
+        public bool Valid => renderer != null;
+
+        /// <summary>Queues a ping. center is WORLD space for both surfaces — the overlay surface
+        /// re-projects it into the quad's local space itself, continuously (see reprojectLocal).</summary>
+        public void Add(Vector3 center, float startTime, float lifetime, Color color)
+        {
+            if (renderer == null) return;
+            pings.Add(new PingRuntime
+            {
+                center    = center,
+                startTime = startTime,
+                endTime   = startTime + lifetime,
+                color     = color   // Color → Vector4 (implicit)
+            });
+            dirty = true;
+        }
+
+        /// <summary>Prune expired pings, then re-upload the buffer if anything changed. Every frame.</summary>
+        public void Tick(float clock)
+        {
+            if (renderer == null) return;
+
+            for (int i = pings.Count - 1; i >= 0; i--)
+            {
+                if (clock >= pings[i].endTime)
+                {
+                    pings.RemoveAt(i);
+                    dirty = true;
+                }
+            }
+
+            // The overlay quad rides the camera every frame, so its world→local mapping changes even
+            // when no ping was added/removed this frame — keep re-uploading while anything is active.
+            if (reprojectLocal && pings.Count > 0) dirty = true;
+
+            if (dirty) Upload();
+        }
+
+        private void Upload()
+        {
+            dirty = false;
+            int count = pings.Count;
+
+            renderer.enabled = count > 0; // zero idle cost when nothing is animating
+
+            if (count == 0) { Release(); return; }
+
+            if (buffer == null || buffer.count != count)
+            {
+                Release();
+                buffer = new ComputeBuffer(count, PingBufferStride);
+            }
+
+            var entries = new PingBufferEntry[count];
+            for (int i = 0; i < count; i++)
+            {
+                entries[i].center    = reprojectLocal
+                    ? renderer.transform.InverseTransformPoint(pings[i].center) // world -> quad's CURRENT local space
+                    : pings[i].center;
+                entries[i].startTime = pings[i].startTime;
+                entries[i].color     = pings[i].color;
+            }
+            buffer.SetData(entries);
+
+            mpb.SetBuffer(PingBufferId, buffer);
+            mpb.SetInt(PingCountId, count);
+            renderer.SetPropertyBlock(mpb);
+        }
+
+        public void Release()
+        {
+            if (buffer != null)
+            {
+                buffer.Release();
+                buffer = null;
+            }
+        }
+    }
+
+    private PingSurface ground;
+    private PingSurface overlay;
 
     private float clock; // script-owned, halts while RunManager.IsEventPaused
 
@@ -84,15 +218,15 @@ public class PingDirector : MonoBehaviour
         }
         Instance = this;
 
-        if (groundQuadRenderer == null)
-        {
-            Debug.LogError($"{name}: groundQuadRenderer is not wired — PingDirector cannot render any ping. Assign the ground quad's MeshRenderer in the Inspector.", this);
-            enabled = false;
-            return;
-        }
+        ground  = new PingSurface(groundQuadRenderer);
+        overlay = new PingSurface(overlayQuadRenderer, reprojectLocal: true);
 
-        propertyBlock = new MaterialPropertyBlock();
-        groundQuadRenderer.enabled = false; // zero idle cost — nothing is animating yet
+        if (!ground.Valid && !overlay.Valid)
+        {
+            Debug.LogError($"{name}: neither groundQuadRenderer nor overlayQuadRenderer is wired — " +
+                           "PingDirector cannot render any ping. Assign at least one in the Inspector.", this);
+            enabled = false;
+        }
     }
 
     void Start()
@@ -128,7 +262,8 @@ public class PingDirector : MonoBehaviour
         if (ActionManager.Instance != null)
             ActionManager.Instance.OnActionCompleted -= HandleActionCompleted;
 
-        ReleaseBuffer();
+        ground?.Release();
+        overlay?.Release();
 
         if (Instance == this) Instance = null;
     }
@@ -136,27 +271,48 @@ public class PingDirector : MonoBehaviour
     // The ONLY polling-shaped code in stream C: clock accumulation, halted behind the flag.
     void Update()
     {
+        if (ground == null) return; // a duplicate instance (Awake returned before building surfaces) — being destroyed
+
         if (RunManager.Instance == null || !RunManager.Instance.IsEventPaused)
             clock += Time.deltaTime;
 
         Shader.SetGlobalFloat(ClockId, clock); // shared uniform — ping shader AND glow shader read this
 
-        PruneExpiredPings();
-
-        if (bufferDirty)
-            UploadBuffer();
+        ground.Tick(clock);
+        overlay.Tick(clock);
     }
 
-    // ── Public API (parallel agents compile against this exact surface) ────────────────────
-    /// <summary>One-shot single ping anchored at a world position — works on empty/debris tiles,
-    /// the anchor is a position, not an entity. Never staggered (starts immediately).</summary>
+    // ── Public API ─────────────────────────────────────────────────────────────────────────────
+    /// <summary>One-shot single ping on the GROUND surface, anchored at a world position — works on
+    /// empty/debris tiles, the anchor is a position, not an entity. Never staggered (starts
+    /// immediately). Uses <see cref="defaultPingColor"/> (the Critical-warning red).</summary>
     public void PingAt(Vector3 worldPos)
     {
-        if (!enabled) return; // groundQuadRenderer missing — already loud-failed in Awake
-        AddPing(worldPos, clock);
+        if (!enabled) return;
+        ground.Add(worldPos, clock, pingLifetimeSeconds, defaultPingColor);
     }
 
-    // ── Burst triggers ───────────────────────────────────────────────────────────────────────
+    /// <summary>One-shot single ping on the GROUND surface in an explicit color. Anchored at a world
+    /// position, never staggered.</summary>
+    public void PingAt(Vector3 worldPos, Color color)
+    {
+        if (!enabled) return;
+        ground.Add(worldPos, clock, pingLifetimeSeconds, color);
+    }
+
+    /// <summary>One-shot single ping on the OVERLAY (lens) surface — onboarding's worker pings.
+    /// worldPos is a world-space anchor (e.g. a worker). Unlike the ground surface, PingSurface
+    /// re-projects this world anchor into the overlay quad's LOCAL space itself, every frame (see
+    /// PingSurface.reprojectLocal) — so the quad can keep riding the camera while the ring still
+    /// tracks the anchor's true world/on-screen position instead of freezing at the spot the camera
+    /// happened to be looking at when the ping started. No-op if the overlay quad isn't wired.</summary>
+    public void PingOverlay(Vector3 worldPos, Color color)
+    {
+        if (!enabled || !overlay.Valid) return;
+        overlay.Add(worldPos, clock, pingLifetimeSeconds, color);
+    }
+
+    // ── Burst triggers (GROUND surface only) ────────────────────────────────────────────────────
     /// <summary>Day-resolution burst — SUPPRESSED while an action is running (no pings on watched
     /// action days; the landing-day OnActionCompleted burst covers that case instead).</summary>
     void HandleDayResolved(int day)
@@ -177,7 +333,7 @@ public class PingDirector : MonoBehaviour
     /// here — one tier classifier, one place (S2).</summary>
     void BurstSweep()
     {
-        if (!enabled) return;
+        if (!enabled || !ground.Valid) return;
         if (TileManager.Instance == null) return;
 
         int index = 0;
@@ -189,75 +345,8 @@ public class PingDirector : MonoBehaviour
             Vector3 worldPos = TileManager.Instance.GridToWorldPosition(tile.gridPosition);
             float jitter = Random.Range(-staggerJitter, staggerJitter);
             float start = clock + baseStaggerInterval * index + jitter;
-            AddPing(worldPos, start);
+            ground.Add(worldPos, start, pingLifetimeSeconds, defaultPingColor);
             index++;
-        }
-    }
-
-    // ── Active-ping bookkeeping ──────────────────────────────────────────────────────────────
-    void AddPing(Vector3 worldPos, float startTime)
-    {
-        activePings.Add(new PingRuntime
-        {
-            center    = worldPos,
-            startTime = startTime,
-            endTime   = startTime + pingLifetimeSeconds
-        });
-        bufferDirty = true;
-    }
-
-    void PruneExpiredPings()
-    {
-        bool removedAny = false;
-        for (int i = activePings.Count - 1; i >= 0; i--)
-        {
-            if (clock >= activePings[i].endTime)
-            {
-                activePings.RemoveAt(i);
-                removedAny = true;
-            }
-        }
-        if (removedAny) bufferDirty = true;
-    }
-
-    void UploadBuffer()
-    {
-        bufferDirty = false;
-        int count = activePings.Count;
-
-        groundQuadRenderer.enabled = count > 0; // zero idle cost when nothing is animating
-
-        if (count == 0)
-        {
-            ReleaseBuffer();
-            return;
-        }
-
-        if (pingBuffer == null || pingBuffer.count != count)
-        {
-            ReleaseBuffer();
-            pingBuffer = new ComputeBuffer(count, PingBufferStride);
-        }
-
-        var entries = new PingBufferEntry[count];
-        for (int i = 0; i < count; i++)
-        {
-            entries[i].center    = activePings[i].center;
-            entries[i].startTime = activePings[i].startTime;
-        }
-        pingBuffer.SetData(entries);
-
-        propertyBlock.SetBuffer(PingBufferId, pingBuffer);
-        propertyBlock.SetInt(PingCountId, count);
-        groundQuadRenderer.SetPropertyBlock(propertyBlock);
-    }
-
-    void ReleaseBuffer()
-    {
-        if (pingBuffer != null)
-        {
-            pingBuffer.Release();
-            pingBuffer = null;
         }
     }
 }

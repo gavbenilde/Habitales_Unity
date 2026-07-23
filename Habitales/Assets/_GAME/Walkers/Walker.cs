@@ -223,6 +223,10 @@ public abstract class Walker : MonoBehaviour
     private float flipTargetT = 1f;
     private Coroutine flipRoutine;
 
+    // Reveal override — see the "Reveal" region near ApplyBillboard for the full explanation.
+    private bool revealOverrideActive;
+    private Coroutine revealRoutine;
+
     /// <summary>The tile this walker currently claims.</summary>
     public Tile CurrentTile => currentTile;
 
@@ -298,6 +302,12 @@ public abstract class Walker : MonoBehaviour
 
     protected virtual void Update()
     {
+        // Frozen while hidden for reveal (HideForReveal/RevealFacingCamera): roaming while hidden
+        // would move the walker off its spawn spot AND — worse — a facing flip mid-roam calls
+        // ApplyFacingModels, which unconditionally re-enables the rig renderers and pops the walker
+        // back into view before the actual reveal cue. Freezing here removes both problems at the root.
+        if (revealOverrideActive) return;
+
         // WorkerWalker gates this off entirely while Working via CanRoamThisFrame, so the
         // flight coroutine owns movement instead.
         if (!CanRoamThisFrame()) return;
@@ -535,6 +545,7 @@ public abstract class Walker : MonoBehaviour
     /// </summary>
     private void ApplyBillboard()
     {
+        if (revealOverrideActive) return; // HideForReveal / RevealFacingCamera own the rig rotation right now
         if (billboard == BillboardMode.None) return;
         if (facingCamera == null) facingCamera = Camera.main;
         if (facingCamera == null) return; // no camera yet — hold the authored rotation
@@ -558,6 +569,66 @@ public abstract class Walker : MonoBehaviour
         Quaternion full = Quaternion.LookRotation(toCamera, facingCamera.transform.up);
         frontRig?.ApplyBillboard(full);
         backRig?.ApplyBillboard(full);
+    }
+
+    // ── Reveal (entrance cue driven by an external system, e.g. onboarding) ────────────────────
+    // Lets a walker start hidden and turned away, then be shown and turned to face the camera on
+    // cue. Suppresses the automatic per-frame ApplyBillboard above while active — otherwise the rig
+    // would snap straight to its camera-facing pose on the very next LateUpdate, before the lerp
+    // below ever got drawn — and hands control back the instant the lerp lands on that same pose,
+    // so the handoff is invisible. Roaming/animation are untouched by any of this; only the art
+    // (rig rotation + renderers) is affected.
+
+    /// <summary>Hides both rigs and turns them 180° off their camera-facing pose. Call right after
+    /// Initialize on a walker that shouldn't be seen yet — RevealFacingCamera is its counterpart.</summary>
+    public void HideForReveal()
+    {
+        revealOverrideActive = true;
+        Quaternion away = YawTowardCamera() * Quaternion.Euler(0f, 180f, 0f);
+        frontRig?.ApplyBillboard(away);
+        backRig?.ApplyBillboard(away);
+        frontRig?.SetRenderersEnabled(false);
+        backRig?.SetRenderersEnabled(false);
+    }
+
+    /// <summary>Shows the rigs and lerps them from the hidden, turned-away pose to facing the
+    /// camera over `duration` seconds. No-op if this walker was never hidden or is already
+    /// revealing — safe to call more than once.</summary>
+    public void RevealFacingCamera(float duration)
+    {
+        if (!revealOverrideActive || revealRoutine != null) return;
+        ApplyFacingModels(); // shows whichever rig (front/back) belongs at the current facing
+        revealRoutine = StartCoroutine(RevealRoutine(duration));
+    }
+
+    private IEnumerator RevealRoutine(float duration)
+    {
+        Quaternion start = YawTowardCamera() * Quaternion.Euler(0f, 180f, 0f);
+        float t = 0f;
+        while (t < 1f)
+        {
+            t += duration > 0f ? Time.deltaTime / duration : 1f;
+            Quaternion current = Quaternion.Slerp(start, YawTowardCamera(), Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t)));
+            frontRig?.ApplyBillboard(current);
+            backRig?.ApplyBillboard(current);
+            yield return null;
+        }
+
+        revealOverrideActive = false; // hand back to the normal per-frame ApplyBillboard above
+        revealRoutine = null;
+    }
+
+    /// <summary>Yaw-only rotation toward the camera, flattened to the XZ plane — the same
+    /// projection ApplyBillboard's YAxis mode uses. Falls back to the walker's current rotation if
+    /// there's no camera yet or it sits directly overhead.</summary>
+    private Quaternion YawTowardCamera()
+    {
+        if (facingCamera == null) facingCamera = Camera.main;
+        if (facingCamera == null) return transform.rotation;
+
+        Vector3 toCamera = facingCamera.transform.position - transform.position;
+        toCamera.y = 0f;
+        return toCamera.sqrMagnitude < 0.0001f ? transform.rotation : Quaternion.LookRotation(toCamera);
     }
 
     /// <summary>

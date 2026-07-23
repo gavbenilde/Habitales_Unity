@@ -29,16 +29,17 @@ namespace Habitales.Onboarding
     //  PopupController.Show(PopupSO), which skips that pause path.
     //
     //  ADVANCE MODEL:
-    //    • Passive phases (2,3,8,9,10,10.1,11,12,13,14,16,17,18): advance on the
-    //      popup's onComplete callback.
+    //    • Passive phases (2,3,7,7.3,8,9,10,10.1,11,12,13,14,16,17,18): advance on the
+    //      popup's onComplete callback. (7 = ShowWorkers, 7.3 = FatigueBar.)
     //    • Interactive phases advance on real gameplay events:
-    //        4  → strip opened            (ActionBarUI.IsStripOpen)
-    //        5  → Plant Trees armed        (ActionBarUI.OnActionArmed)
-    //        6  → drag multi-select ≥ 3    (TileSelector.SelectedTileCount, polled)
-    //        7  → action confirmed         (ActionBarUI.OnActionConfirmed)
-    //        15 → next zone unlocked       (RunManager.OnRegionUnlocked)
-    //    • Phase 1 (loading reveal): timer-authoritative — lasts exactly
-    //      loadingRevealSeconds. The world's tile pop-in animates independently.
+    //        1   → Zone 1 tile pop-in finished (RegionManager.OnInitialRegionRevealed; loadingRevealSeconds
+    //              is only a safety-net ceiling if that event never arrives)
+    //        4   → strip opened            (ActionBarUI.IsStripOpen)
+    //        5   → Plant Trees armed        (ActionBarUI.OnActionArmed)
+    //        6   → drag multi-select ≥ 3    (TileSelector.SelectedTileCount, polled)
+    //        7.1 → action confirmed         (ActionBarUI.OnActionConfirmed — the Confirm beat)
+    //        7.2 → action lands             (ActionManager.OnActionCompleted; then red pings + popup)
+    //        15  → next zone unlocked       (RunManager.OnRegionUnlocked)
     //
     //  ARCHITECTURAL LAWS (unchanged):
     //    1. Getters, not setters — reads other systems' read-only surface.
@@ -99,7 +100,7 @@ namespace Habitales.Onboarding
         [Serializable]
         public struct FidgetArrowTuning
         {
-            [Tooltip("Which phase's FidgetArrow this tunes (phases 4, 5, 7, 8, 9, 10, 10.1 show one).")]
+            [Tooltip("Which phase's FidgetArrow this tunes (phases 4, 5, 7, 7.3, 8, 9, 10, 10.1 show one).")]
             public OnboardingBeatId phase;
 
             [Tooltip("Where the arrow sits around the target, in degrees. 0 = right, 90 = up, " +
@@ -127,8 +128,11 @@ namespace Habitales.Onboarding
         [SerializeField] private PhaseContent[] phases = new PhaseContent[0];
 
         [Header("Phase 1 — loading reveal")]
-        [Tooltip("Exact duration (seconds) of phase 1. The world's tile pop-in animates " +
-                 "independently and keeps playing past this, so lower = snappier hand-off to Azi.")]
+        [Tooltip("Safety-net ceiling (seconds) for phase 1. Phase 1 normally advances the moment " +
+                 "RegionManager finishes animating Zone 1's tiles in (OnInitialRegionRevealed); this " +
+                 "only fires if that event never arrives (regionManager unwired/misconfigured), so it " +
+                 "never soft-locks. Set it above the worst-case reveal time (zone1RevealStagger × the " +
+                 "top of Zone 1's profile sizeRange), not below it.")]
         [SerializeField] private float loadingRevealSeconds = 2.5f;
 
         [Header("Phase 6 — select tiles")]
@@ -146,11 +150,39 @@ namespace Habitales.Onboarding
         [SerializeField] private RectTransform zoneHealthBarTarget;
         [Tooltip("Trait icon pips. Phase 10.1 highlight (skipped if null).")]
         [SerializeField] private RectTransform traitPipsTarget;
+        [Tooltip("Workforce / fatigue bar (ResourceDisplay's people bar — drops as workers tire). " +
+                 "Phase 7.3 points a FidgetArrow here (skipped if null).")]
+        [SerializeField] private RectTransform fatigueBarTarget;
 
         [Tooltip("Optional per-phase FidgetArrow orbit tuning. One entry per phase whose arrow " +
                  "needs a different seat/pivot than the widget default. Order is irrelevant — " +
                  "lookup is by phase id; phases with no entry use the FidgetArrow's own defaults.")]
         [SerializeField] private FidgetArrowTuning[] fidgetArrowTuning = new FidgetArrowTuning[0];
+
+        [Header("Worker pings (phases 7 / 7.2)")]
+        [Tooltip("Color of the 'here's your crew' pings shown on every worker in phase 7 (Show Workers).")]
+        [SerializeField] private Color workerRevealPingColor = Color.white;
+        [Tooltip("Color of the 'these workers are tired' pings shown on the fatigued crew after the " +
+                 "action lands in phase 7.2 (Workers Tired).")]
+        [SerializeField] private Color workerFatiguePingColor = new Color(0.9f, 0.15f, 0.15f, 1f);
+
+        [Tooltip("Seconds between worker-ping bursts. The reveal (white) and fatigue (red) pings re-fire " +
+                 "on this cadence for as long as their phase is on screen, then stop when it advances.")]
+        [SerializeField] private float workerPingIntervalSeconds = 1.25f;
+
+        [Tooltip("World-space horizontal offset (left/right) from each worker's anchor position where its " +
+                 "ping is centered. WalkerManager positions anchor at the worker's base/pivot — this nudges " +
+                 "the ring onto a specific point on the sprite (e.g. off-center art) instead of the raw pivot.")]
+        [SerializeField] private float workerPingOffsetX = 0f;
+        [Tooltip("World-space vertical offset (height) from each worker's anchor position where its ping is " +
+                 "centered. Positive raises the ring above the worker's base/pivot, e.g. toward chest/head " +
+                 "height instead of the feet.")]
+        [SerializeField] private float workerPingOffsetY = 1f;
+
+        // The worker pings render on PingDirector's OVERLAY surface (the lens/UI quad glued to the
+        // camera). Projecting the worker onto that quad is PingDirector's job (PingOverlay → the quad's
+        // own local plane), so there is no camera/layer reference here — wire the overlay quad on
+        // PingDirector instead. If it isn't wired, the worker pings simply no-op (art-pending, §T).
 
         [Header("Interactive targets")]
         [Tooltip("Stable ActionSO.actionId of the action phase 5 teaches — the card the coach-mark " +
@@ -179,10 +211,13 @@ namespace Habitales.Onboarding
             OnboardingBeatId.Phase_01_LoadingReveal,
             OnboardingBeatId.Phase_02_MeetAzi,
             OnboardingBeatId.Phase_03_Framing,
+            OnboardingBeatId.Phase_07_ShowWorkers,
             OnboardingBeatId.Phase_04_ActionBar,
             OnboardingBeatId.Phase_05_PickCard,
             OnboardingBeatId.Phase_06_SelectTiles,
             OnboardingBeatId.Phase_07_Confirm,
+            OnboardingBeatId.Phase_07_WorkersTired,
+            OnboardingBeatId.Phase_07_FatigueBar,
             OnboardingBeatId.Phase_08_TimeStamina,
             OnboardingBeatId.Phase_09_Weather,
             OnboardingBeatId.Phase_10_ZoneHealth,
@@ -216,7 +251,7 @@ namespace Habitales.Onboarding
                 case OnboardingBeatId.Phase_07_Confirm:
                     return PopupStyle.Text;
 
-                default: // 8, 9, 10, 10.1, 14, 16, 17, 18
+                default: // 7 (ShowWorkers), 7.2 (WorkersTired), 7.3 (FatigueBar), 8, 9, 10, 10.1, 14, 16, 17, 18
                     return PopupStyle.Character;
             }
         }
@@ -239,6 +274,19 @@ namespace Habitales.Onboarding
         private bool _confirmed;          // phase 7: action confirmed (event)
         private bool _dragDone;           // phase 6: drag multi-select ≥ 3 (polled)
         private bool _regionUnlocked;     // phase 15: next zone unlocked (event)
+        private bool _regionRevealed;     // phase 1: Zone 1 tile pop-in tween finished (event)
+        private bool _awaitingActionComplete; // phase 7.2: red pings + popup held until OnActionCompleted
+        // Sticky across the ShowWorkers→Confirm hand-off (NOT reset in the per-phase gate reset): the
+        // reveal beat is non-blocking, so an eager player can press Confirm during it. If they do, the
+        // Confirm beat (7.1) auto-advances instead of waiting for a re-confirm that can never come.
+        private bool _confirmSeenEarly;
+
+        // Worker-ping repeat driver (phases 7 / 7.2). While the mode is set, Update re-fires the pings
+        // every workerPingIntervalSeconds; EnterPhase clears it so the repeat stops the moment the phase
+        // advances.
+        private enum WorkerPingMode { None, AllWorkers, FatiguedWorkers }
+        private WorkerPingMode _workerPingMode = WorkerPingMode.None;
+        private float          _workerPingTimer;
 
         private float _loadingTimer;      // phase 1 reveal timer (authoritative duration)
 
@@ -292,7 +340,7 @@ namespace Habitales.Onboarding
                 Debug.LogWarning($"{name}: ObjectiveBannerUI not found — graduation's landing-reveal tween will not play.", this);
 
             if (regionManager == null) regionManager = FindObjectOfType<RegionManager>();
-            // regionManager is optional — phase 16's camera pan is best-effort.
+            // Also used for phase 16's camera pan (best-effort there).
 
             BuildPhaseLookup();
 
@@ -305,11 +353,24 @@ namespace Habitales.Onboarding
                 Debug.LogError($"{name}: RunManager.Instance is null — phase 15 (free play) can never detect the zone unlock. " +
                                "Ensure RunManager is in the scene.", this);
 
+            if (regionManager != null)
+                regionManager.OnInitialRegionRevealed += HandleInitialRegionRevealed;
+            else
+                Debug.LogWarning($"{name}: RegionManager not found — phase 1 (loading reveal) can't detect the tile " +
+                                 "pop-in finishing; it will fall back to the loadingRevealSeconds timer.", this);
+
             if (actionBarUI != null)
             {
                 actionBarUI.OnActionArmed     += HandleActionArmed;
                 actionBarUI.OnActionConfirmed += HandleActionConfirmed;
             }
+
+            // Phase 7.2 (fatigued-worker reveal) fires only once the confirmed action finishes.
+            if (ActionManager.Instance != null)
+                ActionManager.Instance.OnActionCompleted += HandleActionCompleted;
+            else
+                Debug.LogWarning($"{name}: ActionManager.Instance is null — phase 7.2 (fatigued-worker " +
+                                 "reveal) can't detect the action finishing; it will fire immediately instead.", this);
 
             _cachedSelector = TileSelector.Instance ?? FindObjectOfType<TileSelector>();
             if (_cachedSelector == null)
@@ -325,11 +386,17 @@ namespace Habitales.Onboarding
             if (RunManager.Instance != null)
                 RunManager.Instance.OnRegionUnlocked -= HandleRegionUnlocked;
 
+            if (regionManager != null)
+                regionManager.OnInitialRegionRevealed -= HandleInitialRegionRevealed;
+
             if (actionBarUI != null)
             {
                 actionBarUI.OnActionArmed     -= HandleActionArmed;
                 actionBarUI.OnActionConfirmed -= HandleActionConfirmed;
             }
+
+            if (ActionManager.Instance != null)
+                ActionManager.Instance.OnActionCompleted -= HandleActionCompleted;
         }
 
         void BuildPhaseLookup()
@@ -368,13 +435,26 @@ namespace Habitales.Onboarding
                 return;
             }
 
+            // Worker-ping repeat (phases 7 / 7.2): re-fire the burst on cadence until the phase clears
+            // the mode. Runs alongside the per-beat switch below, not inside it.
+            if (_workerPingMode != WorkerPingMode.None)
+            {
+                _workerPingTimer += Time.unscaledDeltaTime;
+                if (_workerPingTimer >= workerPingIntervalSeconds)
+                {
+                    _workerPingTimer = 0f;
+                    FireWorkerPings();
+                }
+            }
+
             switch (CurrentBeat)
             {
                 case OnboardingBeatId.Phase_01_LoadingReveal:
-                    // Timer-authoritative: phase 1 lasts exactly loadingRevealSeconds. The world's
-                    // tile pop-in animates independently (RegionManager) and keeps playing past this.
+                    // Event-authoritative: advances the moment RegionManager finishes animating Zone
+                    // 1's tiles in (OnInitialRegionRevealed). loadingRevealSeconds is only a safety-net
+                    // ceiling in case that event never arrives (regionManager unwired/misconfigured).
                     _loadingTimer += Time.unscaledDeltaTime;
-                    if (_loadingTimer >= loadingRevealSeconds) CompletePhase();
+                    if (_regionRevealed || _loadingTimer >= loadingRevealSeconds) CompletePhase();
                     break;
 
                 case OnboardingBeatId.Phase_04_ActionBar:
@@ -419,7 +499,10 @@ namespace Habitales.Onboarding
         void EnterPhase(OnboardingBeatId id)
         {
             // Reset per-phase gates.
-            _armed = _confirmed = _dragDone = _regionUnlocked = false;
+            _armed = _confirmed = _dragDone = _regionUnlocked = _regionRevealed = false;
+            _awaitingActionComplete = false;
+            _workerPingMode      = WorkerPingMode.None;   // stop any repeating worker pings from the prior beat
+            _workerPingTimer     = 0f;
             _dragGhostShown      = false;
             _dragBaselineCount   = 0;
             _dragGhostDelayTimer = 0f;
@@ -483,7 +566,23 @@ namespace Habitales.Onboarding
                     // — RefreshDragGhostByArmState() shows it in Update.
                     break;
 
+                case OnboardingBeatId.Phase_07_ShowWorkers:
+                    // The crew has been spawned hidden (turned away) since run start — this beat is
+                    // their entrance: show them and lerp each into facing the camera, then white pings
+                    // on the whole crew — "here's who does the work" — then a passive popup that
+                    // advances on dismissal. The pings repeat on workerPingIntervalSeconds while the
+                    // beat is up; the popup text carries the beat. Non-intrusive (Character), so the
+                    // sim isn't paused and the ping rings animate while the bubble is up.
+                    WalkerManager.Instance?.RevealInitialWorkers();
+                    _confirmSeenEarly = false;   // open the reveal→confirm window (see the field's note)
+                    BeginWorkerPings(WorkerPingMode.AllWorkers);   // repeats until the beat advances
+                    PresentPopup(id, advanceOnComplete: true);
+                    break;
+
                 case OnboardingBeatId.Phase_07_Confirm:
+                    // If the player already confirmed during the (non-blocking) reveal, the action is
+                    // already committed and disarmed — asking again would soft-lock. Auto-advance.
+                    if (_confirmSeenEarly) { RequestAdvance(); break; }
                     PresentPopup(id, advanceOnComplete: false);
                     ShowMark(new CoachMarkRequest
                     {
@@ -491,6 +590,23 @@ namespace Habitales.Onboarding
                         trackTarget       = actionBarUI != null ? actionBarUI.GetConfirmButtonRect() : null,
                         screenSpaceTarget = true,
                     });
+                    break;
+
+                case OnboardingBeatId.Phase_07_WorkersTired:
+                    // Red pings on the fatigued crew, shown only AFTER the confirmed action finishes.
+                    // If the action is still running (the normal case — it plays out over several
+                    // days), defer the pings + popup to HandleActionCompleted; if it already finished
+                    // (e.g. an instant action, so OnActionCompleted fired during the confirm beat and
+                    // we missed it), fire now so the beat never stalls waiting on a past event.
+                    if (ActionManager.Instance != null && ActionManager.Instance.IsActionRunning)
+                        _awaitingActionComplete = true;   // HandleActionCompleted will reveal
+                    else
+                        RevealFatiguedWorkers();
+                    break;
+
+                case OnboardingBeatId.Phase_07_FatigueBar:
+                    ShowHighlight(fatigueBarTarget);   // FidgetArrow at the workforce / fatigue bar
+                    PresentPopup(id, advanceOnComplete: true);
                     break;
 
                 case OnboardingBeatId.Phase_08_TimeStamina:
@@ -573,6 +689,9 @@ namespace Habitales.Onboarding
 
             HideAllMarks();
             actionBarUI?.ClearCardLock();   // safety — no residual lock after onboarding
+            // Safety net for a skip landing before Phase_07_ShowWorkers ever ran — the crew must
+            // never stay hidden once onboarding is over. Idempotent if it already ran.
+            WalkerManager.Instance?.RevealInitialWorkers();
 
             if (objectiveBannerUI != null)
                 objectiveBannerUI.PlayLandingReveal();
@@ -638,6 +757,8 @@ namespace Habitales.Onboarding
         {
             if (CurrentBeat == OnboardingBeatId.Phase_07_Confirm)
                 _confirmed = true;
+            else if (CurrentBeat == OnboardingBeatId.Phase_07_ShowWorkers)
+                _confirmSeenEarly = true;   // early confirm during the reveal — Confirm beat will auto-advance
         }
 
         void HandleRegionUnlocked()
@@ -645,6 +766,91 @@ namespace Habitales.Onboarding
             if (CurrentBeat == OnboardingBeatId.Phase_15_FreePlay)
                 _regionUnlocked = true;
         }
+
+        void HandleInitialRegionRevealed()
+        {
+            if (CurrentBeat == OnboardingBeatId.Phase_01_LoadingReveal)
+                _regionRevealed = true;
+        }
+
+        // Phase 7.2 waits here: the red-ping reveal + its popup fire the moment the confirmed action
+        // finishes (clean finish OR abort — both settle Worker.isFatigued before this fires).
+        void HandleActionCompleted(Tile tile, int daysElapsed)
+        {
+            if (CurrentBeat == OnboardingBeatId.Phase_07_WorkersTired && _awaitingActionComplete)
+            {
+                _awaitingActionComplete = false;
+                RevealFatiguedWorkers();
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Worker pings (phases 7 / 7.2)
+        // ─────────────────────────────────────────────────────────────────────
+        //
+        // Both routines are best-effort: if the Walker system or PingDirector isn't wired in this
+        // scene (both are still art-pending — WALKERS / VFX §S/§T), the pings simply no-op and the
+        // popup text still teaches the beat. No soft-lock, matching Law 3's degrade-don't-die.
+
+        // Reveals the fatigued crew: red pings + the phase-7.2 popup (advances on dismissal).
+        void RevealFatiguedWorkers()
+        {
+            BeginWorkerPings(WorkerPingMode.FatiguedWorkers);   // repeats until the beat advances
+            PresentPopup(OnboardingBeatId.Phase_07_WorkersTired, advanceOnComplete: true);
+        }
+
+        // Starts (or restarts) the repeating worker-ping burst for the current beat: fires once now,
+        // then Update re-fires every workerPingIntervalSeconds until EnterPhase clears the mode.
+        void BeginWorkerPings(WorkerPingMode mode)
+        {
+            _workerPingMode  = mode;
+            _workerPingTimer = 0f;
+            FireWorkerPings();
+        }
+
+        // One burst for the active mode — invoked immediately by BeginWorkerPings and then on cadence
+        // by Update. No-op when the mode is None.
+        void FireWorkerPings()
+        {
+            switch (_workerPingMode)
+            {
+                case WorkerPingMode.AllWorkers:      PingAllWorkers(workerRevealPingColor);       break;
+                case WorkerPingMode.FatiguedWorkers: PingFatiguedWorkers(workerFatiguePingColor); break;
+            }
+        }
+
+        void PingAllWorkers(Color color)
+        {
+            if (PingDirector.Instance == null || WalkerManager.Instance == null) return;
+            foreach (Vector3 pos in WalkerManager.Instance.WorkerWalkerPositions)
+                PingDirector.Instance.PingOverlay(WorkerPingAnchor(pos), color);   // lens/UI surface — projection is PingDirector's job
+        }
+
+        void PingFatiguedWorkers(Color color)
+        {
+            if (PingDirector.Instance == null || WalkerManager.Instance == null) return;
+
+            bool any = false;
+            foreach (Vector3 pos in WalkerManager.Instance.FatiguedWorkerWalkerPositions)
+            {
+                PingDirector.Instance.PingOverlay(WorkerPingAnchor(pos), color);
+                any = true;
+            }
+
+            // The taught action normally tires several workers, but if a tuning change leaves none
+            // fatigued, ping the whole crew instead so the beat never shows zero pings.
+            if (!any)
+                foreach (Vector3 pos in WalkerManager.Instance.WorkerWalkerPositions)
+                    PingDirector.Instance.PingOverlay(WorkerPingAnchor(pos), color);
+        }
+
+        /// <summary>WalkerManager's positions anchor at each worker's base/pivot — offsets by
+        /// workerPingOffsetX/Y (world-space X/height) so the ring can land on a specific point on the
+        /// sprite (e.g. chest height) instead of the raw pivot. Applied before PingOverlay's own
+        /// world→overlay-quad-local projection, so it stays put through the reprojection PingDirector
+        /// re-runs every frame as the overlay quad rides the camera.</summary>
+        Vector3 WorkerPingAnchor(Vector3 workerPos) =>
+            workerPos + new Vector3(workerPingOffsetX, workerPingOffsetY, 0f);
 
         // ─────────────────────────────────────────────────────────────────────
         // Coach-mark helpers
@@ -841,13 +1047,23 @@ namespace Habitales.Onboarding
 //     (words + speaker only; the director picks Dialog/Character/Text). Phases
 //     that show NO popup and need no entry: 1 (loading) and 15 (free play).
 //       Dialog phases:    2, 3, 11, 12, 13
-//       Text phases:      4, 5, 6, 7
-//       Character phases: 8, 9, 10, 10.1, 14, 16, 17, 18
+//       Text phases:      4, 5, 6, 7.1 (Confirm)
+//       Character phases: 7 (ShowWorkers), 7.2 (WorkersTired), 7.3 (FatigueBar),
+//                         8, 9, 10, 10.1, 14, 16, 17, 18
 //
 // Highlight targets (optional coach marks)
-//   • dayCounterTarget / weatherHexTarget / zoneHealthBarTarget / traitPipsTarget
-//     — RectTransforms the phase-8/9/10/10.1 FidgetArrow points at. Leave null
-//     to skip the arrow (the popup text still teaches the feature).
+//   • dayCounterTarget / weatherHexTarget / zoneHealthBarTarget / traitPipsTarget /
+//     fatigueBarTarget — RectTransforms the phase-8/9/10/10.1/7.3 FidgetArrow points
+//     at. Leave null to skip the arrow (the popup text still teaches the feature).
+//
+// Worker pings (phases 7 / 7.2)
+//   • workerRevealPingColor (white) / workerFatiguePingColor (red) — the ping hue for
+//     the crew-reveal and fatigued-crew beats. Pings no-op unless the Walker system AND
+//     PingDirector are wired in the scene (both are still art-pending — §S/§T).
+//   • workerPingOffsetX / workerPingOffsetY — world-space offset from each worker's
+//     WalkerManager anchor (base/pivot) to where its ping is centered, e.g. raised to
+//     chest height instead of the feet. Applied before PingDirector's world→overlay
+//     projection, so it stays correct as the overlay quad rides the camera.
 //   • fidgetArrowTuning — optional per-phase orbit overrides for the FidgetArrow
 //     (angle 0-360 around the target + pivot / arrow-position x-y nudges). Add an
 //     entry only for a phase whose arrow needs a different seat than the widget
@@ -856,11 +1072,10 @@ namespace Habitales.Onboarding
 // References (auto-found if left null)
 //   • actionBarUI       — required for interactive phases 4–7.
 //   • objectiveBannerUI — graduation landing-reveal tween.
-//   • regionManager     — phase-16 camera pan to the new zone (best-effort).
+//   • regionManager     — phase-1 tile-pop-in advance (falls back to the loadingRevealSeconds
+//     timer if unwired) and the phase-16 camera pan to the new zone (best-effort).
 //
 // DEFERRED (see ONBOARDING_HANDOFF.md, tracked separately):
-//   • Phase 1: timer-authoritative — advances after loadingRevealSeconds. (Formerly gated on
-//     RegionManager.OnInitialRegionRevealed / item D; that signal no longer drives advancement.)
 //   • Phase 17 shows its popup only until item B guarantees the factory + adds the camera move.
 //   • Phase 11 deadline text stays literal until item G adds token substitution.
 //   • Skip control (item E — WIRED): SkipOnboarding() is the public entry point; the
