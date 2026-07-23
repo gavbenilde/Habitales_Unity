@@ -234,7 +234,7 @@ namespace Habitales.UI
             {
                 intrusiveness      = seq.intrusiveness,
                 lines              = resolved,
-                confirmLabel       = "OK",
+                confirmLabel       = "Click to Continue",
                 onConfirm          = onConfirm,
                 autoDismissSeconds = 0f,
                 anchor             = ScreenAnchor.BottomLeft,
@@ -297,7 +297,7 @@ namespace Habitales.UI
             _intrusiveLines.Clear();
             _intrusiveLines.AddRange(req.lines);
             _intrusiveIndex         = 0;
-            _intrusiveConfirmLabel  = string.IsNullOrEmpty(req.confirmLabel) ? "OK" : req.confirmLabel;
+            _intrusiveConfirmLabel  = string.IsNullOrEmpty(req.confirmLabel) ? "Click to Continue" : req.confirmLabel;
             _intrusiveOnConfirm     = req.onConfirm;
             _intrusivePendingHandle = handle;
 

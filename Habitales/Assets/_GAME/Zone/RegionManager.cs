@@ -174,8 +174,6 @@ public class RegionManager : MonoBehaviour
     /// </summary>
     public RegionGenerationResult GenerateNewRegion(int triggeringRegionID, RegionProfile overrideProfile = null)
     {
-        Debug.LogError("NEW REGION GENERATED!");
-        
         if (tileManager == null)
         {
             Debug.LogError("RegionManager: TileManager missing!");

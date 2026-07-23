@@ -207,15 +207,27 @@ namespace Habitales.Onboarding
             {
                 case OnboardingBeatId.Phase_02_MeetAzi:
                 case OnboardingBeatId.Phase_03_Framing:
-                case OnboardingBeatId.Phase_11_GoalDeadline:
-                case OnboardingBeatId.Phase_12_Stakes:
-                case OnboardingBeatId.Phase_13_RoleAffirm:
-                    return PopupStyle.Dialog;
-
                 case OnboardingBeatId.Phase_04_ActionBar:
                 case OnboardingBeatId.Phase_05_PickCard:
                 case OnboardingBeatId.Phase_06_SelectTiles:
                 case OnboardingBeatId.Phase_07_Confirm:
+                case OnboardingBeatId.Phase_08_TimeStamina:
+                case OnboardingBeatId.Phase_09_Weather:
+                case OnboardingBeatId.Phase_10_ZoneHealth:    
+                case OnboardingBeatId.Phase_11_GoalDeadline:
+                case OnboardingBeatId.Phase_12_Stakes:
+                case OnboardingBeatId.Phase_13_RoleAffirm:
+                case OnboardingBeatId.Phase_14_HelpAffordance:
+                case OnboardingBeatId.Phase_15_FreePlay:
+                case OnboardingBeatId.Phase_16_ZoneUnlock:
+                case OnboardingBeatId.Phase_17_Factory:
+                case OnboardingBeatId.Phase_18_Maintenance:
+                    return PopupStyle.Dialog; // 1, 2, 3, 11, 12, 13
+
+                // case OnboardingBeatId.Phase_04_ActionBar:
+                // case OnboardingBeatId.Phase_05_PickCard:
+                // case OnboardingBeatId.Phase_06_SelectTiles:
+                // case OnboardingBeatId.Phase_07_Confirm:
                     return PopupStyle.Text;
 
                 default: // 8, 9, 10, 10.1, 14, 16, 17, 18

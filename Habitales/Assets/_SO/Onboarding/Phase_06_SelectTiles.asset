@@ -13,9 +13,11 @@ MonoBehaviour:
   m_Name: Phase_06_SelectTiles
   m_EditorClassIdentifier: 
   eventName: Phase_06_SelectTiles
-  intrusiveness: 1
+  intrusiveness: 0
+  posX: 0
+  posY: 0
   lines:
-  - speaker: 2
+  - speaker: 0
     customName: 
     portraitOverride: {fileID: 0}
     body: Select an area to plant.
