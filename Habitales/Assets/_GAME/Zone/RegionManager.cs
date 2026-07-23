@@ -174,6 +174,8 @@ public class RegionManager : MonoBehaviour
     /// </summary>
     public RegionGenerationResult GenerateNewRegion(int triggeringRegionID, RegionProfile overrideProfile = null)
     {
+        Debug.LogError("NEW REGION GENERATED!");
+        
         if (tileManager == null)
         {
             Debug.LogError("RegionManager: TileManager missing!");
@@ -228,11 +230,14 @@ public class RegionManager : MonoBehaviour
         if (profile.forceSpecificEntities)
             ApplyForcedEntities(seed.Value, profile);
 
-        AnimateRegionReveal(regionTiles, regionRevealStagger);
+        // AnimateRegionReveal(regionTiles, regionRevealStagger);
 
         // Step 8: Worker reward
         if (resourceManager != null && profile.workerReward > 0)
+        {
             resourceManager.IncreaseTotalPeople(profile.workerReward);
+            Debug.Log(profile.workerReward);
+        }
 
         // Build result
         float avgHealth = regionTiles.Average(t => t.CalculateHealth());
@@ -254,10 +259,14 @@ public class RegionManager : MonoBehaviour
 
         PopulateNotableFindings(result, dominantTheme);
 
+        // Zone-1 reveal — entities are placed first (mirrors GenerateNewRegion's ordering), THEN
+        // the tiles animate in. Onboarding's phase-1 advance is gated on OnInitialRegionRevealed.
+        AnimateRegionReveal(regionTiles, zone1RevealStagger, () => OnRegionGenerated?.Invoke(result));
+        
         if (showDebugInfo)
             Debug.Log($"Region {regionID} generated: {regionTiles.Count} tiles | Theme: {dominantTheme} | Issues: {issuesAssigned} | Avg Health: {avgHealth:F1}");
 
-        OnRegionGenerated?.Invoke(result);
+        // OnRegionGenerated?.Invoke(result);
         return result;
     }
 
@@ -948,13 +957,6 @@ public class RegionManager : MonoBehaviour
         if (profile.forceSpecificEntities)
             ApplyForcedEntities(seed, profile);
 
-        // Zone-1 reveal — entities are placed first (mirrors GenerateNewRegion's ordering), THEN
-        // the tiles animate in. Onboarding's phase-1 advance is gated on OnInitialRegionRevealed.
-        AnimateRegionReveal(regionTiles, zone1RevealStagger, () => OnInitialRegionRevealed?.Invoke());
-
-        if (resourceManager != null && profile.workerReward > 0)
-            resourceManager.IncreaseTotalPeople(profile.workerReward);
-
         float avgHealth = regionTiles.Average(t => t.CalculateHealth());
         float contamCoverage = (float)regionTiles.Count(t => t.stats.contamination >= 60f) / regionTiles.Count;
 
@@ -972,10 +974,14 @@ public class RegionManager : MonoBehaviour
         };
         PopulateNotableFindings(result, dominantTheme);
 
+        // Zone-1 reveal — entities are placed first (mirrors GenerateNewRegion's ordering), THEN
+        // the tiles animate in. Onboarding's phase-1 advance is gated on OnInitialRegionRevealed.
+        AnimateRegionReveal(regionTiles, zone1RevealStagger, () => OnRegionGenerated?.Invoke(result));
+        
         if (showDebugInfo)
             Debug.Log($"Region 1 (initial) generated — {regionTiles.Count} tiles | Theme: {dominantTheme} | Issues: {issuesAssigned} | Avg Health: {avgHealth:F1}");
 
-        OnRegionGenerated?.Invoke(result);
+        // OnRegionGenerated?.Invoke(result);
         return result;
     }
 

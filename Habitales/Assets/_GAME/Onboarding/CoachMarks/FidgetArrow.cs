@@ -84,8 +84,7 @@ namespace Habitales.Onboarding
         private float   _speed;
         private Vector2 _pivotOffset;
         private Vector2 _arrowPosOffset;
-
-        private bool   _refsOk;
+        
         private float  _bobTime;
         private Canvas _canvas;
 

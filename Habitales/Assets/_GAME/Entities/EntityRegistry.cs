@@ -191,9 +191,6 @@ namespace Habitales.Entities
                 string id = e.EntityId;
                 if (seen.TryGetValue(id, out var existing))
                 {
-                    Debug.LogError($"EntityRegistry: displayNames '{existing.displayName}' (on '{existing.name}') and " +
-                                   $"'{e.displayName}' (on '{e.name}') both derive the id '{id}' — display names must " +
-                                   "be unique enough that their slugs don't collide.", e);
                     ok = false;
                     continue;
                 }

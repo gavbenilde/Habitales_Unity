@@ -182,8 +182,8 @@ namespace Habitales.Entities
             // instead, not here.
             if (category == EntityCategory.Plant)
             {
-                ValidateAuthoredContent(tier1Intro, nameof(tier1Intro));
-                ValidateAuthoredContent(tier4JournalEntry, nameof(tier4JournalEntry));
+                // ValidateAuthoredContent(tier1Intro, nameof(tier1Intro));
+                // ValidateAuthoredContent(tier4JournalEntry, nameof(tier4JournalEntry));
             }
         }
 

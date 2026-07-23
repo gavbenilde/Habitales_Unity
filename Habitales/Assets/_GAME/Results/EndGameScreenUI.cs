@@ -41,7 +41,6 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
 
     [Header("Panel Roots")]
     [SerializeField] private GameObject overlayPanel;   // root — toggled by Show/Hide
-    [SerializeField] private GameObject fullContent;    // everything below the top bar
 
     [Header("Header")]
     [SerializeField] private TextMeshProUGUI endReasonText;
@@ -80,6 +79,10 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     [SerializeField] private TextMeshProUGUI degradedCountText;
     [SerializeField] private TextMeshProUGUI criticalCountText;
     [SerializeField] private TextMeshProUGUI peakThrivingText;
+    
+    [Header("Stamp Images")]
+    [SerializeField] private Image passedStampImage;
+    [SerializeField] private Image failedStampImage;
 
     [Header("Employee of the Year")]
     [SerializeField] private Image           workerPortraitImage; // active when StockPhoto
@@ -166,14 +169,14 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
 
     private void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-        Instance = this;
+        // if (Instance != null && Instance != this) { Debug.Log("Destroyed"); Destroy(gameObject); return; }
+        // Instance = this;
         overlayPanel.SetActive(false);
     }
 
     private void OnEnable()
     {
-        if (minimizeButton       != null) minimizeButton.onClick.AddListener(ToggleMinimize);
+        // if (minimizeButton       != null) minimizeButton.onClick.AddListener(ToggleMinimize);
         if (playAgainButton      != null) playAgainButton.onClick.AddListener(OnPlayAgain);
         if (exitToMainMenuButton != null) exitToMainMenuButton.onClick.AddListener(OnExitToMainMenu);
         if (skipCatcherButton    != null) skipCatcherButton.onClick.AddListener(SkipReveal);
@@ -183,7 +186,7 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
 
     private void OnDisable()
     {
-        if (minimizeButton       != null) minimizeButton.onClick.RemoveListener(ToggleMinimize);
+        // if (minimizeButton       != null) minimizeButton.onClick.RemoveListener(ToggleMinimize);
         if (playAgainButton      != null) playAgainButton.onClick.RemoveListener(OnPlayAgain);
         if (exitToMainMenuButton != null) exitToMainMenuButton.onClick.RemoveListener(OnExitToMainMenu);
         if (skipCatcherButton    != null) skipCatcherButton.onClick.RemoveListener(SkipReveal);
@@ -205,23 +208,32 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
             gameObject.SetActive(true);
         }
 
-        Debug.Log($"[EndGameScreenUI.Show] activeInHierarchy={gameObject.activeInHierarchy} | overlayPanel={(overlayPanel != null)} | fullContent={(fullContent != null)} | endReasonText={(endReasonText != null)} | playAgainButton={(playAgainButton != null)}");
+        Debug.Log($"[EndGameScreenUI.Show] activeInHierarchy={gameObject.activeInHierarchy} | overlayPanel={(overlayPanel != null)} | endReasonText={(endReasonText != null)} | playAgainButton={(playAgainButton != null)}");
 
-        if (overlayPanel == null || fullContent == null)
+        if (overlayPanel == null)
         {
             Debug.LogError("[EndGameScreenUI] overlayPanel or fullContent is NULL — panel can't activate. Wire them on the EndGameScreenUI GameObject. Falling back to direct Main Menu load.");
             SceneManager.LoadScene("Main Menu");
             return;
         }
 
-        StopReveal();
+        // StopReveal();
 
+        // PASS OR FAIL image
+        if (data.hasCollapsed)
+        {
+            failedStampImage.gameObject.SetActive(true);
+        }
+        else
+        {
+            passedStampImage.gameObject.SetActive(true);
+        }
+        
         _lastData = data;
         Populate(data);
         ApplyPresentationStyle(data);
         if (IsCarouselWired()) ShowSlide(0);
         isMinimized = false;
-        fullContent.SetActive(true);
         overlayPanel.SetActive(true);
 
         if (skipCatcherButton != null) skipCatcherButton.gameObject.SetActive(playStagedReveal);
@@ -246,12 +258,12 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     // Minimize toggle — lets player peek at the map without closing the screen
     // -------------------------------------------------------------------------
 
-    private void ToggleMinimize()
-    {
-        bool showing = !fullContent.activeSelf;
-        fullContent.SetActive(showing);
-        minimizeButton.GetComponentInChildren<TextMeshProUGUI>().text = showing ? "−" : "+";
-    }
+    // private void ToggleMinimize()
+    // {
+    //     bool showing = !fullContent.activeSelf;
+    //     fullContent.SetActive(showing);
+    //     minimizeButton.GetComponentInChildren<TextMeshProUGUI>().text = showing ? "−" : "+";
+    // }
 
     // -------------------------------------------------------------------------
     // Play Again
@@ -279,19 +291,19 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     private void Populate(EndGameData data)
     {
         // Header
-        endReasonText.text   = data.endReason;
+        // endReasonText.text   = data.endReason;
         worldHealthText.text = $"{data.worldHealth:F1}% World Health";
-        yearDayText.text     = $"Year {data.currentYear}, Day {data.totalDays}";
+        // yearDayText.text     = $"Year {data.currentYear}, Day {data.totalDays}";
 
-        // Zone pills — clear old, spawn new
-        foreach (Transform child in zonePillContainer)
-            Destroy(child.gameObject);
-
-        foreach (var kvp in data.zoneHealths)
-        {
-            var pill = Instantiate(zonePillPrefab, zonePillContainer);
-            pill.Setup(kvp.Key, kvp.Value);
-        }
+        // // Zone pills — clear old, spawn new
+        // foreach (Transform child in zonePillContainer)
+        //     Destroy(child.gameObject);
+        //
+        // foreach (var kvp in data.zoneHealths)
+        // {
+        //     var pill = Instantiate(zonePillPrefab, zonePillContainer);
+        //     pill.Setup(kvp.Key, kvp.Value);
+        // }
 
         // Snapshot — null texture leaves RawImage in its default (empty) state
         if (snapshotImage != null)
@@ -304,13 +316,13 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         if (peakThrivingText != null)
             peakThrivingText.text = data.peakThrivingCount.ToString();
 
-        // Employee of the Year
-        PopulateWorker(data.topWorker);
+        // // Employee of the Year
+        // PopulateWorker(data.topWorker);
 
-        // Silly stats
+        // // Silly stats
         favouriteActionText.text = Coalesce(data.favouriteAction);
         mostAvoidedText.text     = Coalesce(data.mostAvoidedAction);
-        mostChattedText.text     = Coalesce(data.mostChattedWorker);
+        // mostChattedText.text     = Coalesce(data.mostChattedWorker);
 
         // Season sparkline — OPTIONAL-with-warning (Law 3 exception): this screen is already
         // live in-scene, so a missing sparkline ref must degrade gracefully, not brick Show().
@@ -324,17 +336,17 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
             Debug.LogWarning("[EndGameScreenUI] seasonSparkline is not wired — the season sparkline will not display. Drag a HealthSparklineUI into the Season Sparkline section (screen will otherwise still function).", this);
         }
 
-        // Grade stamp — OPTIONAL-with-warning (Law 3 exception): this screen is already
-        // live in-scene, so a missing stamp ref must degrade gracefully, not brick Show().
-        if (gradeStampText != null)
-        {
-            gradeStampText.text = string.Format(gradeStampTemplate, data.seasonGrade);
-        }
-        else if (!_gradeStampWarned)
-        {
-            _gradeStampWarned = true;
-            Debug.LogWarning("[EndGameScreenUI] gradeStampText is not wired — the season grade will not display. Drag a TMP_Text into the Grade Stamp section (screen will otherwise still function).", this);
-        }
+        // // Grade stamp — OPTIONAL-with-warning (Law 3 exception): this screen is already
+        // // live in-scene, so a missing stamp ref must degrade gracefully, not brick Show().
+        // if (gradeStampText != null)
+        // {
+        //     gradeStampText.text = string.Format(gradeStampTemplate, data.seasonGrade);
+        // }
+        // else if (!_gradeStampWarned)
+        // {
+        //     _gradeStampWarned = true;
+        //     Debug.LogWarning("[EndGameScreenUI] gradeStampText is not wired — the season grade will not display. Drag a TMP_Text into the Grade Stamp section (screen will otherwise still function).", this);
+        // }
     }
 
     private void PopulateWorker(Worker worker)

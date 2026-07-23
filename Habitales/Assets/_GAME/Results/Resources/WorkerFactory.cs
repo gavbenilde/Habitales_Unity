@@ -48,6 +48,18 @@ public static class WorkerFactory
 
     public static Worker Generate()
     {
+        // Worker worker = new Worker
+        // {
+        //     workerName          = $"{FirstNames[Random.Range(0, FirstNames.Length)]} {LastNames[Random.Range(0, LastNames.Length)]}",
+        //     age                 = Random.Range(18, 61),
+        //     birthdayDay         = Random.Range(1, 366),
+        //     trait               = (WorkerTrait)Random.Range(0, TRAIT_COUNT),
+        //     actionsParticipated = 0,
+        //     isFatigued          = false,
+        //     returnDay           = 0
+        // };
+        //
+
         return new Worker
         {
             workerName          = $"{FirstNames[Random.Range(0, FirstNames.Length)]} {LastNames[Random.Range(0, LastNames.Length)]}",

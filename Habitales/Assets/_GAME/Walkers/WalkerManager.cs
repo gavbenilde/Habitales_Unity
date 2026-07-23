@@ -104,13 +104,13 @@ public class WalkerManager : MonoBehaviour
 
     private void HandleFirstRegionGenerated(RegionGenerationResult _)
     {
-        if (hasSpawnedInitialWorkers) return; // later region unlocks don't re-trigger this
-        hasSpawnedInitialWorkers = true;
+        // if (hasSpawnedInitialWorkers) return; // later region unlocks don't re-trigger this
+        // hasSpawnedInitialWorkers = true;
 
         SpawnInitialWorkers();
         EvaluateAnimalPopulation(); // once at init
-
-        RegionManager.Instance.OnRegionGenerated -= HandleFirstRegionGenerated;
+        
+        // RegionManager.Instance.OnRegionGenerated -= HandleFirstRegionGenerated;
     }
 
     private void SpawnInitialWorkers()

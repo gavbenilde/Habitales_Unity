@@ -42,7 +42,7 @@ public class RunManager : MonoBehaviour {
     
     [Header("Zone Progression")]
     [UnityEngine.Serialization.FormerlySerializedAs("zoneUnlockThreshold")]
-    [SerializeField] [Range(0f, 100f)] private float regionUnlockThreshold = 80f;
+    [SerializeField] [Range(0f, 100f)] private float regionUnlockThreshold = 65f;
 
     /// <summary>World-health % at which the next region becomes unlockable. Single source of truth for the health-bar marker and the unlock button.</summary>
     public float ZoneUnlockThreshold => regionUnlockThreshold;
@@ -444,17 +444,10 @@ public class RunManager : MonoBehaviour {
     /// </summary>
     void EvaluateGameOver()
     {
-        if (isGameOver) return;
-        if (actionManager != null && actionManager.IsActionRunning) return;
-
-        if (IsCollapsed())
-        {
-            TriggerGameOver("Ecosystem Collapse", GetThrivingTileCount(), collapsed: true);
-            return;
-        }
-
-        if (isPrototypeRun && resourceManager.TotalDays >= resourceManager.RunLengthDays)
-            TriggerGameOver("Field Season Complete", GetThrivingTileCount());
+        int daysLeft = resourceManager != null ? resourceManager.DaysRemaining : 0;
+        isGameOver = daysLeft <= 0 || IsCollapsed();
+        
+        TriggerGameOver(isGameOver);
     }
 
     /// <summary>
@@ -493,10 +486,10 @@ public class RunManager : MonoBehaviour {
     /// If the world collapses on a check-in day, ShowConversationOnly force-resets any
     /// in-progress midseason panel (collision rule — end flow trumps).
     /// </summary>
-    void TriggerGameOver(string reason, int thrivingTiles, bool collapsed = false)
+    void TriggerGameOver(bool isGameOver)
     {
-        isGameOver = true;
-        Debug.Log($"GAME OVER: {reason} | Peak Thriving: {peakThrivingCount}");
+        if (!isGameOver) return;
+        if (actionManager != null && actionManager.IsActionRunning) return;
 
         // Game over trumps queued events — TriggerManager dismisses/clears on this signal.
         OnGameOverTriggered?.Invoke();
@@ -507,18 +500,18 @@ public class RunManager : MonoBehaviour {
         ComputeTileCounts(out int thriving, out int degraded, out int critical);
         Habitales.Meta.RunEndCoordinator.RunEndSummary summary = default;
         if (runEndCoordinator != null)
-            summary = runEndCoordinator.ProcessRunEnd(thriving, degraded, critical, peakThrivingCount, collapsed);
+            summary = runEndCoordinator.ProcessRunEnd(thriving, degraded, critical, peakThrivingCount, IsCollapsed());
         else
             Debug.LogError("[RunManager] runEndCoordinator is NOT wired — XP/level-up/persistence will not run and the Azi line will be blank. Wire it in the Inspector.");
 
-        EndGameData data = BuildEndGameData(reason, summary);
+        EndGameData data = BuildEndGameData(IsCollapsed(), summary);
 
         // Loud guards — silent null-conditional Shows were swallowing the whole run-end flow.
         if (endGameScreenUI == null)
             Debug.LogError("[RunManager] endGameScreenUI is NOT wired in the inspector — end-game UI will not appear. Drag the EndGameScreenUI GameObject into RunManager's serialized field.");
 
-        if (TryShowEndConversation(collapsed, data))
-            return; // End Report shows on the conversation's [Continue]
+        // if (TryShowEndConversation(collapsed, data))
+        //     return; // End Report shows on the conversation's [Continue]
 
         // No middle tier: the End Conversation either plays or the End Report shows now.
         // TryShowEndConversation already LogError'd the specific missing piece.
@@ -535,29 +528,29 @@ public class RunManager : MonoBehaviour {
     /// flow must never dead-end. Variant selection reuses the check-in comparators with
     /// end-of-run semantics: 'improved' = final thriving count, 'decayed' = final critical count.
     /// </summary>
-    bool TryShowEndConversation(bool collapsed, EndGameData data)
-    {
-        CheckInConversationSO source = collapsed ? collapseConversation : seasonEndConversation;
-        if (source == null)
-        {
-            Debug.LogError($"[RunManager] {(collapsed ? "collapseConversation" : "seasonEndConversation")} is not wired — skipping the End Conversation, showing the End Report directly.");
-            return false;
-        }
-
-        var panel = Habitales.UI.CheckInPanelUI.Instance;
-        if (panel == null)
-        {
-            Debug.LogError("[RunManager] CheckInPanelUI is not in the scene — skipping the End Conversation, showing the End Report directly.");
-            return false;
-        }
-
-        int daysLeft = resourceManager != null ? resourceManager.DaysRemaining : 0;
-        ConversationSO conversation = source.Select(data.thrivingCount, data.criticalCount, daysLeft);
-        if (conversation == null)
-            return false; // Select() already logged the authoring error
-
-        return panel.ShowConversationOnly(conversation, data.endReason, () => ShowEndReport(data));
-    }
+    // bool TryShowEndConversation(bool collapsed, EndGameData data)
+    // {
+    //     CheckInConversationSO source = collapsed ? collapseConversation : seasonEndConversation;
+    //     if (source == null)
+    //     {
+    //         Debug.LogError($"[RunManager] {(collapsed ? "collapseConversation" : "seasonEndConversation")} is not wired — skipping the End Conversation, showing the End Report directly.");
+    //         return false;
+    //     }
+    //
+    //     var panel = Habitales.UI.CheckInPanelUI.Instance;
+    //     if (panel == null)
+    //     {
+    //         Debug.LogError("[RunManager] CheckInPanelUI is not in the scene — skipping the End Conversation, showing the End Report directly.");
+    //         return false;
+    //     }
+    //
+    //     int daysLeft = resourceManager != null ? resourceManager.DaysRemaining : 0;
+    //     ConversationSO conversation = source.Select(data.thrivingCount, data.criticalCount, daysLeft);
+    //     if (conversation == null)
+    //         return false; // Select() already logged the authoring error
+    //
+    //     return panel.ShowConversationOnly(conversation, data.endReason, () => ShowEndReport(data));
+    // }
 
     /// <summary>Step 3 of the end flow: the End Report.</summary>
     void ShowEndReport(EndGameData data)
@@ -577,13 +570,13 @@ public class RunManager : MonoBehaviour {
     // as the last step, after visuals + OnDayResolved + the game-over check.
     void HandleTimeAdvanced(int days)
     {
-        if (isGameOver) return;
+        if (IsCollapsed()) return;
         if (showDebugInfo)
             Debug.Log($"⏰ Time advanced by {days} days | Now: {resourceManager.GetFullTimeDisplay()}");
 
         for (int d = 0; d < days; d++)
         {
-            if (isGameOver) break;
+            if (IsCollapsed()) break;
 
             // 1. Open the trigger-collection window: Fire() calls made while the day resolves
             // (kaingin, entity deaths, …) enqueue silently instead of popping mid-tick.
@@ -695,11 +688,12 @@ public class RunManager : MonoBehaviour {
             Debug.Log($"{count} worker(s) recovered! Available: {resourceManager.AvailablePeople}/{resourceManager.TotalPeople}");
     }
 
-    private EndGameData BuildEndGameData(string reason, Habitales.Meta.RunEndCoordinator.RunEndSummary summary)
+    private EndGameData BuildEndGameData(bool collapsed, Habitales.Meta.RunEndCoordinator.RunEndSummary summary)
     {
         var data = new EndGameData
         {
-            endReason      = reason,
+            // endReason      = reason,
+            hasCollapsed   = collapsed,
             currentYear    = resourceManager.CurrentYear,
             totalDays      = resourceManager.TotalDays,
             worldHealth    = regionManager.GetTotalAverageHealth(),
@@ -936,7 +930,7 @@ public class RunManager : MonoBehaviour {
     {
         // Loud guards so a silent no-op is impossible — most common F1 culprit
         // is isGameOver latched true from an earlier collapse / 60-day cutoff.
-        if (isGameOver)
+        if (IsCollapsed())
         {
             Debug.LogWarning("[DEBUG] F1 ignored — isGameOver is true. Restart the scene to re-enable day advance.");
             return;

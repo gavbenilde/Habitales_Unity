@@ -9,6 +9,7 @@ public class EndGameData
 {
     // Header
     public string    endReason;
+    public bool      hasCollapsed;  
     public string    aziSummaryLine;
     public int       currentYear;
     public int       totalDays;

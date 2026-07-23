@@ -35,7 +35,7 @@ namespace Habitales.Onboarding
         /// </summary>
         protected CoachMarkRequest Request { get; private set; }
 
-        private bool _refsOk;
+        protected bool _refsOk;
 
         // ── Injection (called by CoachMarkLayer) ──────────────────────────
 

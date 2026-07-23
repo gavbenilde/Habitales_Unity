@@ -81,7 +81,6 @@ namespace Habitales.Onboarding
         [SerializeField] private float   releaseHoldTime = 0.3f;
         [SerializeField] private float   loopPause       = 0.6f;
 
-        private bool   _refsOk;
         private bool   _running;
         private Canvas _canvas;
 

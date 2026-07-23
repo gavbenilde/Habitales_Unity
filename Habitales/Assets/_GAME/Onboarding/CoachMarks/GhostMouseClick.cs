@@ -56,8 +56,7 @@ namespace Habitales.Onboarding
         [SerializeField] private float   moveTime       = 0.4f;
         [SerializeField] private float   pressTime      = 0.12f;
         [SerializeField] private float   holdTime       = 0.8f;
-
-        private bool   _refsOk;
+        
         private bool   _running;
         private Canvas _canvas;
 

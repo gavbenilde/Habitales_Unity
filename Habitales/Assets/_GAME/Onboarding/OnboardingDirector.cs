@@ -4,6 +4,7 @@ using UnityEngine;
 using Habitales.UI;
 using Habitales.UI.Actions;
 using Habitales.Dialogue;
+using UnityEngine.Serialization;
 using UTILITIES.Camera;
 
 namespace Habitales.Onboarding
@@ -160,8 +161,9 @@ namespace Habitales.Onboarding
 
         [Header("References (optional — auto-found if null)")]
         [SerializeField] private ActionBarUI actionBarUI;
+        [FormerlySerializedAs("objectiveBannerUI")]
         [Tooltip("PlayLandingReveal() plays at graduation (the objective 'lands in front of the player').")]
-        [SerializeField] private ObjectiveBannerUI objectiveBannerUI;
+        [SerializeField] private ResourceDisplay resourceDisplay;
         [Tooltip("Used to resolve the newly-unlocked zone's centroid for the phase-16 camera pan.")]
         [SerializeField] private RegionManager regionManager;
 
@@ -287,9 +289,9 @@ namespace Habitales.Onboarding
             if (actionBarUI == null)
                 Debug.LogWarning($"{name}: ActionBarUI not found — interactive phases 4–7 cannot advance. Assign it in the Inspector.", this);
 
-            if (objectiveBannerUI == null) objectiveBannerUI = FindObjectOfType<ObjectiveBannerUI>();
-            if (objectiveBannerUI == null)
-                Debug.LogWarning($"{name}: ObjectiveBannerUI not found — graduation's landing-reveal tween will not play.", this);
+            if (resourceDisplay == null) resourceDisplay = FindObjectOfType<ResourceDisplay>();
+            if (resourceDisplay == null)
+                Debug.LogWarning($"{name}: ResourceDisplay not found — graduation's landing-reveal tween will not play.", this);
 
             if (regionManager == null) regionManager = FindObjectOfType<RegionManager>();
             // regionManager is optional — phase 16's camera pan is best-effort.
@@ -574,10 +576,10 @@ namespace Habitales.Onboarding
             HideAllMarks();
             actionBarUI?.ClearCardLock();   // safety — no residual lock after onboarding
 
-            if (objectiveBannerUI != null)
-                objectiveBannerUI.PlayLandingReveal();
-            else
-                Debug.LogWarning($"{name}: objectiveBannerUI is not wired — skipping the graduation landing-reveal tween.", this);
+            // if (objectiveBannerUI != null)
+            //     objectiveBannerUI.PlayLandingReveal();
+            // else
+            //     Debug.LogWarning($"{name}: objectiveBannerUI is not wired — skipping the graduation landing-reveal tween.", this);
 
             Debug.Log("[OnboardingDirector] Graduation — scaffolding retired.");
             enabled = false;   // no more Update polling
