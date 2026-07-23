@@ -25,7 +25,7 @@ namespace Habitales.UI
         [SerializeField] private string _statName;
 
         /// <summary>Composes "Stat Name - 50%" from the pushed 0–100 value.</summary>
-        public void SetValue(float value) => SetText($"{_statName} - {value:F0}%");
+        public void SetValue(float value) => SetText($"{_statName} - {value:F0}%"); 
 
         /// <summary>Locked/empty fallback: "Stat Name - ?".</summary>
         public void SetUnknown() => SetText($"{_statName} - ?");

@@ -206,7 +206,7 @@ namespace Habitales.UI
                 if (header != null)
                 {
                     header.SetHeaderColor(regionHeaderColor);
-                    header.ShowRegion(regionID, health, trend);
+                    // header.ShowRegion(regionID, health, trend);
                 }
                 if (body != null) body.PopulateRegion(regionID);
             }
@@ -218,9 +218,14 @@ namespace Habitales.UI
                 if (header != null)
                 {
                     header.SetHeaderColor(tileHeaderColor);
-                    header.ShowTile(TileDisplayName(_currentTile), health, trend);
+                    // header.ShowTile(TileDisplayName(_currentTile), health, trend);
                 }
-                if (body != null) body.Populate(_currentTile);
+
+                if (body != null)
+                {
+                    body.Populate(_currentTile);
+                    Debug.Log("Populated");
+                }
             }
         }
 

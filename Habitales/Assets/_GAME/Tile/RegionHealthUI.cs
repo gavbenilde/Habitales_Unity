@@ -18,6 +18,9 @@ using Habitales.UI;
 /// </summary>
 public class RegionHealthUI : MonoBehaviour
 {
+    [Header("Systems")]
+    [SerializeField] private TileSelector tileSelector;
+    
     [Header("References")]
     [SerializeField] private GameObject panel;
     [SerializeField] private TextMeshProUGUI regionLabel;   // optional — e.g. "Zone 1" or an entity name
@@ -46,8 +49,27 @@ public class RegionHealthUI : MonoBehaviour
             healthSlider.minValue = 0;
             healthSlider.maxValue = 100;
         }
+
         Hide();
+        //
+        // if (tileSelector != null)
+        // {
+        //     tileSelector.OnTileSelected   += HandleTileSelected;
+        //     tileSelector.OnTileDeselected += HandleTileDeselected;
+        // }
     }
+    //
+    // void OnDestroy()
+    // {
+    //     if (tileSelector != null)
+    //     {
+    //         tileSelector.OnTileSelected   -= HandleTileSelected;
+    //         tileSelector.OnTileDeselected -= HandleTileDeselected;
+    //     }
+    // }
+    //
+    // private void HandleTileSelected(Tile tile, Vector3 _) => ;
+    // private void HandleTileDeselected() => Hide();
 
     // ── Region mode ──────────────────────────────────────────────────────────
 
@@ -58,49 +80,51 @@ public class RegionHealthUI : MonoBehaviour
     /// Region path. avgHealth is 0–100; trend is the per-day change in health-points.
     /// Preserved signature for RegionOutlineRenderer; delegates to <see cref="ShowRegion"/>.
     /// </summary>
-    public void Show(int regionID, float avgHealth, float trend) => ShowRegion(regionID, avgHealth, trend);
-
-    /// <summary>Populates the header for a REGION: label "Zone {id}", region avg health + trend.</summary>
-    public void ShowRegion(int regionID, float avgHealth, float trend)
-        => Populate($"Zone {regionID}", "Avg. Health: ", avgHealth, trend);
-
-    // ── Tile mode ────────────────────────────────────────────────────────────
-
-    /// <summary>Populates the header for a single TILE: the entity/tile name, tile health + trend.</summary>
-    public void ShowTile(string tileName, float tileHealth, float trend)
-        => Populate(tileName, "", tileHealth, trend);
-
-    // ── Shared populate ──────────────────────────────────────────────────────
-
-    private void Populate(string label, string healthPrefix, float health, float trend)
+    // public void Show(int regionID, float avgHealth, float trend) => ShowRegion(regionID, avgHealth, trend);
+    //
+    // /// <summary>Populates the header for a REGION: label "Zone {id}", region avg health + trend.</summary>
+    // public void ShowRegion(int regionID, float avgHealth, float trend)
+    //     => Populate($"Zone {regionID}", "Avg. Health: ", avgHealth, trend);
+    //
+    // // ── Tile mode ────────────────────────────────────────────────────────────
+    //
+    // /// <summary>Populates the header for a single TILE: the entity/tile name, tile health + trend.</summary>
+    // public void ShowTile(string tileName, float tileHealth, float trend)
+    //     => Populate(tileName, "", tileHealth, trend);
+    //
+    // // ── Shared populate ──────────────────────────────────────────────────────
+    //
+    // private void Populate(string label, string healthPrefix, float health, float trend)
+    
+    public void Show(int regionID, float avgHealth, float trend)
     {
-        if (trendIndicator != null)     trendIndicator.SetTrend(trend);
-        if (trendDualIndicator != null) trendDualIndicator.SetTrend(trend);
+        if (trendIndicator != null)
+            trendIndicator.SetTrend(trend);
 
         if (regionLabel != null)
-            regionLabel.text = label;
+            regionLabel.text = $"Zone {regionID}";
 
         // Resolve state + color once, apply to both bar and (optional) text.
         string state;
         Color  color;
 
-        if (health < 33f)      { state = "Critical"; color = criticalColor; }
-        else if (health < 67f) { state = "Degraded"; color = degradedColor; }
-        else                   { state = "Thriving"; color = thrivingColor; }
+        if (avgHealth < 33f)      { state = "Critical"; color = criticalColor; }
+        else if (avgHealth < 67f) { state = "Degraded"; color = degradedColor; }
+        else                      { state = "Thriving"; color = thrivingColor; }
 
         if (healthSlider != null)
-            healthSlider.value = health;
+            healthSlider.value = avgHealth;
 
         // BUG FIX (2026-07-22): the fillImage tint had been commented out, which left this
         // `if (fillImage != null)` dangling onto the healthText block below — so health text
         // only updated when fillImage happened to be non-null. Restore correct control flow:
         // tint fillImage when present; ALWAYS update healthText.
-        if (fillImage != null)
-            fillImage.color = color;
+        if (fillImage != null) ;
+            // fillImage.color = color;
 
         if (healthText != null)
         {
-            healthText.text  = $"{healthPrefix}{health:F1}% ({state})";
+            healthText.text  = $"Avg. Health: {avgHealth:F1}% ({state})";
             healthText.color = color;
         }
 

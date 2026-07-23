@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Text;
 using Habitales.UI;   // IUISubsystem
+using System.Collections.Generic;
 
 /// <summary>
 /// Body of the Selected Info Panel — the health + 6-substat readout. As of 2026-07-22 this is
@@ -40,14 +41,19 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
              "IUISubsystem.SetVisible toggles THIS for the screenshot hide-all master switch.")]
     [SerializeField] private GameObject panelRoot;
 
-    [Header("Empty State")]
-    [SerializeField] private GameObject emptyStateRoot;
+    // [Header("Empty State")]
+    // [SerializeField] private GameObject emptyStateRoot;
 
     [Header("Health")]
     [SerializeField] private TextMeshProUGUI healthValueText;
     [SerializeField] private TextMeshProUGUI healthStatusText;
     [SerializeField] private Image healthBarFill; // optional, can be null
 
+    [SerializeField] private List<Slider> tileSliderList = new List<Slider>();
+
+    [Header("Systems")]
+    [SerializeField] private TileSelector tileSelector;
+    
     [Header("Entity")]
     [Tooltip("Optional: shows the selected tile's entity display name (TileEntitySO.displayName). Blank when the tile is empty.")]
     [SerializeField] private TextMeshProUGUI entityNameText; // optional, can be null
@@ -79,10 +85,21 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
     private static readonly Color SubstatGreen  = new Color(0.26f, 0.72f, 0.20f);
     private static readonly Color SubstatRed    = new Color(0.85f, 0.18f, 0.12f);
 
+    
+    // ── Selection state ──────────────────────────────────────────────────────
+
+    // The tile currently driving the panel; null == nothing selected == panel hidden.
+    // Tracked here because TileSelector.currentTile is private with no accessor, and
+    // it lets Show() re-assert the real selection instead of forcing an empty panel on.
+    private Tile _currentTile;
+
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
     void Awake()
     {
+        if (tileSelector == null)
+            tileSelector = FindObjectOfType<TileSelector>();
+        
         // Auto-fill empty tooltip slots from the indicator's own GameObject so the
         // common case (trigger sits on the icon Image) needs no extra wiring.
         for (int i = 0; i < substatTooltips.Length && i < substatIndicators.Length; i++)
@@ -91,6 +108,17 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
                 substatTooltips[i] = substatIndicators[i].GetComponent<StatTooltipTrigger>();
         }
 
+        if (tileSelector != null)
+        {
+            tileSelector.OnTileSelected   += HandleTileSelected;
+            tileSelector.OnTileDeselected += HandleTileDeselected;
+        }
+        else
+        {
+            Debug.LogError($"{name}: InspectPanelUI found no TileSelector — the panel is "
+                           + "selection-driven and will never show. Wire the Tile Selector ref.", this);
+        }
+        
         // VISIBILITY & SELECTION are owned by SelectedInfoPanelController now (2026-07-22): this
         // body no longer subscribes to TileSelector, and no longer auto-shows on select or
         // auto-hides on deselect. It is a passive view — the controller calls Populate /
@@ -106,6 +134,23 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
         // Nothing is selected at boot, so start cleared/hidden.
         ShowEmpty();
     }
+    
+    void OnDestroy()
+    {
+        if (tileSelector != null)
+        {
+            tileSelector.OnTileSelected   -= HandleTileSelected;
+            tileSelector.OnTileDeselected -= HandleTileDeselected;
+        }
+    }
+
+    private void HandleTileSelected(Tile tile, Vector3 _)
+    {
+        if (tile == null) return;
+        Populate(tile);
+    } 
+    private void HandleTileDeselected() => ShowEmpty();
+
 
     /// <summary>
     /// Legacy no-arg show — kept for the older InspectModeManager driver's compat. Visibility is
@@ -114,7 +159,10 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
     /// </summary>
     public void Show()
     {
-        if (panelRoot != null) panelRoot.SetActive(true);
+        if (_currentTile != null) Populate(_currentTile);
+        else                      ShowEmpty();
+        
+        // if (panelRoot != null) panelRoot.SetActive(true);
     }
 
     /// <summary>
@@ -123,6 +171,7 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
     /// </summary>
     public void Hide()
     {
+        _currentTile = null;
         if (panelRoot != null) panelRoot.SetActive(false);
     }
 
@@ -134,16 +183,17 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
     /// </summary>
     public void ShowEmpty()
     {
+        _currentTile = null;
         if (panelRoot != null) panelRoot.SetActive(false);
 
-        emptyStateRoot.SetActive(true);
-        if (issuesSectionRoot != null) issuesSectionRoot.SetActive(false);
-        substatsSectionRoot.SetActive(false);
+        // emptyStateRoot.SetActive(true);
+        // if (issuesSectionRoot != null) issuesSectionRoot.SetActive(false);
+        // substatsSectionRoot.SetActive(false);
 
-        healthValueText.text  = "—";
-        healthStatusText.text = "";
-        if (healthBarFill != null) healthBarFill.fillAmount = 0f;
-        if (entityNameText != null) entityNameText.text = "";
+        // healthValueText.text  = "—";
+        // healthStatusText.text = "";
+        // if (healthBarFill != null) healthBarFill.fillAmount = 0f;
+        // if (entityNameText != null) entityNameText.text = "";
     }
 
     // ── Main populate ────────────────────────────────────────────────────────
@@ -151,15 +201,17 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
     /// <summary>TILE path: renders the selected tile's health + substats.</summary>
     public void Populate(Tile tile)
     {
-        if (tile == null) { ShowEmpty(); return; }
+        // if (tile == null) { ShowEmpty(); return; }
 
+        _currentTile = tile;
         if (panelRoot != null) panelRoot.SetActive(true);
-        emptyStateRoot.SetActive(false);
+        // emptyStateRoot.SetActive(false);
 
-        PopulateHealthValue(tile.stats.CalculateHealth());
+        // PopulateHealth(tile);
+        // PopulateHealthValue(tile.stats.CalculateHealth());
         PopulateEntity(tile);
         // Issues section is dormant — force-hidden instead of populated.
-        if (issuesSectionRoot != null) issuesSectionRoot.SetActive(false);
+        // if (issuesSectionRoot != null) issuesSectionRoot.SetActive(false);
 
         TileStats s = tile.stats;
         PopulateSubstatsValues(SubstatValues(s), tile.isAnalyzed);
@@ -184,9 +236,9 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
         TileStats agg = rm.GetRegionStats(regionID);
 
         if (panelRoot != null) panelRoot.SetActive(true);
-        emptyStateRoot.SetActive(false);
+        // emptyStateRoot.SetActive(false);
 
-        PopulateHealthValue(agg.CalculateHealth());
+        // PopulateHealthValue(agg.CalculateHealth());
 
         // A region has no single occupant — clear the entity label.
         if (entityNameText != null) entityNameText.text = "";
@@ -199,8 +251,9 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
 
     // ── Section builders ─────────────────────────────────────────────────────
 
-    private void PopulateHealthValue(float health)
+    private void PopulateHealth(Tile tile)
     {
+        float health = tile.stats.CalculateHealth();
         healthValueText.text = $"{health:F1}%";
 
         if (health < 33f)
@@ -299,40 +352,49 @@ public class InspectPanelUI : MonoBehaviour, IUISubsystem
 
         if (analyzed)
         {
-            substatsLockedText.gameObject.SetActive(false);
-
-            for (int i = 0; i < substatIndicators.Length; i++)
+            for (int i = 0; i < tileSliderList.Count; i++)
             {
-                if (i < substatTooltips.Length && substatTooltips[i] != null)
-                    substatTooltips[i].SetValue(values[i]);
-
-                if (substatIndicators[i] == null) continue;
-
-                // t = 1 → green (healthy), t = 0 → red (degraded)
-                float t = Mathf.Clamp01(values[i] / 100f);
-                substatIndicators[i].color = ColorUtils.LerpHSV(SubstatRed, SubstatGreen, t);
-                substatIndicators[i].gameObject.SetActive(true);
+                Slider data = tileSliderList[i];
+                data.value = values[i];
             }
         }
-        else
-        {
-            substatsLockedText.gameObject.SetActive(true);
-            substatsLockedText.text  = "Run <b>Soil Analysis</b> to reveal substats.";
-            substatsLockedText.color = ColorLocked;
 
-            // Grey out all indicators while locked; tooltips fall back to "Name - ?"
-            foreach (var indicator in substatIndicators)
-            {
-                if (indicator == null) continue;
-                indicator.color = ColorLocked;
-            }
-
-            foreach (var tooltip in substatTooltips)
-            {
-                if (tooltip == null) continue;
-                tooltip.SetUnknown();
-            }
-        }
+        // if (analyzed)
+        // {
+        //     substatsLockedText.gameObject.SetActive(false);
+        //
+        //     for (int i = 0; i < substatIndicators.Length; i++)
+        //     {
+        //         if (i < substatTooltips.Length && substatTooltips[i] != null)
+        //             substatTooltips[i].SetValue(values[i]);
+        //
+        //         if (substatIndicators[i] == null) continue;
+        //
+        //         // t = 1 → green (healthy), t = 0 → red (degraded)
+        //         float t = Mathf.Clamp01(values[i] / 100f);
+        //         substatIndicators[i].color = ColorUtils.LerpHSV(SubstatRed, SubstatGreen, t);
+        //         substatIndicators[i].gameObject.SetActive(true);
+        //     }
+        // }
+        // else
+        // {
+        //     substatsLockedText.gameObject.SetActive(true);
+        //     substatsLockedText.text  = "Run <b>Soil Analysis</b> to reveal substats.";
+        //     substatsLockedText.color = ColorLocked;
+        //
+        //     // Grey out all indicators while locked; tooltips fall back to "Name - ?"
+        //     foreach (var indicator in substatIndicators)
+        //     {
+        //         if (indicator == null) continue;
+        //         indicator.color = ColorLocked;
+        //     }
+        //
+        //     foreach (var tooltip in substatTooltips)
+        //     {
+        //         if (tooltip == null) continue;
+        //         tooltip.SetUnknown();
+        //     }
+        // }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

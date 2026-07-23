@@ -60,6 +60,8 @@ public class InspectModeManager : MonoBehaviour
     {
         _inspectMode = true;
         inspectPanel?.Show();
+        
+        Debug.Log("We're inspecting");
     }
 
     public void ExitInspectMode()
