@@ -361,7 +361,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 8660264041371265823}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: Habitales.UI.Actions.ActionStripView, Assembly-CSharp
+        m_MethodName: SetInterveneActive
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &3177526678667234887
 GameObject:
   m_ObjectHideFlags: 0
@@ -481,7 +493,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 5912380017792576923}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: Habitales.UI.Actions.ActionStripView, Assembly-CSharp
+        m_MethodName: SetExamineActive
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &3972919901863538033
 GameObject:
   m_ObjectHideFlags: 0
@@ -601,7 +625,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 5935064171242391217}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: Habitales.UI.Actions.ActionStripView, Assembly-CSharp
+        m_MethodName: SetCleanupActive
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!1 &5258662186563792502
 GameObject:
   m_ObjectHideFlags: 0
@@ -704,8 +740,8 @@ RectTransform:
   m_GameObject: {fileID: 6753694607756939605}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 1.3, y: 1.3, z: 1.3}
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 7868834987505742521}
   m_Father: {fileID: 0}
@@ -727,7 +763,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 676d34e45e843a04bb14d3200fd7eb06, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  categoryRoot: {fileID: 0}
+  categoryRoot: {fileID: 8360908776258845310}
   examineTab: {fileID: 4621935921968942680}
   interveneTab: {fileID: 6395592761487945258}
   cleanupTab: {fileID: 1423889948366574839}
@@ -788,9 +824,9 @@ MonoBehaviour:
     m_Top: 0
     m_Bottom: 0
   m_ChildAlignment: 4
-  m_Spacing: 0
-  m_ChildForceExpandWidth: 1
-  m_ChildForceExpandHeight: 1
+  m_Spacing: 30
+  m_ChildForceExpandWidth: 0
+  m_ChildForceExpandHeight: 0
   m_ChildControlWidth: 0
   m_ChildControlHeight: 0
   m_ChildScaleWidth: 0

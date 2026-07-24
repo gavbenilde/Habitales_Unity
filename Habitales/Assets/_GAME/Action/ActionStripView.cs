@@ -13,12 +13,17 @@ namespace Habitales.UI.Actions
     public class ActionStripView : MonoBehaviour
     {
         [Tooltip("The panel toggled open/closed (background + content). Falls back to content.gameObject if null.")]
-        [SerializeField] private GameObject stripRoot;
+        [SerializeField]
+        private GameObject stripRoot;
+
         [SerializeField] private Transform content;
         [SerializeField] private GameObject cardPrefab;
         [SerializeField] private Color defaultCardColor = new Color(0.75f, 0.75f, 0.75f);
+
         [Tooltip("Exit button that closes the strip and returns to the category tabs.")]
-        [SerializeField] private Button backButton;
+        [SerializeField] private Button examineBack;
+        [SerializeField] private Button interveneBack;
+        [SerializeField] private Button cleanupBack;
 
         /// <summary>Raised when the player clicks an action card. Law-2: on the click.</summary>
         public event Action<PlayerAction> OnActionCardClicked;
@@ -28,21 +33,69 @@ namespace Habitales.UI.Actions
 
         private readonly Dictionary<PlayerAction, GameObject> cardObjects = new Dictionary<PlayerAction, GameObject>();
 
+        void Start()
+        {
+            HideButtons();
+        }
+        
         void OnEnable()
         {
-            if (backButton != null)
-                backButton.onClick.AddListener(HandleBackClicked);
+            if (cleanupBack != null &&
+                interveneBack != null &&
+                examineBack != null)
+            {
+                cleanupBack.onClick.AddListener(HandleBackClicked);
+                interveneBack.onClick.AddListener(HandleBackClicked);
+                examineBack.onClick.AddListener(HandleBackClicked);
+            }
         }
 
         void OnDisable()
         {
-            if (backButton != null)
-                backButton.onClick.RemoveListener(HandleBackClicked);
+            if (cleanupBack != null &&
+                interveneBack != null &&
+                examineBack != null)
+            {
+                cleanupBack.onClick.RemoveListener(HandleBackClicked);
+                interveneBack.onClick.RemoveListener(HandleBackClicked);
+                examineBack.onClick.RemoveListener(HandleBackClicked);
+            }
         }
 
         private void HandleBackClicked() => OnBackClicked?.Invoke();
 
-        // ─── Strip visibility ─────────────────────────────────────────────────
+        public void HideButtons()
+        {
+            cleanupBack.gameObject.SetActive(false);
+            interveneBack.gameObject.SetActive(false);
+            examineBack.gameObject.SetActive(false);
+        }
+        
+        public void SetCleanupActive()
+        {
+            HideButtons();
+            
+            if (cleanupBack != null) 
+                cleanupBack.gameObject.SetActive(true);
+        }
+        
+        public void SetInterveneActive()
+        {
+            HideButtons();
+            
+            if (interveneBack != null)
+                interveneBack.gameObject.SetActive(true);
+        }
+        
+        public void SetExamineActive()
+        {
+            HideButtons();
+            
+            if (examineBack != null)
+                examineBack.gameObject.SetActive(true);
+        }
+
+    // ─── Strip visibility ─────────────────────────────────────────────────
 
         /// <summary>Shows or hides the strip panel root.</summary>
         public void SetVisible(bool visible)
