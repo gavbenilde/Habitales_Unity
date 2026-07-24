@@ -13,7 +13,10 @@ MonoBehaviour:
   m_Name: Phase_09_Weather
   m_EditorClassIdentifier: 
   eventName: Phase_09_Weather
-  intrusiveness: 1
+  intrusiveness: 0
+  posX: 0
+  posY: 0
+  titleText: 
   lines:
   - speaker: 0
     customName: 

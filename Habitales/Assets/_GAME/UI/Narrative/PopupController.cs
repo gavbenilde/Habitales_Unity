@@ -77,6 +77,11 @@ namespace Habitales.UI
                  "OPTIONAL: if unwired, Positioned popups fall back to the side bubble (Layout B).")]
         [SerializeField] private SidePopupView _positionedBubble;
 
+        [Header("Handbook tutorial layout")]
+        [Tooltip("LAYOUT D - Handbook layout with next and previous page functionality to work " +
+                 "as an alternative onboarding.")]
+        [SerializeField] private HandbookPopupView _handbookView;
+        
         [Header("Character identity resolver")]
         [Tooltip("Required for Show(PopupSO). Provides Azi/Bob display name + portrait. " +
                  "Loud-fails in the resolver overload when null.")]
@@ -159,6 +164,7 @@ namespace Habitales.UI
 
             _intrusiveView.Hide();
             _sideBubble.Hide();
+            _handbookView.Hide();
             if (_positionedBubble != null) _positionedBubble.Hide();
         }
 
@@ -183,9 +189,20 @@ namespace Habitales.UI
             var handle = new PopupHandle(_nextId++, request.intrusiveness);
 
             if (request.intrusiveness == PopupIntrusiveness.Intrusive)
+            {
                 StartIntrusive(request, handle);
-            else
+                Debug.Log("Started Intrusive");
+            }
+            else if (request.intrusiveness == PopupIntrusiveness.NonIntrusive)
+            {
                 StartSide(request, handle);
+                Debug.Log("Started SideView");
+            }
+            else if (request.intrusiveness == PopupIntrusiveness.Handbook)
+            {
+                StartHandbook(request, handle);
+                Debug.Log("Started Handbook");
+            }
 
             return handle;
         }
@@ -304,6 +321,23 @@ namespace Habitales.UI
             RenderIntrusiveCurrent();
         }
 
+        private void StartHandbook(in PopupRequest req, PopupHandle handle)
+        {
+            // Only one intrusive at a time — dismiss any active one silently.
+            if (_activeIntrusive.IsValid)
+                DismissIntrusive(_activeIntrusive, fireCallback: false);
+
+            _activeIntrusive        = handle;
+            _intrusiveLines.Clear();
+            _intrusiveLines.AddRange(req.lines);
+            _intrusiveIndex         = 0;
+            _intrusiveConfirmLabel  = string.IsNullOrEmpty(req.confirmLabel) ? "Click to Continue" : req.confirmLabel;
+            _intrusiveOnConfirm     = req.onConfirm;
+            _intrusivePendingHandle = handle;
+
+            RenderHandbookCurrent();
+        }
+        
         private void RenderIntrusiveCurrent()
         {
             ResolvedLine line = _intrusiveLines[_intrusiveIndex];
@@ -316,6 +350,19 @@ namespace Habitales.UI
                 onConfirm:    OnIntrusiveButtonPressed
             );
         }
+        
+        private void RenderHandbookCurrent()
+        {
+            ResolvedLine line = _intrusiveLines[_intrusiveIndex];
+            bool isLast = _intrusiveIndex >= _intrusiveLines.Count - 1;
+            string btnLabel = isLast ? _intrusiveConfirmLabel : NextWord;
+
+            _handbookView.Show(
+                line:         line,
+                confirmLabel: btnLabel,
+                onConfirm:    OnHandbookButtonPressed
+            );
+        }
 
         private void OnIntrusiveButtonPressed()
         {
@@ -323,6 +370,23 @@ namespace Habitales.UI
             if (_intrusiveIndex < _intrusiveLines.Count)
             {
                 RenderIntrusiveCurrent();
+            }
+            else
+            {
+                // All lines shown — fire callback then dismiss.
+                Action cb = _intrusiveOnConfirm;
+                _intrusiveOnConfirm = null;
+                cb?.Invoke();
+                DismissIntrusive(_intrusivePendingHandle, fireCallback: false);
+            }
+        }
+        
+        private void OnHandbookButtonPressed()
+        {
+            _intrusiveIndex++;
+            if (_intrusiveIndex < _intrusiveLines.Count)
+            {
+                RenderHandbookCurrent();
             }
             else
             {

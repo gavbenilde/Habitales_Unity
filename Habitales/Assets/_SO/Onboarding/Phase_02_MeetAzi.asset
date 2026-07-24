@@ -13,9 +13,10 @@ MonoBehaviour:
   m_Name: Phase_02_MeetAzi
   m_EditorClassIdentifier: 
   eventName: Phase_02_MeetAzi
-  intrusiveness: 0
+  intrusiveness: 3
   posX: 0
   posY: 0
+  titleText: 
   lines:
   - speaker: 0
     customName: 

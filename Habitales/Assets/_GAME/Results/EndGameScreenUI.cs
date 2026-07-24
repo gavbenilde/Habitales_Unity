@@ -280,8 +280,9 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         // Routes to the prototype menu during dev, or the real main menu otherwise.
         // DORMANT (2026-07-18): level-ups cut — MainMenu no longer shows a level-up overlay.
         Hide();
-        string target = usePrototypeMenu ? prototypeMenuSceneName : mainMenuSceneName;
-        SceneManager.LoadScene(target);
+        // string target = usePrototypeMenu ? prototypeMenuSceneName : mainMenuSceneName;
+        // SceneManager.LoadScene(target);
+        SceneManager.LoadScene("Main Menu");
     }
 
     // -------------------------------------------------------------------------

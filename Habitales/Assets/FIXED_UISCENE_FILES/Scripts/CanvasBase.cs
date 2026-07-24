@@ -9,7 +9,7 @@ public enum MenuName
     ReportMenu,
     ActionMenu,
     ZoneMenu, 
-
+    OnboardingMenu,
 }
 
 

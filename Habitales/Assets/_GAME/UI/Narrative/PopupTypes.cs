@@ -45,7 +45,9 @@ namespace Habitales.UI
         /// <see cref="PopupRequest.position"/> instead of a corner anchor. Use when a
         /// popup must point at a specific spot on screen (a tile, a HUD widget).
         /// </summary>
-        Positioned
+        Positioned,
+        
+        Handbook
     }
 
     // ── Request value-type ────────────────────────────────────────────────────

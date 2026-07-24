@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Habitales.Dialogue;
 using ArtificeToolkit.Attributes;
+using TMPro;
 
 namespace Habitales.UI
 {
@@ -103,6 +104,10 @@ namespace Habitales.UI
         [Tooltip("Positioned only: vertical offset from the canvas centre, in canvas units (+ = up).")]
         public float posY;
 
+        [EnableIf(nameof(intrusiveness), PopupIntrusiveness.Handbook)]
+        [Tooltip("Added Title Text for Handbook UI.")]
+        public string titleText;
+        
         [Tooltip("The sequence of lines to page through. At least one line required.")]
         public List<PopupLine> lines = new List<PopupLine>();
 

@@ -20,7 +20,7 @@ namespace Habitales.Onboarding
     public enum OnboardingBeatId
     {
         None                    = -1,
-
+        
         Phase_01_LoadingReveal  = 1,    // Loading screen spectating live Zone-1 tile generation
         Phase_02_MeetAzi        = 2,    // Dialog (worried Azi): "Oh yikes. It's really bad out here…"
         Phase_03_Framing        = 3,    // Dialog: framing device — "Let's recall what we're here to do"
@@ -40,6 +40,7 @@ namespace Habitales.Onboarding
         Phase_16_ZoneUnlock     = 16,   // Camera pan to the new zone + Character announcement
         Phase_17_Factory        = 17,   // Camera zoom/pan to the factory (persistent pollution source)
         Phase_18_Maintenance    = 18,   // Character/CornerReminder: maintain earlier zones — then graduate
+        TEST_Phase              = 19,    // Test Phase for Handbook
     }
 
     // ─────────────────────────────────────────────────────────────────────────

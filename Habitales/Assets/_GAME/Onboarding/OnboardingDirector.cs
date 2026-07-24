@@ -178,8 +178,9 @@ namespace Habitales.Onboarding
         // The chronological order of the deck (the # column of the tutorial plan).
         private static readonly OnboardingBeatId[] s_Sequence =
         {
-            OnboardingBeatId.Phase_01_LoadingReveal,
+            // OnboardingBeatId.Phase_01_LoadingReveal,
             OnboardingBeatId.Phase_02_MeetAzi,
+            OnboardingBeatId.TEST_Phase,
             OnboardingBeatId.Phase_03_Framing,
             OnboardingBeatId.Phase_04_ActionBar,
             OnboardingBeatId.Phase_05_PickCard,
@@ -222,6 +223,7 @@ namespace Habitales.Onboarding
                 case OnboardingBeatId.Phase_16_ZoneUnlock:
                 case OnboardingBeatId.Phase_17_Factory:
                 case OnboardingBeatId.Phase_18_Maintenance:
+                case OnboardingBeatId.TEST_Phase:
                     return PopupStyle.Dialog; // 1, 2, 3, 11, 12, 13
 
                 // case OnboardingBeatId.Phase_04_ActionBar:
@@ -384,12 +386,12 @@ namespace Habitales.Onboarding
 
             switch (CurrentBeat)
             {
-                case OnboardingBeatId.Phase_01_LoadingReveal:
-                    // Timer-authoritative: phase 1 lasts exactly loadingRevealSeconds. The world's
-                    // tile pop-in animates independently (RegionManager) and keeps playing past this.
-                    _loadingTimer += Time.unscaledDeltaTime;
-                    if (_loadingTimer >= loadingRevealSeconds) CompletePhase();
-                    break;
+                // case OnboardingBeatId.Phase_01_LoadingReveal:
+                //     // Timer-authoritative: phase 1 lasts exactly loadingRevealSeconds. The world's
+                //     // tile pop-in animates independently (RegionManager) and keeps playing past this.
+                //     _loadingTimer += Time.unscaledDeltaTime;
+                //     if (_loadingTimer >= loadingRevealSeconds) CompletePhase();
+                //     break;
 
                 case OnboardingBeatId.Phase_04_ActionBar:
                     RefreshArmCueTarget();
@@ -446,9 +448,9 @@ namespace Habitales.Onboarding
 
             switch (id)
             {
-                case OnboardingBeatId.Phase_01_LoadingReveal:
-                    // No popup — the world builds in front of the player (Update runs the timer).
-                    break;
+                // case OnboardingBeatId.Phase_01_LoadingReveal:
+                //     // No popup — the world builds in front of the player (Update runs the timer).
+                //     break;
 
                 case OnboardingBeatId.Phase_04_ActionBar:
                     PresentPopup(id, advanceOnComplete: false);

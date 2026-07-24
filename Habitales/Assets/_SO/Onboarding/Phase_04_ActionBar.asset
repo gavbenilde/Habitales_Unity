@@ -19,7 +19,7 @@ MonoBehaviour:
   lines:
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 0}
+    portraitOverride: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
     body: Click on the Intervene Icon
   fireOnce: 0
   linkedThread: {fileID: 0}
