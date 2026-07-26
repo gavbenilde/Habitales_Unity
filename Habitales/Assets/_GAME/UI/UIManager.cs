@@ -192,8 +192,11 @@ namespace Habitales.UI
         {
             var handle = popups.Show(request);
 
+            Debug.Log("UIManager-- " + request.lines[0].title);
+
             if (manageSimState
-                && request.intrusiveness == PopupIntrusiveness.Intrusive
+                && (request.intrusiveness == PopupIntrusiveness.Intrusive
+                    || request.intrusiveness == PopupIntrusiveness.Handbook)
                 && handle.IsValid)
             {
                 IsModalActive = true;

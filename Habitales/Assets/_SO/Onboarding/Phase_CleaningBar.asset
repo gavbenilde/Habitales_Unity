@@ -10,18 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c3a940bee44d3f4db380ef7f747e0a9, type: 3}
-  m_Name: TESTPhase
+  m_Name: Phase_CleaningBar
   m_EditorClassIdentifier: 
-  eventName: TEST_Phase
-  intrusiveness: 3
+  eventName: Phase_CleaningBar
+  intrusiveness: 0
   posX: 0
   posY: 0
-  titleText: AAAAAAAA
   lines:
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 0}
-    body: AAAAAA
+    portraitOverride: {fileID: 21300000, guid: 001dd9f17d9137c41bd14078f68137c6, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: 
+    body: Alright! Now you try cleaning some garbage!
   fireOnce: 0
   linkedThread: {fileID: 0}
   focusCameraOnTarget: 0

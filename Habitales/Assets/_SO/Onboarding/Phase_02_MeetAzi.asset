@@ -13,15 +13,52 @@ MonoBehaviour:
   m_Name: Phase_02_MeetAzi
   m_EditorClassIdentifier: 
   eventName: Phase_02_MeetAzi
-  intrusiveness: 3
+  intrusiveness: 0
   posX: 0
   posY: 0
-  titleText: 
   lines:
   - speaker: 0
     customName: 
+    portraitOverride: {fileID: 21300000, guid: 001dd9f17d9137c41bd14078f68137c6, type: 3}
+    title: 
+    body: Hey Boss! Glad you were able to make it! But...
+  - speaker: 0
+    customName: 
     portraitOverride: {fileID: 21300000, guid: 03efae62146028145b5c57653a188b3b, type: 3}
-    body: Oh yikes. It's really bad out here...
+    title: 
+    body: This land... It wasn't always like this...
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 03efae62146028145b5c57653a188b3b, type: 3}
+    title: 
+    body: Years ago, it was full of life...
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 03efae62146028145b5c57653a188b3b, type: 3}
+    title: 
+    body: ...
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 03efae62146028145b5c57653a188b3b, type: 3}
+    title: 
+    body: With the budget that headquarters gave us, we can only work for so long.
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
+    title: 
+    body: I know with you, our fellow workers, and I, we will be able to do a lot
+      of good here!
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
+    title: 
+    body: "But even with that limitation, I know you\u2019ll be able to lead us to
+      bring life back to this dying land."
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 001dd9f17d9137c41bd14078f68137c6, type: 3}
+    title: 
+    body: "Now then, let\u2019s get started and lead the way boss!"
   fireOnce: 0
   linkedThread: {fileID: 0}
   focusCameraOnTarget: 0

@@ -158,6 +158,7 @@ namespace Habitales.Onboarding
                  "arrow points at and the arm that completes the phase. Matched on the data id (not a " +
                  "C# type) because every authored action is a GenericPlayerAction. Defaults to Plant Trees.")]
         [SerializeField] private string plantTreesActionId = "plant_trees";
+        [SerializeField] private string cleanupTrashActionId = "remove_trash";
 
         [Header("References (optional — auto-found if null)")]
         [SerializeField] private ActionBarUI actionBarUI;
@@ -180,19 +181,28 @@ namespace Habitales.Onboarding
         {
             // OnboardingBeatId.Phase_01_LoadingReveal,
             OnboardingBeatId.Phase_02_MeetAzi,
-            OnboardingBeatId.TEST_Phase,
             OnboardingBeatId.Phase_03_Framing,
+            OnboardingBeatId.Onboarding_Controls,
+            OnboardingBeatId.Onboarding_Planting,
             OnboardingBeatId.Phase_04_ActionBar,
             OnboardingBeatId.Phase_05_PickCard,
-            OnboardingBeatId.Phase_06_SelectTiles,
+            // OnboardingBeatId.Phase_06_SelectTiles,
             OnboardingBeatId.Phase_07_Confirm,
-            OnboardingBeatId.Phase_08_TimeStamina,
-            OnboardingBeatId.Phase_09_Weather,
-            OnboardingBeatId.Phase_10_ZoneHealth,
-            OnboardingBeatId.Phase_10_1_TraitPips,
+            OnboardingBeatId.Onboarding_UI,
+            // OnboardingBeatId.Phase_08_TimeStamina,
+            // OnboardingBeatId.Phase_09_Weather,
+            // OnboardingBeatId.Phase_10_ZoneHealth,
+            // OnboardingBeatId.Phase_10_1_TraitPips,
+            OnboardingBeatId.Phase_CleaningIntro,
+            OnboardingBeatId.Onboarding_Cleaning,
+            OnboardingBeatId.Phase_CleaningBar,
+            OnboardingBeatId.Phase_CleaningCard,
+            OnboardingBeatId.Phase_CleaningConfirm,
+            OnboardingBeatId.Phase_EndingIntro,
+            OnboardingBeatId.Onboarding_Ending,
             OnboardingBeatId.Phase_11_GoalDeadline,
-            OnboardingBeatId.Phase_12_Stakes,
-            OnboardingBeatId.Phase_13_RoleAffirm,
+            // OnboardingBeatId.Phase_12_Stakes,
+            // OnboardingBeatId.Phase_13_RoleAffirm,
             OnboardingBeatId.Phase_14_HelpAffordance,
             OnboardingBeatId.Phase_15_FreePlay,
             OnboardingBeatId.Phase_16_ZoneUnlock,
@@ -223,15 +233,26 @@ namespace Habitales.Onboarding
                 case OnboardingBeatId.Phase_16_ZoneUnlock:
                 case OnboardingBeatId.Phase_17_Factory:
                 case OnboardingBeatId.Phase_18_Maintenance:
-                case OnboardingBeatId.TEST_Phase:
+                case OnboardingBeatId.Phase_CleaningIntro:
+                case OnboardingBeatId.Phase_CleaningBar:
+                case OnboardingBeatId.Phase_CleaningCard:
+                case OnboardingBeatId.Phase_CleaningConfirm:
+                case OnboardingBeatId.Phase_EndingIntro:
                     return PopupStyle.Dialog; // 1, 2, 3, 11, 12, 13
 
                 // case OnboardingBeatId.Phase_04_ActionBar:
                 // case OnboardingBeatId.Phase_05_PickCard:
                 // case OnboardingBeatId.Phase_06_SelectTiles:
                 // case OnboardingBeatId.Phase_07_Confirm:
-                    return PopupStyle.Text;
-
+                    // return PopupStyle.Text;
+                
+                case OnboardingBeatId.Onboarding_Controls:
+                case OnboardingBeatId.Onboarding_Planting:
+                case OnboardingBeatId.Onboarding_UI:
+                case OnboardingBeatId.Onboarding_Cleaning:
+                case OnboardingBeatId.Onboarding_Ending:
+                    return PopupStyle.Handbook;
+                    
                 default: // 8, 9, 10, 10.1, 14, 16, 17, 18
                     return PopupStyle.Character;
             }
@@ -251,8 +272,10 @@ namespace Habitales.Onboarding
         private bool _advanceRequested;   // set by a passive popup's onComplete; drained in Update
 
         // Per-phase success gates (reset on enter).
-        private bool _armed;              // phase 5: Plant Trees armed (event)
-        private bool _confirmed;          // phase 7: action confirmed (event)
+        private bool _plantArmed;              // phase 5: Plant Trees armed (event)
+        private bool _cleanupArmed;            // phase cleanup armed (event)
+        private bool _plantConfirmed;          // phase 7: action confirmed (event)
+        private bool _cleanConfirmed;     // phase cleanup confirmed (event)
         private bool _dragDone;           // phase 6: drag multi-select ≥ 3 (polled)
         private bool _regionUnlocked;     // phase 15: next zone unlocked (event)
 
@@ -394,13 +417,13 @@ namespace Habitales.Onboarding
                 //     break;
 
                 case OnboardingBeatId.Phase_04_ActionBar:
-                    RefreshArmCueTarget();
+                    // RefreshArmCueTarget();
                     if (actionBarUI != null && actionBarUI.IsStripOpen) CompletePhase();
                     break;
 
                 case OnboardingBeatId.Phase_05_PickCard:
-                    RefreshArmCueTarget();     // re-point the arrow tab → card as the strip builds
-                    if (_armed) CompletePhase();
+                    // RefreshArmCueTarget();     // re-point the arrow tab → card as the strip builds
+                    if (_plantArmed) CompletePhase();
                     break;
 
                 case OnboardingBeatId.Phase_06_SelectTiles:
@@ -419,7 +442,22 @@ namespace Habitales.Onboarding
                     break;
 
                 case OnboardingBeatId.Phase_07_Confirm:
-                    if (_confirmed) CompletePhase();
+                    if (_plantConfirmed) CompletePhase();
+                    break;
+                
+                case OnboardingBeatId.Phase_CleaningBar:
+                    Debug.Log("Cleaning Bar Entered");
+                    if (actionBarUI != null && actionBarUI.IsStripOpen) CompletePhase();
+                    break;
+
+                case OnboardingBeatId.Phase_CleaningCard:
+                    Debug.Log("Cleaning Card Entered");
+                    if (_cleanupArmed) CompletePhase();
+                    break;
+                
+                case OnboardingBeatId.Phase_CleaningConfirm:
+                    Debug.Log("Cleaning Confirm Entered");
+                    if (_cleanConfirmed) CompletePhase();
                     break;
 
                 case OnboardingBeatId.Phase_15_FreePlay:
@@ -435,7 +473,7 @@ namespace Habitales.Onboarding
         void EnterPhase(OnboardingBeatId id)
         {
             // Reset per-phase gates.
-            _armed = _confirmed = _dragDone = _regionUnlocked = false;
+            _plantArmed = _cleanupArmed = _plantConfirmed = _cleanConfirmed = _dragDone = _regionUnlocked = false;
             _dragGhostShown      = false;
             _dragBaselineCount   = 0;
             _dragGhostDelayTimer = 0f;
@@ -454,13 +492,13 @@ namespace Habitales.Onboarding
 
                 case OnboardingBeatId.Phase_04_ActionBar:
                     PresentPopup(id, advanceOnComplete: false);
-                    _currentCueTarget = actionBarUI != null ? actionBarUI.GetArmCueRect(null) : null;
-                    ShowMark(new CoachMarkRequest
-                    {
-                        kind              = CoachMarkKind.FidgetArrow,
-                        trackTarget       = _currentCueTarget,   // Intervene tab
-                        screenSpaceTarget = true,
-                    });
+                    // _currentCueTarget = actionBarUI != null ? actionBarUI.GetArmCueRect(null) : null;
+                    // ShowMark(new CoachMarkRequest
+                    // {
+                    //     kind              = CoachMarkKind.FidgetArrow,
+                    //     trackTarget       = _currentCueTarget,   // Intervene tab
+                    //     screenSpaceTarget = true,
+                    // });
                     break;
 
                 case OnboardingBeatId.Phase_05_PickCard:
@@ -477,36 +515,36 @@ namespace Habitales.Onboarding
                         actionBarUI.RevealCategory(ActionCategory.Intervene);
                         actionBarUI.LockCardsExcept(plant);
                     }
-                    PresentPopup(id, advanceOnComplete: false);
-                    _currentCueTarget = actionBarUI != null ? actionBarUI.GetArmCueRect(plant) : null;
-                    ShowMark(new CoachMarkRequest
-                    {
-                        kind              = CoachMarkKind.FidgetArrow,
-                        trackTarget       = _currentCueTarget,   // Plant Trees card (or tab if not built yet)
-                        screenSpaceTarget = true,
-                    });
+                    // PresentPopup(id, advanceOnComplete: false);
+                    // _currentCueTarget = actionBarUI != null ? actionBarUI.GetArmCueRect(plant) : null;
+                    // ShowMark(new CoachMarkRequest
+                    // {
+                    //     kind              = CoachMarkKind.FidgetArrow,
+                    //     trackTarget       = _currentCueTarget,   // Plant Trees card (or tab if not built yet)
+                    //     screenSpaceTarget = true,
+                    // });
                     break;
                 }
 
                 case OnboardingBeatId.Phase_06_SelectTiles:
-                    PresentPopup(id, advanceOnComplete: false);
-                    ShowMark(new CoachMarkRequest
-                    {
-                        kind      = CoachMarkKind.CornerReminder,
-                        labelText = OnboardingContent.Reminder_SelectMultiple,
-                    });
+                    // PresentPopup(id, advanceOnComplete: false);
+                    // ShowMark(new CoachMarkRequest
+                    // {
+                    //     kind      = CoachMarkKind.CornerReminder,
+                    //     labelText = OnboardingContent.Reminder_SelectMultiple,
+                    // });
                     // GhostMouseDrag is arm-gated (and delayed dragGhostDelaySeconds after phase-enter)
                     // — RefreshDragGhostByArmState() shows it in Update.
                     break;
 
                 case OnboardingBeatId.Phase_07_Confirm:
-                    PresentPopup(id, advanceOnComplete: false);
-                    ShowMark(new CoachMarkRequest
-                    {
-                        kind              = CoachMarkKind.FidgetArrow,
-                        trackTarget       = actionBarUI != null ? actionBarUI.GetConfirmButtonRect() : null,
-                        screenSpaceTarget = true,
-                    });
+                    // PresentPopup(id, advanceOnComplete: false);
+                    // ShowMark(new CoachMarkRequest
+                    // {
+                    //     kind              = CoachMarkKind.FidgetArrow,
+                    //     trackTarget       = actionBarUI != null ? actionBarUI.GetConfirmButtonRect() : null,
+                    //     screenSpaceTarget = true,
+                    // });
                     break;
 
                 case OnboardingBeatId.Phase_08_TimeStamina:
@@ -528,7 +566,23 @@ namespace Habitales.Onboarding
                     ShowHighlight(traitPipsTarget);
                     PresentPopup(id, advanceOnComplete: true);
                     break;
+                
+                case OnboardingBeatId.Phase_CleaningBar:
+                    PresentPopup(id, advanceOnComplete: false);
+                    break;
 
+                case OnboardingBeatId.Phase_CleaningCard:
+                    PlayerAction clean = FindCleanTrashAction();
+                    if (actionBarUI != null && clean != null)
+                    {
+                        actionBarUI.RevealCategory(ActionCategory.Cleanup);
+                        actionBarUI.LockCardsExcept(clean);
+                    }
+                    break;
+                
+                case OnboardingBeatId.Phase_CleaningConfirm:
+                    break;
+                
                 case OnboardingBeatId.Phase_15_FreePlay:
                     // No UI. Free play until the player restores enough to unlock the next zone.
                     // (CornerReminder-on-stall is deferred — tutorial plan phase 15.)
@@ -561,6 +615,8 @@ namespace Habitales.Onboarding
             HideActiveMarks();
             if (completed == OnboardingBeatId.Phase_05_PickCard)
                 actionBarUI?.ClearCardLock();   // never leave a card dimmed (handoff §6-E)
+            if (completed == OnboardingBeatId.Phase_CleaningCard)
+                actionBarUI?.ClearCardLock(); 
 
             OnBeatCompleted?.Invoke(completed);
 
@@ -625,6 +681,9 @@ namespace Habitales.Onboarding
             }
 
             List<ResolvedLine> lines = so.ResolveLines(dialogueRegistry);
+            
+            Debug.Log("PRESENTED POPUP WITH TITLE-- " + lines[0].title);
+            
             PopupStyle preset = PresetFor(id);
 
             OnboardingBeatId captured = id;
@@ -647,13 +706,23 @@ namespace Habitales.Onboarding
         void HandleActionArmed(PlayerAction action)
         {
             if (CurrentBeat == OnboardingBeatId.Phase_05_PickCard && IsTaughtAction(action))
-                _armed = true;
+                _plantArmed = true;
+            if (CurrentBeat == OnboardingBeatId.Phase_CleaningCard && IsCleanupAction(action))
+                _cleanupArmed = true;
         }
 
         void HandleActionConfirmed()
         {
+            // if(actionBarUI != null)
+            //     actionBarUI.ShowCategories();
+            
             if (CurrentBeat == OnboardingBeatId.Phase_07_Confirm)
-                _confirmed = true;
+                _plantConfirmed = true;
+            if (CurrentBeat == OnboardingBeatId.Phase_CleaningConfirm)
+            {
+                Debug.Log("Action Confirmed");
+                _cleanConfirmed = true;
+            }
         }
 
         void HandleRegionUnlocked()
@@ -822,11 +891,17 @@ namespace Habitales.Onboarding
         // clears the field, so the phase never silently soft-locks on an empty id.
         string TaughtActionId =>
             string.IsNullOrEmpty(plantTreesActionId) ? "plant_trees" : plantTreesActionId;
+        
+        string CleanupActionId =>
+            string.IsNullOrEmpty(cleanupTrashActionId) ? "remove_trash" : cleanupTrashActionId;
 
         // Matches the taught action by its data-driven actionId (not a concrete C# type — every
         // authored action is a GenericPlayerAction, so `is PlantTreesAction` never matches).
         bool IsTaughtAction(PlayerAction action) =>
             action != null && action.ActionId == TaughtActionId;
+        
+        bool IsCleanupAction(PlayerAction action) =>
+            action != null && action.ActionId == CleanupActionId;
 
         PlayerAction FindPlantTreesAction()
         {
@@ -834,6 +909,15 @@ namespace Habitales.Onboarding
             if (am == null) return null;
             foreach (PlayerAction a in am.GetAvailableActions())
                 if (IsTaughtAction(a)) return a;
+            return null;
+        }
+
+        PlayerAction FindCleanTrashAction()
+        {
+            ActionManager am = ActionManager.Instance;
+            if (am == null) return null;
+            foreach (PlayerAction a in am.GetAvailableActions())
+                if (IsCleanupAction(a)) return a;
             return null;
         }
 

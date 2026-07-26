@@ -267,6 +267,8 @@ namespace Habitales.UI.Actions
 
             if (flower != null)
                 flower.OnBloomToggled += HandleBloomToggled;
+            
+            OnActionConfirmed += ShowCategories;
         }
 
         void OnDisable()
@@ -296,6 +298,8 @@ namespace Habitales.UI.Actions
 
             if (flower != null)
                 flower.OnBloomToggled -= HandleBloomToggled;
+            
+            OnActionConfirmed -= ShowCategories;
         }
 
         void Update()
@@ -371,7 +375,11 @@ namespace Habitales.UI.Actions
             if (currentAction != null) Disarm();
 
             currentCategory = null;
-            if (strip       != null) strip.SetVisible(false);
+            if (strip != null)
+            {
+                strip.SetVisible(false);
+                strip.HideButtons();
+            }
             if (categoryBar != null) categoryBar.SetActiveCategory(null);
             if (categoryBar != null) categoryBar.SetVisible(true);
         }
@@ -501,9 +509,13 @@ namespace Habitales.UI.Actions
                 return;
             }
 
+            Debug.Log("Card Confirmed");
+            
             // Law-2: fire confirmed at the moment of meaning (action committed), before Disarm clears state.
             OnActionConfirmed?.Invoke();
-            Disarm();
+            
+            if (currentAction != null)
+                Disarm();
         }
 
         // ─── Estimates ────────────────────────────────────────────────────────

@@ -118,6 +118,16 @@ namespace Habitales.UI
         private PopupHandle                  _sidePendingHandle;
         private Coroutine                    _sideAutoCoroutine;
 
+        // ── Paging state — handbook path (Handbook) ─────────────────────────────
+        
+        private readonly List<ResolvedLine> _handbookLines = new List<ResolvedLine>();
+        private int                         _handbookIndex;
+        private string                      _handbookConfirmLabel;
+        private Action                      _handbookOnConfirm;
+        private string                      _handbookBackLabel;
+        private Action                      _handbookOnBack;
+        private PopupHandle                 _handbookPendingHandle;
+        
         // Which view the current side sequence renders into, plus its placement —
         // carried in state so every line (not just the first) keeps the same anchor /
         // position across advances. _sideIsPositioned selects corner-anchor vs Pos X/Y.
@@ -200,6 +210,8 @@ namespace Habitales.UI
             }
             else if (request.intrusiveness == PopupIntrusiveness.Handbook)
             {
+                Debug.Log("Pre-Start-- " + request.lines[0].title);
+                
                 StartHandbook(request, handle);
                 Debug.Log("Started Handbook");
             }
@@ -320,23 +332,6 @@ namespace Habitales.UI
 
             RenderIntrusiveCurrent();
         }
-
-        private void StartHandbook(in PopupRequest req, PopupHandle handle)
-        {
-            // Only one intrusive at a time — dismiss any active one silently.
-            if (_activeIntrusive.IsValid)
-                DismissIntrusive(_activeIntrusive, fireCallback: false);
-
-            _activeIntrusive        = handle;
-            _intrusiveLines.Clear();
-            _intrusiveLines.AddRange(req.lines);
-            _intrusiveIndex         = 0;
-            _intrusiveConfirmLabel  = string.IsNullOrEmpty(req.confirmLabel) ? "Click to Continue" : req.confirmLabel;
-            _intrusiveOnConfirm     = req.onConfirm;
-            _intrusivePendingHandle = handle;
-
-            RenderHandbookCurrent();
-        }
         
         private void RenderIntrusiveCurrent()
         {
@@ -351,18 +346,6 @@ namespace Habitales.UI
             );
         }
         
-        private void RenderHandbookCurrent()
-        {
-            ResolvedLine line = _intrusiveLines[_intrusiveIndex];
-            bool isLast = _intrusiveIndex >= _intrusiveLines.Count - 1;
-            string btnLabel = isLast ? _intrusiveConfirmLabel : NextWord;
-
-            _handbookView.Show(
-                line:         line,
-                confirmLabel: btnLabel,
-                onConfirm:    OnHandbookButtonPressed
-            );
-        }
 
         private void OnIntrusiveButtonPressed()
         {
@@ -370,23 +353,6 @@ namespace Habitales.UI
             if (_intrusiveIndex < _intrusiveLines.Count)
             {
                 RenderIntrusiveCurrent();
-            }
-            else
-            {
-                // All lines shown — fire callback then dismiss.
-                Action cb = _intrusiveOnConfirm;
-                _intrusiveOnConfirm = null;
-                cb?.Invoke();
-                DismissIntrusive(_intrusivePendingHandle, fireCallback: false);
-            }
-        }
-        
-        private void OnHandbookButtonPressed()
-        {
-            _intrusiveIndex++;
-            if (_intrusiveIndex < _intrusiveLines.Count)
-            {
-                RenderHandbookCurrent();
             }
             else
             {
@@ -415,6 +381,97 @@ namespace Habitales.UI
             OnPopupDismissed?.Invoke(handle, PopupIntrusiveness.Intrusive);
         }
 
+        // ─── Handbook path ────────────────────────────────────────────────────
+        
+        private void StartHandbook(in PopupRequest req, PopupHandle handle)
+        {
+            // Only one intrusive at a time — dismiss any active one silently.
+            if (_activeIntrusive.IsValid)
+            {
+                Debug.Log("Active Instrusive is Valid");
+                DismissHandbook(_activeIntrusive, fireCallback: false);
+            }
+
+            _handbookView.SetBackInteractable(false);
+            _activeIntrusive        = handle;
+            _handbookLines.Clear();
+            _handbookLines.AddRange(req.lines);
+            _handbookIndex         = 0;
+            _handbookConfirmLabel  = string.IsNullOrEmpty(req.confirmLabel) ? "OK" : req.confirmLabel;
+            _handbookOnConfirm     = req.onConfirm;
+            _handbookPendingHandle = handle;
+            
+            RenderHandbookCurrent();
+        }
+        
+        private void RenderHandbookCurrent()
+        {
+            Debug.Log("Rendered Handbook");
+            
+            ResolvedLine line = _handbookLines[_handbookIndex];
+            bool isLast = _handbookIndex >= _handbookLines.Count - 1;
+            string btnLabel = isLast ? _handbookConfirmLabel : NextWord;
+            
+            _handbookView.Show(
+                line:         line,
+                confirmLabel: btnLabel,
+                onConfirm:    OnHandbookNextPressed,
+                onPrevious:   OnHandbookBackPressed
+            );
+        }
+        
+        private void OnHandbookNextPressed()
+        {
+            _handbookIndex++;
+            if (_handbookIndex < _handbookLines.Count)
+            {
+                _handbookView.SetBackInteractable(true);
+                RenderHandbookCurrent();
+            }
+            else
+            {
+                // All lines shown — fire callback then dismiss.
+                Action cb = _handbookOnConfirm;
+                _handbookOnConfirm = null;
+                cb?.Invoke();
+                DismissHandbook(_handbookPendingHandle, fireCallback: false);
+            }
+        }
+        
+        private void OnHandbookBackPressed()
+        {
+            _handbookIndex--;
+            if (_handbookIndex == 0)
+                _handbookView.SetBackInteractable(false);
+            
+            if (_handbookIndex >= 0)
+            {
+                RenderHandbookCurrent();
+            }
+            else
+            {
+                // All lines shown — fire callback then dismiss.
+                _handbookOnBack = null;
+            }
+        }
+        
+        private void DismissHandbook(PopupHandle handle, bool fireCallback)
+        {
+            if (_activeIntrusive.id != handle.id) return;
+
+            _handbookView.Hide();
+            _activeIntrusive = PopupHandle.None;
+
+            if (fireCallback)
+            {
+                Action cb = _handbookOnConfirm;
+                _handbookOnConfirm = null;
+                cb?.Invoke();
+            }
+
+            OnPopupDismissed?.Invoke(handle, PopupIntrusiveness.Handbook);
+        }
+        
         // ─── Non-intrusive + Positioned (side bubble) path ────────────────────
         //
         // Both NonIntrusive and Positioned flow through here — they are identical

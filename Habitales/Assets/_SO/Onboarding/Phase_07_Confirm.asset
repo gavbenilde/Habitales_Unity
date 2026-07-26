@@ -19,7 +19,9 @@ MonoBehaviour:
   lines:
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 0}
+    portraitOverride: {fileID: 21300000, guid: 001dd9f17d9137c41bd14078f68137c6, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: 
     body: Click confirm to execute.
   fireOnce: 0
   linkedThread: {fileID: 0}

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using Habitales.Dialogue;
 using ArtificeToolkit.Attributes;
 using TMPro;
@@ -60,6 +61,16 @@ namespace Habitales.UI
         /// any profile portrait resolved for Azi or Bob.
         /// </summary>
         public Sprite portraitOverride;
+        
+        /// <summary>
+        /// Use Animator Controller if available
+        /// </summary>
+        public RuntimeAnimatorController portraitAnimatorOverride;
+        
+        /// <summary>
+        /// Display title
+        /// </summary>
+        public string title;
 
         /// <summary>The line of body text shown in the popup card / side bubble.</summary>
         [UnityEngine.TextArea(2, 5)]
@@ -104,9 +115,13 @@ namespace Habitales.UI
         [Tooltip("Positioned only: vertical offset from the canvas centre, in canvas units (+ = up).")]
         public float posY;
 
-        [EnableIf(nameof(intrusiveness), PopupIntrusiveness.Handbook)]
-        [Tooltip("Added Title Text for Handbook UI.")]
-        public string titleText;
+        // [EnableIf(nameof(intrusiveness), PopupIntrusiveness.Handbook)]
+        // [Tooltip("Added Image for Handbook UI.")]
+        // public Image image;
+        //
+        // [EnableIf(nameof(intrusiveness), PopupIntrusiveness.Handbook)]
+        // [Tooltip("Added Title Text for Handbook UI.")]
+        // public string titleText;
         
         [Tooltip("The sequence of lines to page through. At least one line required.")]
         public List<PopupLine> lines = new List<PopupLine>();
@@ -155,6 +170,8 @@ namespace Habitales.UI
             {
                 string displayName;
                 Sprite portrait;
+                RuntimeAnimatorController portraitAnimator;
+                string title;
 
                 switch (pl.speaker)
                 {
@@ -175,12 +192,21 @@ namespace Habitales.UI
                 // portraitOverride always wins over the profile portrait.
                 if (pl.portraitOverride != null)
                     portrait = pl.portraitOverride;
+                
+                if (pl.portraitAnimatorOverride != null)
+                    portraitAnimator = pl.portraitAnimatorOverride;
+                else
+                    portraitAnimator = null;
+                
+                title = pl.title;
 
                 resolved.Add(new ResolvedLine
                 {
                     speakerID    = pl.speaker.ToString(),
+                    title        = title,
                     displayName  = displayName,
                     portrait     = portrait,
+                    portraitAnimator = portraitAnimator,
                     // §5: token substitution lives here (the single resolution path) so no caller can bypass it.
                     body         = PopupTokens.Resolve(pl.body) ?? string.Empty,
                     expressionID = string.Empty

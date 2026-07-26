@@ -35,6 +35,8 @@ namespace Habitales.UI.Editor
             var speakerProp  = property.FindPropertyRelative("speaker");
             var customProp   = property.FindPropertyRelative("customName");
             var overrideProp = property.FindPropertyRelative("portraitOverride");
+            var animatorProp = property.FindPropertyRelative("portraitAnimatorOverride");
+            var titleProp = property.FindPropertyRelative("title");
             var bodyProp     = property.FindPropertyRelative("body");
 
             bool isCustom = speakerProp.enumValueIndex == (int)PopupSpeaker.Custom;
@@ -58,6 +60,16 @@ namespace Habitales.UI.Editor
             row = new Rect(position.x, y, position.width, Single);
             EditorGUI.PropertyField(row, overrideProp, new GUIContent("Portrait Override"));
             y += Single + Pad;
+            
+            // ── portraitAnimatorOverride row ─────────────────────────────
+            row = new Rect(position.x, y, position.width, Single);
+            EditorGUI.PropertyField(row, animatorProp, new GUIContent("Portrait Animator"));
+            y += Single + Pad;
+            
+            // ── title row ────────────────────────────────────────────────────
+            row = new Rect(position.x, y, position.width, Single);
+            EditorGUI.PropertyField(row, titleProp, new GUIContent("Title"));
+            y += Single + Pad;
 
             // ── body row (TextArea) ───────────────────────────────────────────
             float bodyHeight = Mathf.Max(TextAreaMin, EditorGUI.GetPropertyHeight(bodyProp, true));
@@ -74,8 +86,8 @@ namespace Habitales.UI.Editor
 
             bool isCustom = speakerProp.enumValueIndex == (int)PopupSpeaker.Custom;
 
-            // speaker + portraitOverride always visible (2 rows)
-            float h = (Single + Pad) * 2f;
+            // speaker + portraitOverride + portraitAnimator + title always visible (4 rows)
+            float h = (Single + Pad) * 4f;
 
             // customName row only when Custom
             if (isCustom)

@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1c3a940bee44d3f4db380ef7f747e0a9, type: 3}
+  m_Name: Onboarding_Planting
+  m_EditorClassIdentifier: 
+  eventName: Onboarding_Planting
+  intrusiveness: 3
+  posX: 0
+  posY: 0
+  lines:
+  - speaker: 2
+    customName: 
+    portraitOverride: {fileID: 0}
+    portraitAnimatorOverride: {fileID: 9100000, guid: 0b124c09d06809c448a3d7eb2d1e0d41, type: 2}
+    title: PLANTING!
+    body: Use the Plant action to restore degraded land. Select a plant, choose where
+      to grow it, and watch the ecosystem recover overtime!
+  fireOnce: 0
+  linkedThread: {fileID: 0}
+  focusCameraOnTarget: 0

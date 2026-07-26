@@ -16,12 +16,14 @@ MonoBehaviour:
   intrusiveness: 0
   posX: 0
   posY: 0
-  titleText: 
   lines:
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 0}
-    body: If needed, I'll be here. Lead the way!
+    portraitOverride: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: 
+    body: And if you need help remembering anything else, go to the Handbook in the
+      Pause Menu ("ESC" key). Goodluck!
   fireOnce: 0
   linkedThread: {fileID: 0}
   focusCameraOnTarget: 0

@@ -61,7 +61,8 @@ namespace Habitales.UI
         public void Show(ResolvedLine line, string confirmLabel, Action onConfirm)
         {
             if (!_refsOk) { onConfirm?.Invoke(); return; }
-
+            Debug.Log("Showed Popup");
+            
             _bodyText.text     = line.body ?? string.Empty;
             _confirmLabel.text = confirmLabel;
 

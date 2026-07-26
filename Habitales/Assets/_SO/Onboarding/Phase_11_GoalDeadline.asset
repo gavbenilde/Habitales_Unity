@@ -14,11 +14,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   eventName: Phase_11_GoalDeadline
   intrusiveness: 0
+  posX: 0
+  posY: 0
   lines:
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 0}
-    body: 'Report after {days} Days. I''ll check in at Day {checkinDay}. '
+    portraitOverride: {fileID: 21300000, guid: 001dd9f17d9137c41bd14078f68137c6, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: 
+    body: "Alrighty! Now that you\u2019ve recalled everything I\u2019ll leave you
+      to it! See you in {days} Days!"
   fireOnce: 0
   linkedThread: {fileID: 0}
   focusCameraOnTarget: 0

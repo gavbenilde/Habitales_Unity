@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Habitales.Dialogue
 {
@@ -90,7 +91,9 @@ namespace Habitales.Dialogue
     {
         public string speakerID;
         public string displayName;
+        public string title;
         public Sprite portrait;
+        public RuntimeAnimatorController portraitAnimator;
         public string body;
         public string expressionID;
 

@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1c3a940bee44d3f4db380ef7f747e0a9, type: 3}
+  m_Name: Onboarding_UI
+  m_EditorClassIdentifier: 
+  eventName: Onboarding_UI
+  intrusiveness: 3
+  posX: 0
+  posY: 0
+  lines:
+  - speaker: 2
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: fe8246d1bd5e03946a99f730ec005e7e, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: TIME LEFT AND WORKERS FATIGUE!
+    body: "Time only advances after you confirm an action. Each action consumes a
+      number of days based on its duration. Every completed action also reduces your
+      workers\u2019 energy, so be sure to not overwork them."
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 3e36f57c6e6aeff448172f93c53300ce, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: WEATHER!
+    body: We may also use the weather to our advantage for maximizing work efficiency.
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: ba0efd725d93b5d4dbb5e6f310e3a935, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: INSPECTOR PANEL!
+    body: "View the zone health and the selected tiles\u2019 stats to see what the
+      soil needs and plan your next action."
+  fireOnce: 0
+  linkedThread: {fileID: 0}
+  focusCameraOnTarget: 0

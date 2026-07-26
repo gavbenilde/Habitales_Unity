@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 using Habitales.Dialogue;
 
 namespace Habitales.UI
@@ -89,6 +90,10 @@ namespace Habitales.UI
         /// </summary>
         public PopupIntrusiveness intrusiveness;
 
+        public Image image;
+
+        [NonSerialized] public string titleText;
+        
         // ── Content (thread) ─────────────────────────────────────────────
         /// <summary>
         /// Ordered sequence of lines to page through. Each line carries its own
@@ -112,6 +117,20 @@ namespace Habitales.UI
         /// (NonIntrusive). Optional — null is safe.
         /// </summary>
         [NonSerialized] public Action onConfirm;
+        
+        // ── Back (Handbook only) ──────────────────────────────────────────
+        /// <summary>
+        /// Label on the final confirm/dismiss button. Defaults to "OK" when
+        /// null or empty. Intermediate lines always show "Next".
+        /// </summary>
+        public string backLabel;
+
+        /// <summary>
+        /// Invoked when the player taps the confirm button on the last line
+        /// (Intrusive) or when the popup auto-dismisses after all lines
+        /// (NonIntrusive). Optional — null is safe.
+        /// </summary>
+        [NonSerialized] public Action onBack;
 
         // ── Auto-dismiss per line (NonIntrusive only) ─────────────────────
         /// <summary>

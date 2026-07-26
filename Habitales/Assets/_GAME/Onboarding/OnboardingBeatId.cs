@@ -40,7 +40,16 @@ namespace Habitales.Onboarding
         Phase_16_ZoneUnlock     = 16,   // Camera pan to the new zone + Character announcement
         Phase_17_Factory        = 17,   // Camera zoom/pan to the factory (persistent pollution source)
         Phase_18_Maintenance    = 18,   // Character/CornerReminder: maintain earlier zones — then graduate
-        TEST_Phase              = 19,    // Test Phase for Handbook
+        Onboarding_Controls     = 19,   
+        Onboarding_Planting     = 20,   
+        Onboarding_UI           = 21,   
+        Onboarding_Cleaning     = 22,   
+        Onboarding_Ending       = 23,   
+        Phase_CleaningIntro     = 24,
+        Phase_CleaningBar       = 25,
+        Phase_CleaningCard      = 26,
+        Phase_CleaningConfirm   = 27,
+        Phase_EndingIntro       = 28,
     }
 
     // ─────────────────────────────────────────────────────────────────────────

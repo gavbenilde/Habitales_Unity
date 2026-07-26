@@ -84,6 +84,10 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     [SerializeField] private Image passedStampImage;
     [SerializeField] private Image failedStampImage;
 
+    [Header("Mood Images")]
+    [SerializeField] private Image aziHappyImage;
+    [SerializeField] private Image aziSadImage;
+    
     [Header("Employee of the Year")]
     [SerializeField] private Image           workerPortraitImage; // active when StockPhoto
     [SerializeField] private GameObject      workerInitialRoot;   // active when GeneratedInitial
@@ -223,10 +227,12 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         if (data.hasCollapsed)
         {
             failedStampImage.gameObject.SetActive(true);
+            aziSadImage.gameObject.SetActive(true);
         }
         else
         {
             passedStampImage.gameObject.SetActive(true);
+            aziHappyImage.gameObject.SetActive(true);
         }
         
         _lastData = data;

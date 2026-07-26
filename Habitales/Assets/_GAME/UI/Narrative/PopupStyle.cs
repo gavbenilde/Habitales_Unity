@@ -30,6 +30,8 @@ namespace Habitales.UI
         public bool showPortrait;
         public ScreenAnchor anchor;
 
+        public PopupIntrusiveness intrusiveness;
+        
         /// <summary>
         /// Seconds before a side bubble auto-advances to the next line. 0 = wait for a
         /// tap. Intrusive popups ignore this — they always wait for the Next button.
@@ -40,6 +42,7 @@ namespace Habitales.UI
         public static PopupStyle Dialog => new PopupStyle
         {
             intrusive = true,
+            intrusiveness = PopupIntrusiveness.Intrusive,
             showPortrait = true,
             anchor = ScreenAnchor.BottomCenter,
             autoAdvanceSeconds = 0f
@@ -49,6 +52,7 @@ namespace Habitales.UI
         public static PopupStyle Character => new PopupStyle
         {
             intrusive = false,
+            intrusiveness = PopupIntrusiveness.NonIntrusive,
             showPortrait = true,
             anchor = ScreenAnchor.BottomLeft,
             autoAdvanceSeconds = 0f
@@ -58,7 +62,17 @@ namespace Habitales.UI
         public static PopupStyle Text => new PopupStyle
         {
             intrusive = false,
+            intrusiveness = PopupIntrusiveness.NonIntrusive,
             showPortrait = false,
+            anchor = ScreenAnchor.BottomLeft,
+            autoAdvanceSeconds = 0f
+        };
+        
+        public static PopupStyle Handbook => new PopupStyle
+        {
+            intrusive = false,
+            intrusiveness = PopupIntrusiveness.Handbook,
+            showPortrait = true,
             anchor = ScreenAnchor.BottomLeft,
             autoAdvanceSeconds = 0f
         };

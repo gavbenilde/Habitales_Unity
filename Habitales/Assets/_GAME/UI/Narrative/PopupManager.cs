@@ -95,7 +95,7 @@ namespace Habitales.UI
 
             var request = new PopupRequest
             {
-                intrusiveness      = style.intrusive ? PopupIntrusiveness.Intrusive : PopupIntrusiveness.NonIntrusive,
+                intrusiveness      = style.intrusiveness,
                 lines              = resolved,
                 confirmLabel       = "OK",
                 onConfirm          = onComplete,
@@ -103,6 +103,8 @@ namespace Habitales.UI
                 anchor             = style.anchor
             };
 
+            Debug.Log("PopupManager-- " + resolved[0].title);
+            
             // Route through the hub so intrusive popups pause the sim (manageSimState);
             // non-intrusive side bubbles leave the sim running.
             hub.ShowPopup(request, manageSimState: style.intrusive);
