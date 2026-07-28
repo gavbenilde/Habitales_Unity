@@ -66,6 +66,8 @@ namespace Habitales.UI.Actions
 
         public void HideButtons()
         {
+            Debug.Log("Hid Buttons");
+            
             cleanupBack.gameObject.SetActive(false);
             interveneBack.gameObject.SetActive(false);
             examineBack.gameObject.SetActive(false);

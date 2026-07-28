@@ -23,7 +23,8 @@ namespace Habitales.UI.Actions
         [SerializeField] private TMP_Text tileCountText;
         [SerializeField] private TMP_Text daysEstimateText;
         [SerializeField] private TMP_Text fatigueEstimateText;
-
+        [SerializeField] private Image armedActionImage;
+        
         /// <summary>Raised when the player presses Confirm. Law-2: on the click.</summary>
         public event Action OnConfirmClicked;
 
@@ -133,6 +134,21 @@ namespace Habitales.UI.Actions
             if (fatigueEstimateText != null) fatigueEstimateText.text = $"~{fatigue}";
         }
 
+        public void SetArmedActionSprite(Sprite cardIcon)
+        {
+            Debug.Log($"{name} ({GetInstanceID()})");
+            
+            if (armedActionImage != null && cardIcon != null)
+            {
+                Debug.Log($"armedActionImage = {armedActionImage.name}");
+                Debug.Log($"Current sprite = {armedActionImage.sprite}");
+                Debug.Log($"New sprite = {cardIcon}");
+                armedActionImage.sprite = cardIcon;
+            }
+            
+            Debug.Log($"After assignment = {armedActionImage.sprite}");
+        }
+        
         // ─── Rect resolution ─────────────────────────────────────────────────
 
         /// <summary>

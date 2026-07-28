@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Habitales.UI;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -28,6 +29,8 @@ public class OnboardingData
 
 public class CanvasOnboarding : CanvasBase
 {
+    [SerializeField] private PauseMenuController pauseMenuController;
+    
     [SerializeField] private List<OnboardingData> onboardingData;
     
     [Header("Canvas References")]
@@ -123,5 +126,10 @@ public class CanvasOnboarding : CanvasBase
             return;   
         
         SetOnboardingData(data);
+    }
+
+    public void ResumeInsideOnboarding()
+    {
+        pauseMenuController.Resume();
     }
 }

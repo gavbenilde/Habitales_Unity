@@ -31,6 +31,7 @@ public class EntityVisualizer : MonoBehaviour
 
         spriteRenderer.shadowCastingMode = ShadowCastingMode.On;
         spriteRenderer.receiveShadows = true;
+        spriteRenderer.sortingOrder = 1;
 
         mainCamera = Camera.main;
     }

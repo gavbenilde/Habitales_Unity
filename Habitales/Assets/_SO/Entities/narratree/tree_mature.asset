@@ -26,12 +26,12 @@ MonoBehaviour:
     comparator: 0
     threshold: 0
   plantDailyDeltas:
-    nutrientBalance: 2.3
-    soilOrganicMatter: 0.8
-    soilStructure: 0.6
-    biologicalActivity: 1.2
-    waterDynamics: 1.5
-    erosionResistance: 3.6
+    nutrientBalance: 10
+    soilOrganicMatter: 10
+    soilStructure: 10
+    biologicalActivity: 10
+    waterDynamics: 10
+    erosionResistance: 10
     vegetationCover: 10
     contamination: 0
   dailyEffects: []
@@ -47,3 +47,11 @@ MonoBehaviour:
     - stat: 1
       delta: 10
   behaviour: {fileID: 0}
+  tier1Intro:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}
+  tier4JournalEntry:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}

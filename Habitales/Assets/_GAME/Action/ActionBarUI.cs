@@ -195,6 +195,8 @@ namespace Habitales.UI.Actions
 
         void Awake()
         {
+            Debug.Log($"ActionBar estimatePanel = {estimatePanel.GetInstanceID()} ({estimatePanel.name})");
+            
             // Auto-resolve system refs.
             if (actionManager == null) actionManager = ActionManager.Instance;
             if (tileSelector  == null) tileSelector  = FindObjectOfType<TileSelector>();
@@ -305,7 +307,27 @@ namespace Habitales.UI.Actions
         void Update()
         {
             if (Input.GetKeyDown(KeyCode.Escape) && currentAction != null)
+            {
+                if (estimatePanel != null)
+                {
+                    switch (currentCategory)
+                    {
+                        case ActionCategory.Cleanup:
+                            strip.SetCleanupActive();
+                            break;
+
+                        case ActionCategory.Intervene:
+                            strip.SetInterveneActive();
+                            break;
+
+                        case ActionCategory.Examine:
+                            strip.SetExamineActive();
+                            break;
+                    }
+                }
+                
                 Disarm();
+            }
 
             if (currentAction != null)
                 RefreshEstimates();
@@ -330,7 +352,25 @@ namespace Habitales.UI.Actions
         /// strip to pick a different card. The strip is never hidden while an action is armed, so no
         /// re-show is needed here.
         /// </summary>
-        private void HandleCancelClicked() => Disarm();
+        private void HandleCancelClicked()
+        {
+            Disarm();
+
+            switch (currentCategory)
+            {
+                case ActionCategory.Cleanup:
+                    strip.SetCleanupActive();
+                    break;
+
+                case ActionCategory.Intervene:
+                    strip.SetInterveneActive();
+                    break;
+
+                case ActionCategory.Examine:
+                    strip.SetExamineActive();
+                    break;
+            }
+        }
 
         // ─── Brush-size mediation (flood-fill slider ↔ TileSelector) ──────────
 
@@ -440,9 +480,11 @@ namespace Habitales.UI.Actions
             // Hide any lingering brush slider from a previously armed FloodFill action;
             // a FloodFill entry re-shows it via TileSelector.OnBrushSizeChanged.
             if (estimatePanel != null) estimatePanel.HideBrush();
+            if (estimatePanel != null) estimatePanel.SetArmedActionSprite(action.Icon);
             // Arming swaps the strip out for the estimate panel — the two are stacked states, not
             // shown together. Disarm/Cancel/Confirm re-show the strip via Disarm().
             if (strip         != null) strip.SetVisible(false);
+            if (strip         != null) strip.HideButtons();
 
             // Law-2: fire the armed event now that the action is meaningfully selected.
             OnActionArmed?.Invoke(currentAction);

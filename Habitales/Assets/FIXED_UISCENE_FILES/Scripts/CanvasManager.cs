@@ -20,11 +20,24 @@ public class CanvasManager : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        ActivateMainMenu();
+    }
+    
+    public void ActivateMainMenu()
+    {
+        if (GetCanvas(MenuName.MainMenu) != null)
+            CanvasManager.Instance.ShowMenu(MenuName.MainMenu);
+    }
+
     public void RegisterMenu(CanvasBase canvas)
     {
-        menuList.Add(canvas);
-        canvas.Hide();
-        Debug.Log("hi");
+        if (!menuList.Contains(canvas))
+        {
+            menuList.Add(canvas);
+            canvas.Hide();
+        }
     }
 
     public CanvasBase GetCanvas(MenuName menu)

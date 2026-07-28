@@ -17,7 +17,7 @@ MonoBehaviour:
   group: 1
   examineReport: 0
   description: 
-  icon: {fileID: 21300000, guid: 0ac43b5ad52f7bf4a9a9b0e777262799, type: 3}
+  icon: {fileID: 21300000, guid: 7a0f2f88ee382f14ca082bbcfdd9b986, type: 3}
   selectionMode: 0
   effects:
   - type: 0

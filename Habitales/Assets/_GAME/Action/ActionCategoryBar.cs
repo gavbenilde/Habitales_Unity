@@ -28,6 +28,7 @@ namespace Habitales.UI.Actions
         {
             // Emergency is retired — the tab is gone entirely (no field, no handler).
             if (examineTab   != null) examineTab.onClick.AddListener(  () => OnCategorySelected?.Invoke(ActionCategory.Examine));
+            if (examineTab   != null) examineTab.interactable = false;
             if (interveneTab != null) interveneTab.onClick.AddListener(() => OnCategorySelected?.Invoke(ActionCategory.Intervene));
             if (cleanupTab   != null) cleanupTab.onClick.AddListener(  () => OnCategorySelected?.Invoke(ActionCategory.Cleanup));
         }

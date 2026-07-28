@@ -1,17 +1,26 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class CanvasMainMenu : CanvasBase
 {
+    void Awake()
+    {
+        Show();
+    }
+    
     public void BTN_Play()
     {
-        Debug.Log("Play");
-
+        SceneManager.LoadScene("Vertical Slice");
     }
 
     public void BTN_Quit()
     {
-        Debug.Log("Quit");
+        #if UNITY_EDITOR
+                UnityEditor.EditorApplication.isPlaying = false;
+        #else
+                Application.Quit();
+        #endif
     }
 }

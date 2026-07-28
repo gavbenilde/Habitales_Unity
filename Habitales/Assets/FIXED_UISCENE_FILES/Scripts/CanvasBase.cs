@@ -23,7 +23,7 @@ public class CanvasBase : MonoBehaviour
 
     [SerializeField] private MenuName menuName;
 
-    protected virtual void Start()
+    protected virtual void Awake()
     {
         CanvasManager.Instance.RegisterMenu(this);
     }

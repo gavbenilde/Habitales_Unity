@@ -162,12 +162,12 @@ namespace Habitales.UI
                                "assign the Settings Button in the Inspector.", this);
                 ok = false;
             }
-            if (_galleryButton == null)
-            {
-                Debug.LogError($"{name}: _galleryButton is not wired — " +
-                               "assign the Gallery Button in the Inspector.", this);
-                ok = false;
-            }
+            // if (_galleryButton == null)
+            // {
+            //     Debug.LogError($"{name}: _galleryButton is not wired — " +
+            //                    "assign the Gallery Button in the Inspector.", this);
+            //     ok = false;
+            // }
             if (_exitToMenuButton == null)
             {
                 Debug.LogError($"{name}: _exitToMenuButton is not wired — " +
@@ -186,13 +186,13 @@ namespace Habitales.UI
                                "assign the settings stub panel GameObject in the Inspector.", this);
                 ok = false;
             }
-            if (_gallery == null)
-            {
-                Debug.LogError($"{name}: _gallery is not wired — " +
-                               "drag the GalleryController component into this field in the Inspector. " +
-                               "A UIManager lookup fallback is NOT provided by design (Law 3).", this);
-                ok = false;
-            }
+            // if (_gallery == null)
+            // {
+            //     Debug.LogError($"{name}: _gallery is not wired — " +
+            //                    "drag the GalleryController component into this field in the Inspector. " +
+            //                    "A UIManager lookup fallback is NOT provided by design (Law 3).", this);
+            //     ok = false;
+            // }
 
             if (!ok) enabled = false;
         }
@@ -204,7 +204,7 @@ namespace Habitales.UI
             // Guard: if refs are missing, ValidateRefs already logged; skip to avoid NPE.
             _resumeButton?.onClick.AddListener(Resume);
             _settingsButton?.onClick.AddListener(OpenSettings);
-            _galleryButton?.onClick.AddListener(OpenGallery);
+            // _galleryButton?.onClick.AddListener(OpenGallery);
             _exitToMenuButton?.onClick.AddListener(ExitToMainMenu);
             _exitToDesktopButton?.onClick.AddListener(ExitToDesktop);
         }
@@ -265,27 +265,27 @@ namespace Habitales.UI
         /// <para>This is the canonical entry point for the gallery. Do NOT open
         /// <see cref="GalleryController"/> directly from other systems.</para>
         /// </summary>
-        public void OpenGallery()
-        {
-            if (_gallery == null) return;
-
-            // Hide settings sub-panel if open.
-            if (_settingsPanel != null)
-                _settingsPanel.SetActive(false);
-
-            // SetVisible(true) on GalleryController calls Refresh() internally (§5.5).
-            _gallery.SetVisible(true);
-        }
+        // public void OpenGallery()
+        // {
+        //     if (_gallery == null) return;
+        //
+        //     // Hide settings sub-panel if open.
+        //     if (_settingsPanel != null)
+        //         _settingsPanel.SetActive(false);
+        //
+        //     // SetVisible(true) on GalleryController calls Refresh() internally (§5.5).
+        //     _gallery.SetVisible(true);
+        // }
 
         /// <summary>
         /// Closes the gallery sub-panel and returns focus to the main button row.
         /// Wire a "Back" button inside the gallery panel to this method, or call it
         /// from Resume() (which hides everything).
         /// </summary>
-        public void CloseGallery()
-        {
-            _gallery?.SetVisible(false);
-        }
+        // public void CloseGallery()
+        // {
+        //     _gallery?.SetVisible(false);
+        // }
 
         /// <summary>
         /// Shows the settings stub panel. Audio sliders and other content go here in a
@@ -294,7 +294,7 @@ namespace Habitales.UI
         public void OpenSettings()
         {
             // Hide gallery sub-panel if open.
-            _gallery?.SetVisible(false);
+            // _gallery?.SetVisible(false);
 
             if (_settingsPanel != null)
                 _settingsPanel.SetActive(true);
@@ -378,7 +378,7 @@ namespace Habitales.UI
             if (_settingsPanel != null)
                 _settingsPanel.SetActive(false);
 
-            _gallery?.SetVisible(false);
+            // _gallery?.SetVisible(false);
         }
     }
 }

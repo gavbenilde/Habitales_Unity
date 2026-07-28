@@ -16,7 +16,7 @@ MonoBehaviour:
   category: 3
   tileSprite: {fileID: 21300000, guid: d5ebaa77aec4ed5489809a50fd402ac6, type: 3}
   vfxKey: 
-  billboardScale: 0.25
+  billboardScale: 0.5
   promoteAfterDays: 100
   nextStage: {fileID: 0}
   transitionEffects: []
@@ -43,3 +43,11 @@ MonoBehaviour:
   floodResistance: 0
   deathConditions: []
   behaviour: {fileID: 0}
+  tier1Intro:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}
+  tier4JournalEntry:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}

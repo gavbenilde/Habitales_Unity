@@ -51,25 +51,25 @@ public class RegionHealthUI : MonoBehaviour
         }
 
         Hide();
-        //
-        // if (tileSelector != null)
-        // {
-        //     tileSelector.OnTileSelected   += HandleTileSelected;
-        //     tileSelector.OnTileDeselected += HandleTileDeselected;
-        // }
+        
+        if (tileSelector != null)
+        {
+            tileSelector.OnTileSelected   += HandleTileSelected;
+            tileSelector.OnTileDeselected += HandleTileDeselected;
+        }
     }
-    //
-    // void OnDestroy()
-    // {
-    //     if (tileSelector != null)
-    //     {
-    //         tileSelector.OnTileSelected   -= HandleTileSelected;
-    //         tileSelector.OnTileDeselected -= HandleTileDeselected;
-    //     }
-    // }
-    //
-    // private void HandleTileSelected(Tile tile, Vector3 _) => ;
-    // private void HandleTileDeselected() => Hide();
+    
+    void OnDestroy()
+    {
+        if (tileSelector != null)
+        {
+            tileSelector.OnTileSelected   -= HandleTileSelected;
+            tileSelector.OnTileDeselected -= HandleTileDeselected;
+        }
+    }
+    
+    private void HandleTileSelected(Tile tile, Vector3 _) => Show(tile.regionID, tile.CalculateHealth());
+    private void HandleTileDeselected() => Hide();
 
     // ── Region mode ──────────────────────────────────────────────────────────
 
@@ -81,20 +81,21 @@ public class RegionHealthUI : MonoBehaviour
     /// Preserved signature for RegionOutlineRenderer; delegates to <see cref="ShowRegion"/>.
     /// </summary>
     // public void Show(int regionID, float avgHealth, float trend) => ShowRegion(regionID, avgHealth, trend);
-    //
+    
     // /// <summary>Populates the header for a REGION: label "Zone {id}", region avg health + trend.</summary>
     // public void ShowRegion(int regionID, float avgHealth, float trend)
     //     => Populate($"Zone {regionID}", "Avg. Health: ", avgHealth, trend);
-    //
+    
     // // ── Tile mode ────────────────────────────────────────────────────────────
-    //
-    // /// <summary>Populates the header for a single TILE: the entity/tile name, tile health + trend.</summary>
+    
+    /// <summary>Populates the header for a single TILE: the entity/tile name, tile health + trend.</summary>
     // public void ShowTile(string tileName, float tileHealth, float trend)
     //     => Populate(tileName, "", tileHealth, trend);
-    //
+    
     // // ── Shared populate ──────────────────────────────────────────────────────
-    //
+
     // private void Populate(string label, string healthPrefix, float health, float trend)
+    // {}
     
     public void Show(int regionID, float avgHealth, float trend)
     {
