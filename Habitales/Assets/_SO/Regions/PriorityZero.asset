@@ -15,14 +15,14 @@ MonoBehaviour:
   sizeRange: {x: 150, y: 200}
   flowFalloff: 1.2
   enclosureBonus: 0.3
-  nutrientBalanceRange: {x: 25, y: 35}
-  soilOrganicMatterRange: {x: 25, y: 35}
-  soilStructureRange: {x: 25, y: 35}
-  biologicalActivityRange: {x: 25, y: 35}
-  waterDynamicsRange: {x: 25, y: 35}
-  erosionResistanceRange: {x: 25, y: 35}
-  vegetationCoverRange: {x: 25, y: 35}
-  contaminationRange: {x: 30, y: 50}
+  nutrientBalanceRange: {x: 60, y: 60}
+  soilOrganicMatterRange: {x: 60, y: 60}
+  soilStructureRange: {x: 60, y: 60}
+  biologicalActivityRange: {x: 60, y: 60}
+  waterDynamicsRange: {x: 60, y: 60}
+  erosionResistanceRange: {x: 60, y: 60}
+  vegetationCoverRange: {x: 60, y: 60}
+  contaminationRange: {x: 0, y: 0}
   loggedTreesWeight: 0
   nutrientDepletionWeight: 0
   heavyMetalContaminationWeight: 0

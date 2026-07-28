@@ -16,16 +16,19 @@ MonoBehaviour:
   intrusiveness: 0
   posX: 0
   posY: 0
-  titleText: 
   lines:
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 0}
-    body: Zone 1's good...
+    portraitOverride: {fileID: 21300000, guid: 001dd9f17d9137c41bd14078f68137c6, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: 
+    body: You did it! You unlocked the next zone...
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 0}
-    body: ....so on to the next zone!
+    portraitOverride: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: 
+    body: ....you reached the health threshold to unlock it!
   fireOnce: 0
   linkedThread: {fileID: 0}
   focusCameraOnTarget: 0

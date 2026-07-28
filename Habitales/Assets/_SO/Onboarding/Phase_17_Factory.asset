@@ -16,12 +16,20 @@ MonoBehaviour:
   intrusiveness: 0
   posX: 0
   posY: 0
-  titleText: 
   lines:
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 0}
-    body: We can't dismantle the factory.
+    portraitOverride: {fileID: 21300000, guid: 03efae62146028145b5c57653a188b3b, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: 
+    body: Looks like there's a factory here... be wary as trash will spawn around
+      it as time goes by.
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 001dd9f17d9137c41bd14078f68137c6, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: 
+    body: I'm sure you'll be fine though! Keep up the great work boss!
   fireOnce: 0
   linkedThread: {fileID: 0}
   focusCameraOnTarget: 0
