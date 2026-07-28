@@ -38,6 +38,10 @@ public class WorkerWalker : Walker
         worker = boundWorker;
     }
 
+    /// <summary>True while the bound Worker is fatigued (read-only mirror of Worker.isFatigued).
+    /// Exposed so systems like onboarding can pick out the fatigued crew without touching worker data.</summary>
+    public bool IsFatigued => worker != null && worker.isFatigued;
+
     protected override void Awake()
     {
         base.Awake();

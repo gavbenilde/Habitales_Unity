@@ -27,7 +27,17 @@ namespace Habitales.Onboarding
         Phase_04_ActionBar      = 4,    // Text + arrow → Intervene icon; teach the Action Bar
         Phase_05_PickCard       = 5,    // Text; cards dimmed except Plant Trees (arm the plant_trees action)
         Phase_06_SelectTiles    = 6,    // Text + GhostMouseDrag; hold-drag multi-select 3+ (DragGhostInset)
+
+        // ── Worker beats (added 2026-07-23) — the 7-family, in sequence order:
+        //   ShowWorkers → Confirm → WorkersTired → FatigueBar. Confirm keeps its stable id 7
+        //   (its confirm gate + the dormant Beat1_3JuiceDirector re-point both key off it); the
+        //   three new beats take fresh ids so nothing else shifts. Author-facing numbering:
+        //   7 = ShowWorkers, 7.1 = Confirm (unchanged), 7.2 = WorkersTired, 7.3 = FatigueBar.
+        Phase_07_ShowWorkers    = 70,   // Character: white pings on every worker — "here's your crew" (before confirm)
         Phase_07_Confirm        = 7,    // Text + arrow → Confirm; commit the action (Beat1_3JuiceDirector)
+        Phase_07_WorkersTired   = 71,   // Character: red pings on the fatigued crew, AFTER the action lands (OnActionCompleted)
+        Phase_07_FatigueBar     = 72,   // Character: FidgetArrow at the workforce / fatigue bar
+
         Phase_08_TimeStamina    = 8,    // Character: actions cost days; workers rest — highlight counters
         Phase_09_Weather        = 9,    // Character: weather affects growth — highlight weather hex
         Phase_10_ZoneHealth     = 10,   // Character: zone health bar + dropdown
