@@ -26,7 +26,10 @@ namespace Habitales.UI
 
         public string SubsystemId => "journalIcon";
         public bool   IsVisible   => gameObject.activeSelf;
-        public void   SetVisible(bool visible) => gameObject.SetActive(visible);
+
+        // The && is the feature kill-switch (JournalStore.FeatureEnabled, OFF 2026-07-27): a
+        // blanket UIManager.SetAllUIVisible(true) must not resurrect the Journal icon.
+        public void   SetVisible(bool visible) => gameObject.SetActive(visible && JournalStore.FeatureEnabled);
 
         [Header("Badge")]
         [SerializeField] private GameObject      badgeRoot;
@@ -44,6 +47,14 @@ namespace Habitales.UI
 
         private void Awake()
         {
+            if (!JournalStore.FeatureEnabled)
+            {
+                // Feature parked — hide the icon root and skip the ref checks (an unbuilt Journal
+                // icon shouldn't spray LogErrors about unwired badge fields it will never use).
+                gameObject.SetActive(false);
+                return;
+            }
+
             bool ok = true;
 
             if (badgeRoot == null)

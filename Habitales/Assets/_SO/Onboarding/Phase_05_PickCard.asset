@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Phase_05_PickCard
   m_EditorClassIdentifier: 
   eventName: Phase_05_PickCard
-  intrusiveness: 1
-  posX: 0
-  posY: 0
+  intrusiveness: 2
+  posX: 500
+  posY: 100
   lines:
   - speaker: 2
     customName: 

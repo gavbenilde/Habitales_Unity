@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using Spine.Unity;
 using UnityEngine;
 using UnityEngine.VFX;
 
@@ -12,10 +11,10 @@ using UnityEngine.VFX;
 public class WorkerWalker : Walker
 {
     [Header("Exhausted Visual (worker-only)")]
-    [Tooltip("Tint multiplied over the whole Spine skeleton while Worker.isFatigued is true, via the " +
-             "skeleton's vertex color (Skeleton.R/G/B/A). Kept as a multiply — grays/dims the worker. " +
-             "This is NOT a material property: the Spine/Skeleton shader has no _BaseColor/_Color, so the " +
-             "old MaterialPropertyBlock tint never took; vertex color is Spine's supported channel.")]
+    [Tooltip("Tint multiplied over the whole rig while Worker.isFatigued is true. Kept as a multiply — " +
+             "grays/dims the worker. Pushed through Walker.ArtTint, which composes it with the " +
+             "day-night sun tint, so a fatigued worker at midnight reads as both rather than as " +
+             "whichever system wrote last.")]
     [SerializeField] private Color desaturatedTint = new Color(0.55f, 0.55f, 0.55f, 1f);
 
     private enum Mode { Roaming, Working }
@@ -24,10 +23,6 @@ public class WorkerWalker : Walker
     private Worker worker;                 // the bound data record — read only
     private bool isGameOver;
     private bool isExhaustedVisual;
-
-    // Both facing rigs' skeletons, so the tint tracks whichever one is currently shown. Found in
-    // children (true = include inactive), matching the base Walker's keep-both-rigs-active rule.
-    private SkeletonAnimation[] skeletons;
 
     private VisualEffect activeWorkingVFX;
     private Coroutine flightRoutine;
@@ -41,12 +36,6 @@ public class WorkerWalker : Walker
     /// <summary>True while the bound Worker is fatigued (read-only mirror of Worker.isFatigued).
     /// Exposed so systems like onboarding can pick out the fatigued crew without touching worker data.</summary>
     public bool IsFatigued => worker != null && worker.isFatigued;
-
-    protected override void Awake()
-    {
-        base.Awake();
-        skeletons = GetComponentsInChildren<SkeletonAnimation>(true);
-    }
 
     void OnEnable()
     {
@@ -198,27 +187,14 @@ public class WorkerWalker : Walker
 
     // ── Exhausted visual (reads Worker.isFatigued; no new fatigue system) ──────────────────────
 
+    /// <summary>Sets the fatigue half of the walker's tint. The actual write to the rigs is the base
+    /// Walker's job (ApplyCompositeTint, next LateUpdate), which multiplies this by the day-night sun
+    /// tint — so this never needs to know what the lighting is doing, and can't clobber it.</summary>
     private void SyncExhaustedVisual()
     {
         bool fatigued = worker != null && worker.isFatigued;
-        if (fatigued == isExhaustedVisual) return; // avoid redundant skeleton-color writes
+        if (fatigued == isExhaustedVisual) return;
         isExhaustedVisual = fatigued;
-        ApplyTint(fatigued ? desaturatedTint : Color.white);
-    }
-
-    /// <summary>Writes the tint into every rig's Spine skeleton vertex color. SkeletonRenderer bakes
-    /// this into the mesh on its next update, so it survives the front/back renderer toggling and
-    /// doesn't fight SkeletonRenderer's own MaterialPropertyBlock usage.</summary>
-    private void ApplyTint(Color tint)
-    {
-        if (skeletons == null) return;
-        foreach (SkeletonAnimation sa in skeletons)
-        {
-            if (sa == null || sa.Skeleton == null) continue;
-            sa.Skeleton.R = tint.r;
-            sa.Skeleton.G = tint.g;
-            sa.Skeleton.B = tint.b;
-            sa.Skeleton.A = tint.a;
-        }
+        ArtTint = fatigued ? desaturatedTint : Color.white;
     }
 }

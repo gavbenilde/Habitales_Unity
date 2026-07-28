@@ -55,6 +55,15 @@ namespace Habitales.UI
 
         private void OnEnable()
         {
+            if (!JournalStore.FeatureEnabled)
+            {
+                // Feature parked (JournalStore.FeatureEnabled = false) — close the app panel
+                // rather than showing an empty list. OnEnable, not Awake: this also catches
+                // anything that re-opens the panel later.
+                gameObject.SetActive(false);
+                return;
+            }
+
             if (JournalStore.Instance != null)
             {
                 JournalStore.Instance.OnEntryLogged -= HandleEntryLogged;

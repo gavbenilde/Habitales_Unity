@@ -1,3 +1,5 @@
+using UnityEngine;
+
 namespace Habitales.UI
 {
     /// <summary>
@@ -35,6 +37,39 @@ namespace Habitales.UI
         /// tap. Intrusive popups ignore this — they always wait for the Next button.
         /// </summary>
         public float autoAdvanceSeconds;
+
+        // ── Explicit placement (non-intrusive only) ──────────────────────────
+        // A preset names a FLAVOUR (dim/portrait/pacing); placement is orthogonal to it.
+        // These two let a caller keep a preset's flavour while overriding WHERE the
+        // bubble lands — the path PopupSO's Positioned + Pos X / Pos Y travels through
+        // PopupManager.PlayLines. Ignored when intrusive (modals centre + dim).
+
+        /// <summary>
+        /// When true (and <see cref="intrusive"/> is false), the bubble is placed at
+        /// <see cref="position"/> instead of the <see cref="anchor"/> corner —
+        /// i.e. <see cref="PopupIntrusiveness.Positioned"/> rather than NonIntrusive.
+        /// </summary>
+        public bool positioned;
+
+        /// <summary>
+        /// Canvas position used when <see cref="positioned"/> is true: an offset from
+        /// the canvas centre (0,0 = centre, +X right, +Y up), fed to the bubble's
+        /// <c>RectTransform.anchoredPosition</c>.
+        /// </summary>
+        public Vector2 position;
+
+        /// <summary>
+        /// Returns a copy of this style pinned to an explicit canvas position — the
+        /// flavour (dim / portrait / pacing) is preserved, only the placement changes.
+        /// No-ops on intrusive styles, which always centre.
+        /// </summary>
+        public PopupStyle At(Vector2 canvasPosition)
+        {
+            PopupStyle copy = this;
+            copy.positioned = true;
+            copy.position   = canvasPosition;
+            return copy;
+        }
 
         /// <summary>Intrusive, portrait, dims + pauses. The "Dialog Popup UI".</summary>
         public static PopupStyle Dialog => new PopupStyle

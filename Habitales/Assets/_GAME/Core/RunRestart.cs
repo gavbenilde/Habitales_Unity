@@ -24,6 +24,11 @@ using UnityEngine.SceneManagement;
 //       true at rest, but if a restart happens mid-cycle (action running, popup interrupt, etc.)
 //       it could be caught false with nothing left to flip it back — the NEXT run's first
 //       AdvanceTimeStepped would then hang forever on WaitUntil(IsIdle). Force it true.
+//     • SunSignal.Daylight / Tint (added 2026-07-28) — the day-night light term unlit art (Spine
+//       walkers, sprite rigs) multiplies over itself, written every frame by DayNightCycleHandler.
+//       Same shape of problem as TimeFlowSignal: a restart landing at night leaves it dark, and the
+//       new scene's walkers would tint themselves midnight-blue on Awake, before the reloaded
+//       handler's first Update writes the real value. Reset to full daylight.
 //     • EventContext — static global/override token dictionaries + camera focus target. Has its
 //       own ResetForNewRun() already (unused by any caller today); call it here so stale tokens
 //       ("current_day", "world_health", ...) and any leftover focus-target don't leak into the
@@ -85,6 +90,7 @@ namespace Habitales.Core
             ResetTimeFlowWeatherTime();
 
             DayNightCycleHandler.ForceIdle();
+            SunSignal.Reset();
 
             EventContext.ResetForNewRun();
         }

@@ -24,11 +24,35 @@ public class DayNightCycleHandler : MonoBehaviour
     [Range(0.05f, 2f)]
     [SerializeField] private float minDuration = 0.3125f;
 
+    // ── Sun tint for UNLIT art (2026-07-28) ──────────────────────────────────
+    // The light below only reaches Lit shaders. Unlit art (Spine walkers, sprite rigs) reads
+    // SunSignal instead and multiplies the tint into its own colour channel. See SunSignal.cs.
+    [Header("Sun Tint (unlit art)")]
+    [Tooltip("Publish SunSignal.Daylight/Tint each frame so unlit art (the Spine workers, sprite " +
+             "rigs) darkens with the cycle like the Lit tiles already do. Off = unlit art stays at " +
+             "full brightness, i.e. the pre-2026-07-28 behaviour.")]
+    [SerializeField] private bool driveSunTint = true;
+
+    [Tooltip("Tint unlit art multiplies by at full night. Not black on purpose — the tiles keep " +
+             "some ambient at night, so a pure-black walker would read as a hole rather than a " +
+             "silhouette. Cool/blue sells moonlight.")]
+    [SerializeField] private Color nightTint = new Color(0.34f, 0.40f, 0.58f, 1f);
+
+    [Tooltip("Tint unlit art multiplies by at the sun's zenith. White = the art's authored colours.")]
+    [SerializeField] private Color dayTint = Color.white;
+
+    [Tooltip("How much of the directional light's own colour and intensity to fold into the tint. " +
+             "AtmosphereDirector drives those per weather, so at 1 a storm dims the walkers along " +
+             "with everything else; 0 keeps the tint purely a function of the sun's angle.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float lightColorInfluence = 1f;
+
     private Coroutine currentCycle;
     private int actionDayIndex = 0;
 
     private Quaternion _dayStartRotation;
     private bool _subscribed;
+    private Light _light;   // the Light on directionalLight, for colour/intensity; may be null
 
     // ── Idle gate ────────────────────────────────────────────────────────────
     // ResourceManager.AdvanceTimeStepped yields on this.
@@ -61,11 +85,39 @@ public class DayNightCycleHandler : MonoBehaviour
         }
 
         _dayStartRotation = directionalLight.transform.rotation;
+        _light = directionalLight.GetComponent<Light>();
     }
 
     void OnDestroy()
     {
         if (Instance == this) Instance = null;
+    }
+
+    // Runs every frame, not just during a cycle: the sun sits at a fixed angle between actions and
+    // unlit art still has to match THAT angle, and AtmosphereDirector can change the light's colour
+    // on a weather flip while no cycle is running.
+    void Update()
+    {
+        if (!driveSunTint || directionalLight == null) return;
+
+        // Exactly the Lambert term a flat, upward-facing surface gets from this light, so walkers
+        // track the ground they stand on. Negative (sun below the horizon) clamps to full night.
+        float daylight = Mathf.Clamp01(Vector3.Dot(-directionalLight.transform.forward, Vector3.up));
+
+        Color tint = Color.Lerp(nightTint, dayTint, daylight);
+
+        if (_light != null && lightColorInfluence > 0f)
+        {
+            // Intensity is folded in as a multiplier clamped at 1 so the normal 1.0 case is a no-op
+            // and only a director DIMMING the light (storm) darkens the art — a lightning flash
+            // boosting intensity above 1 must not blow the walkers out to white.
+            Color lightTerm = _light.color * Mathf.Clamp01(_light.intensity);
+            tint *= Color.Lerp(Color.white, lightTerm, lightColorInfluence);
+        }
+
+        tint.a = 1f; // tint, never opacity — see SunSignal.Tint
+        SunSignal.Daylight = daylight;
+        SunSignal.Tint = tint;
     }
 
     // Subscription is attempted twice: OnEnable (normal path) and Start (safety net for
@@ -102,6 +154,7 @@ public class DayNightCycleHandler : MonoBehaviour
         _subscribed = false;
 
         TimeFlowSignal.SpeedFactor = 1f; // a disabled handler kills its coroutine — never leave the factor stuck high
+        SunSignal.Reset();               // ...and never leave unlit art stuck at midnight with nothing left to brighten it
     }
 
     // Called by ActionManager once before the first day of a new action.

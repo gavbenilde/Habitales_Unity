@@ -70,6 +70,18 @@ namespace Habitales.Onboarding
         /// <summary>True while the onboarding sequence is running (not yet graduated).</summary>
         public bool IsActive { get; private set; }
 
+        /// <summary>
+        /// True while the SCRIPTED EXPOSITION (phases 1–14) is still running — the stretch where
+        /// the director owns Azi's voice and the screen. Goes false at phase 15 (free play), so it
+        /// is a strictly narrower window than <see cref="IsActive"/>, which stays true through
+        /// phases 15–18 (free play, zone unlock, factory, maintenance).
+        ///
+        /// <para>Systems whose own Azi bubbles would talk over the tutorial gate on THIS, not on
+        /// <c>IsActive</c> — see <c>TriggerManager</c>'s Azi tier pipeline (T1–T3), which stays
+        /// suppressed here and comes alive the moment phase 15 begins.</para>
+        /// </summary>
+        public bool IsExpositionActive => IsActive && _phaseIndex <= s_ExpositionLastIndex;
+
         /// <summary>The phase currently in progress (None if inactive).</summary>
         public OnboardingBeatId CurrentBeat { get; private set; } = OnboardingBeatId.None;
 
@@ -231,6 +243,13 @@ namespace Habitales.Onboarding
             OnboardingBeatId.Phase_17_Factory,
             OnboardingBeatId.Phase_18_Maintenance,
         };
+
+        // Index of the last EXPOSITION phase (14) inside s_Sequence — the boundary IsExpositionActive
+        // reads. Derived from the array rather than hardcoded so re-ordering the deck (or inserting
+        // another 7.x-style beat) can never silently move the boundary. Enum VALUES are not
+        // chronological (7 = 70/7/71/72, 10.1 = 101), so this must be a sequence index, not a compare.
+        private static readonly int s_ExpositionLastIndex =
+            Array.IndexOf(s_Sequence, OnboardingBeatId.Phase_14_HelpAffordance);
 
         // The popup preset each phase presents with. Dialog = intrusive + portrait + pause;
         // Character = side bubble + portrait; Text = side bubble, no portrait (speaker-less MC box).
@@ -729,6 +748,13 @@ namespace Habitales.Onboarding
 
             List<ResolvedLine> lines = so.ResolveLines(dialogueRegistry);
             PopupStyle preset = PresetFor(id);
+
+            // The director owns the FLAVOUR (Dialog/Character/Text), but the SO owns its
+            // PLACEMENT: authoring intrusiveness = Positioned on the PopupSO pins that phase's
+            // bubble to its Pos X / Pos Y instead of the preset's corner. Ignored for Dialog —
+            // intrusive popups centre + dim, so there is nothing to place.
+            if (so.intrusiveness == PopupIntrusiveness.Positioned && !preset.intrusive)
+                preset = preset.At(new Vector2(so.posX, so.posY));
 
             OnboardingBeatId captured = id;
             Action onDone = advanceOnComplete

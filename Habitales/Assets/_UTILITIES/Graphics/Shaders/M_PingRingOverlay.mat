@@ -55,7 +55,7 @@ Material:
     - _PingMaxRadius: 0.6
     - _PingOverlayScale: 100
     - _PingPlaneMode: 1
-    - _PingSpeed: 0.9
+    - _PingSpeed: 0.75
     - _QueueControl: 0
     - _QueueOffset: 0
     m_Colors:

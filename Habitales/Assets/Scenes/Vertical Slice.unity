@@ -7059,6 +7059,11 @@ MonoBehaviour:
     orbitRadius: 90
     pivotOffsetPx: {x: 0, y: 0}
     arrowPosOffsetPx: {x: 5, y: 0}
+  - phase: 7
+    orbitAngleDeg: 180
+    orbitRadius: 80
+    pivotOffsetPx: {x: 0, y: 10}
+    arrowPosOffsetPx: {x: 0, y: 0}
   workerRevealPingColor: {r: 1, g: 1, b: 1, a: 1}
   workerFatiguePingColor: {r: 0.9, g: 0.15, b: 0.15, a: 1}
   workerPingIntervalSeconds: 1
@@ -7068,7 +7073,7 @@ MonoBehaviour:
   actionBarUI: {fileID: 1601831423}
   objectiveBannerUI: {fileID: 1881321057783004282}
   regionManager: {fileID: 510870574}
-  debugStartPhaseIndex: 0
+  debugStartPhaseIndex: 4
 --- !u!1 &646212476
 GameObject:
   m_ObjectHideFlags: 0
@@ -17405,7 +17410,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7968728462584192229, guid: af14ac4fdc1ddd549a2c30c9028cbb89, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 117.000206
+      value: 117.000305
       objectReference: {fileID: 0}
     - target: {fileID: 8170769003904844735, guid: af14ac4fdc1ddd549a2c30c9028cbb89, type: 3}
       propertyPath: m_AnchorMax.x
@@ -17790,6 +17795,14 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2226187841162721865, guid: 1ef1f93b16499c84cbbda0a8edbf24b3, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 105.855
+      objectReference: {fileID: 0}
+    - target: {fileID: 2226187841162721865, guid: 1ef1f93b16499c84cbbda0a8edbf24b3, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 50
+      objectReference: {fileID: 0}
+    - target: {fileID: 2226187841162721865, guid: 1ef1f93b16499c84cbbda0a8edbf24b3, type: 3}
       propertyPath: m_AnchoredPosition.x
       value: 0
       objectReference: {fileID: 0}
@@ -17852,6 +17865,14 @@ PrefabInstance:
     - target: {fileID: 4714001625138986467, guid: 1ef1f93b16499c84cbbda0a8edbf24b3, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4897885267256720631, guid: 1ef1f93b16499c84cbbda0a8edbf24b3, type: 3}
+      propertyPath: m_text
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5183160090672232289, guid: 1ef1f93b16499c84cbbda0a8edbf24b3, type: 3}
+      propertyPath: m_text
+      value: 50 Days
       objectReference: {fileID: 0}
     - target: {fileID: 6450178170144163334, guid: 1ef1f93b16499c84cbbda0a8edbf24b3, type: 3}
       propertyPath: m_Pivot.x
@@ -17971,11 +17992,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8295360673783364571, guid: 1ef1f93b16499c84cbbda0a8edbf24b3, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 0
+      value: 120
       objectReference: {fileID: 0}
     - target: {fileID: 8295360673783364571, guid: 1ef1f93b16499c84cbbda0a8edbf24b3, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 0
+      value: 50
       objectReference: {fileID: 0}
     - target: {fileID: 8295360673783364571, guid: 1ef1f93b16499c84cbbda0a8edbf24b3, type: 3}
       propertyPath: m_AnchoredPosition.x

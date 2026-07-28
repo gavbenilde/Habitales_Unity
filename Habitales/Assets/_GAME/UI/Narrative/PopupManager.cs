@@ -93,14 +93,25 @@ namespace Habitales.UI
             }
             if (resolved.Count == 0) { onComplete?.Invoke(); return; }
 
+            // Placement: intrusive always centres + dims. A non-intrusive style either
+            // anchors to a corner (default) or, when style.positioned is set, lands at an
+            // explicit canvas position — the route PopupSO's Pos X / Pos Y takes to the view.
+            // Carry `position` through unconditionally; the controller ignores it unless
+            // the flavour is Positioned.
+            PopupIntrusiveness flavour =
+                style.intrusive  ? PopupIntrusiveness.Intrusive   :
+                style.positioned ? PopupIntrusiveness.Positioned  :
+                                   PopupIntrusiveness.NonIntrusive;
+
             var request = new PopupRequest
             {
-                intrusiveness      = style.intrusive ? PopupIntrusiveness.Intrusive : PopupIntrusiveness.NonIntrusive,
+                intrusiveness      = flavour,
                 lines              = resolved,
                 confirmLabel       = "OK",
                 onConfirm          = onComplete,
                 autoDismissSeconds = style.autoAdvanceSeconds,
-                anchor             = style.anchor
+                anchor             = style.anchor,
+                position           = style.position
             };
 
             // Route through the hub so intrusive popups pause the sim (manageSimState);

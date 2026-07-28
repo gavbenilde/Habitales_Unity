@@ -53,13 +53,30 @@ public class WalkerFacingRig
     [System.NonSerialized] private string playingClip;
     [System.NonSerialized] private float baseScaleX = 1f;
 
+    // Tint targets, cached separately from the `spine`/`animator` fields above on purpose. Those two
+    // are the ANIMATION contract and are wired per rig (the worker back rig deliberately leaves
+    // `spine` empty and drives its clips through `animator`); tinting has to reach every skeleton and
+    // sprite under the rig regardless of which pipeline plays it, so it searches the hierarchy
+    // instead of trusting those refs. Deriving tinting from `spine` would silently stop tinting the
+    // back-facing worker.
+    [System.NonSerialized] private SkeletonAnimation[] tintSkeletons;
+    [System.NonSerialized] private SpriteRenderer[] tintSprites;
+
     public bool Exists => root != null;
 
     public void Cache()
     {
-        if (root == null) { renderers = new Renderer[0]; return; }
+        if (root == null)
+        {
+            renderers = new Renderer[0];
+            tintSkeletons = new SkeletonAnimation[0];
+            tintSprites = new SpriteRenderer[0];
+            return;
+        }
         // `true` so a facing authored disabled in the prefab is still found and can be shown later.
         renderers = root.GetComponentsInChildren<Renderer>(true);
+        tintSkeletons = root.GetComponentsInChildren<SkeletonAnimation>(true);
+        tintSprites = root.GetComponentsInChildren<SpriteRenderer>(true);
         baseScaleX = Mathf.Abs(root.transform.localScale.x);
         if (Mathf.Approximately(baseScaleX, 0f)) baseScaleX = 1f;
     }
@@ -114,6 +131,37 @@ public class WalkerFacingRig
         Vector3 s = root.transform.localScale;
         s.x = baseScaleX * t;
         root.transform.localScale = s;
+    }
+
+    /// <summary>
+    /// Multiplies a colour over this rig's art. Both pipelines are unlit, so this is the ONLY tint
+    /// channel either of them has — the Spine worker materials run `Spine/Skeleton`, which is
+    /// `Lighting Off` with no `_Color`/`_BaseColor` uniform, so a MaterialPropertyBlock has nothing
+    /// to write to (an earlier fatigue-tint attempt failed exactly there). Spine's supported channel
+    /// is the skeleton's vertex colour, which SkeletonRenderer bakes into the mesh on its next
+    /// update — that also means it survives the front/back renderer toggle and doesn't fight
+    /// SkeletonRenderer's own MaterialPropertyBlock use. Sprite art takes SpriteRenderer.color.
+    /// </summary>
+    public void ApplyTint(Color tint)
+    {
+        if (tintSkeletons != null)
+        {
+            for (int i = 0; i < tintSkeletons.Length; i++)
+            {
+                SkeletonAnimation sa = tintSkeletons[i];
+                if (sa == null || sa.Skeleton == null) continue;
+                sa.Skeleton.R = tint.r;
+                sa.Skeleton.G = tint.g;
+                sa.Skeleton.B = tint.b;
+                sa.Skeleton.A = tint.a;
+            }
+        }
+
+        if (tintSprites != null)
+        {
+            for (int i = 0; i < tintSprites.Length; i++)
+                if (tintSprites[i] != null) tintSprites[i].color = tint;
+        }
     }
 
     /// <summary>Orients this facing's art plane in world space, for camera billboarding. Independent
@@ -183,6 +231,14 @@ public abstract class Walker : MonoBehaviour
              "the Vertical Slice camera.")]
     [SerializeField] private bool invertFlip;
 
+    [Header("Lighting")]
+    [Tooltip("Multiply SunSignal.Tint over this walker's art so it darkens with the day-night cycle. " +
+             "Walker art is unlit — Spine rigs on Spine/Skeleton, sprite rigs on the default sprite " +
+             "material — so the rotating directional light that darkens the Lit tiles never reaches " +
+             "it, and without this the walker stays at noon brightness on a midnight tile. Turn off " +
+             "for a walker that should read as self-lit.")]
+    [SerializeField] private bool receiveDayNightTint = true;
+
     [Header("Billboard")]
     [Tooltip("Turn each facing rig to face the camera so the flat art never reads edge-on under an " +
              "angled camera. Y-Axis keeps the walker upright (standard 2.5D); Full also matches the " +
@@ -226,6 +282,24 @@ public abstract class Walker : MonoBehaviour
     // Reveal override — see the "Reveal" region near ApplyBillboard for the full explanation.
     private bool revealOverrideActive;
     private Coroutine revealRoutine;
+
+    // Tint state. artTint is the subclass's own channel (WorkerWalker's fatigue grey); the sun tint
+    // is multiplied on top of it every frame. lastAppliedTint skips the push when nothing moved —
+    // the sun changes continuously during a cycle but is static between actions, so most frames are
+    // a no-op.
+    private Color artTint = Color.white;
+    private Color lastAppliedTint = new Color(-1f, -1f, -1f, -1f); // impossible value: forces frame one
+
+    /// <summary>
+    /// The subclass's own tint, multiplied UNDER the day-night sun tint. WorkerWalker drives the
+    /// fatigue grey through here. Composition is the point: a fatigued worker at night must read as
+    /// both, not as whichever system wrote last.
+    /// </summary>
+    protected Color ArtTint
+    {
+        get => artTint;
+        set => artTint = value;
+    }
 
     /// <summary>The tile this walker currently claims.</summary>
     public Tile CurrentTile => currentTile;
@@ -278,6 +352,7 @@ public abstract class Walker : MonoBehaviour
         ApplyFacingModels();
         ApplyFlip();
         ApplyBillboard(); // face the camera on frame one, before any motion
+        ApplyCompositeTint(); // ...and at frame-one's light level, so a night spawn never flashes bright
         PushState();
     }
 
@@ -508,6 +583,10 @@ public abstract class Walker : MonoBehaviour
     /// </summary>
     protected virtual void LateUpdate()
     {
+        // Ahead of the dt guard below: the sun keeps turning through a paused frame, and a walker
+        // frozen at the wrong brightness is more obvious than one frozen mid-stride.
+        ApplyCompositeTint();
+
         float dt = Time.deltaTime;
         if (dt <= 0f) return; // paused / first frame — hold the current pose
 
@@ -569,6 +648,21 @@ public abstract class Walker : MonoBehaviour
         Quaternion full = Quaternion.LookRotation(toCamera, facingCamera.transform.up);
         frontRig?.ApplyBillboard(full);
         backRig?.ApplyBillboard(full);
+    }
+
+    /// <summary>
+    /// Pushes ArtTint × the day-night sun tint to both rigs. Both rigs, not just the visible one:
+    /// the hidden facing is only renderer-disabled (never deactivated, see ApplyFacingModels), so
+    /// it has to already be at the right brightness the instant a turn swaps it in.
+    /// </summary>
+    private void ApplyCompositeTint()
+    {
+        Color composite = receiveDayNightTint ? artTint * SunSignal.Tint : artTint;
+        if (composite == lastAppliedTint) return; // nothing moved this frame
+        lastAppliedTint = composite;
+
+        if (frontRig != null && frontRig.Exists) frontRig.ApplyTint(composite);
+        if (backRig  != null && backRig.Exists)  backRig.ApplyTint(composite);
     }
 
     // ── Reveal (entrance cue driven by an external system, e.g. onboarding) ────────────────────

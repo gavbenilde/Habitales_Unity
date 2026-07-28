@@ -33,6 +33,26 @@ namespace Habitales.UI
     [DefaultExecutionOrder(-100)]
     public class JournalStore : MonoBehaviour
     {
+        /// <summary>
+        /// MASTER KILL-SWITCH for the whole Journal feature — the one place to flip it.
+        /// OFF since 2026-07-27 (user decision: the feature isn't polished enough to ship in the
+        /// vertical slice). While false:
+        /// <list type="bullet">
+        ///   <item>this store never registers <see cref="Instance"/>, so nothing can log entries;</item>
+        ///   <item><c>JournalAppUI</c> / <c>JournalAppIconUI</c> hide themselves and stay hidden
+        ///         even if <c>UIManager.SetAllUIVisible(true)</c> sweeps the tablet;</item>
+        ///   <item><c>TriggerManager</c> skips T4 logging and drops the "I've logged it in the
+        ///         Journal" sentence from its T3 death popups, so Azi never promises a Journal the
+        ///         player can't open.</item>
+        /// </list>
+        /// Flip to <c>true</c> to bring the whole feature back — no other code change needed
+        /// (scene wiring is still outstanding; see the WIRING note below).
+        ///
+        /// <para>Deliberately <c>static readonly</c>, not <c>const</c>: a const would let the
+        /// compiler fold every guard and bury the disabled paths under CS0162 warnings.</para>
+        /// </summary>
+        public static readonly bool FeatureEnabled = false;
+
         public static JournalStore Instance { get; private set; }
 
         // Newest-first (new entries are inserted at index 0).
@@ -53,6 +73,16 @@ namespace Habitales.UI
 
         void Awake()
         {
+            if (!FeatureEnabled)
+            {
+                // Never claim Instance — that null IS the gate every other Journal caller already
+                // checks. Only this component is disabled (managers often share a GameObject, so
+                // deactivating the GO would take innocent siblings with it).
+                Debug.Log("[JournalStore] Journal feature is OFF (JournalStore.FeatureEnabled = false) — no entries will be logged.", this);
+                enabled = false;
+                return;
+            }
+
             if (Instance != null && Instance != this)
             {
                 Debug.LogWarning($"[JournalStore] Duplicate instance on '{name}' — destroying it. Only one JournalStore should exist per scene.", this);

@@ -4,6 +4,7 @@ using UnityEngine;
 using UTILITIES.Camera;
 using Habitales.Dialogue;
 using Habitales.Entities;
+using Habitales.Onboarding;
 using Habitales.UI;
 
 namespace Habitales.Triggers
@@ -76,6 +77,15 @@ namespace Habitales.Triggers
                  "the tier queue from stalling if the player never taps. Ignored for intrusive " +
                  "T3-first-of-cause popups (they always wait for the confirm button).")]
         [SerializeField] private float _tierNonIntrusiveAutoDismiss = 6f;
+
+        [Tooltip("Hold the whole Azi tier pipeline (T1/T2/T3 + T4 journal logging) while the " +
+                 "onboarding director is inside its scripted exposition (phases 1-14). Azi is " +
+                 "already talking there; a tier bubble on top of a tutorial beat is two voices at " +
+                 "once. Tiers come alive at phase 15 (free play) and stay alive through 16-18. " +
+                 "Nothing is consumed while suppressed - dedup keys are only stamped once a tier " +
+                 "actually fires, so a species inspected during the tutorial still gets its T1 " +
+                 "intro the next time it is inspected. Uncheck to let tiers run during the deck.")]
+        [SerializeField] private bool _suppressTiersDuringOnboarding = true;
 
         // ─── Runtime state ────────────────────────────────────────────────────
 
@@ -469,11 +479,29 @@ namespace Habitales.Triggers
         private static readonly HashSet<string> DeathCauses = new HashSet<string> { "drought", "flood", "environment" };
 
         /// <summary>
+        /// True while the whole tier pipeline must stay quiet: the onboarding director is present
+        /// and still inside its scripted exposition (phases 1–14 — see
+        /// <see cref="OnboardingDirector.IsExpositionActive"/>). Read-only cross-system check
+        /// (Law 1: the director never pushes a flag in here). No director in the scene → never
+        /// suppressed, so a run started without onboarding behaves exactly as before.
+        ///
+        /// <para>Checked at the TOP of each tier handler, BEFORE any dedup key is stamped — a
+        /// suppressed tier is skipped, never consumed. The first post-tutorial inspect/death still
+        /// gets its bubble.</para>
+        /// </summary>
+        private bool TiersSuppressed =>
+            _suppressTiersDuringOnboarding &&
+            OnboardingDirector.Instance != null &&
+            OnboardingDirector.Instance.IsExpositionActive;
+
+        /// <summary>
         /// T1 — first inspect of a species (TileSelector.OnTileSelected). Non-intrusive Azi
         /// bubble with the SO's resolved tier1Intro. Dedup "T1:{entityId}" per run.
         /// </summary>
         private void HandleTileSelectedForTier(Tile tile, Vector3 worldPos)
         {
+            if (TiersSuppressed) return; // onboarding phases 1–14 own Azi's voice (key NOT stamped)
+
             TileEntitySO def = tile?.entity?.def;
             if (def == null) return;
 
@@ -493,6 +521,7 @@ namespace Habitales.Triggers
         /// </summary>
         private void HandleTileTierChangedForTier(Tile tile, Tier oldTier, Tier newTier)
         {
+            if (TiersSuppressed) return; // onboarding phases 1–14 own Azi's voice (key NOT stamped)
             if (newTier != Tier.Critical) return; // only the downward crossing INTO Critical matters
             TileEntitySO def = tile?.entity?.def;
             if (def == null || def.category != EntityCategory.Plant) return;
@@ -516,6 +545,11 @@ namespace Habitales.Triggers
         /// </summary>
         private void HandleEntityDiedForTier(Tile tile, string entityId, string cause)
         {
+            // Onboarding phases 1–14 own Azi's voice AND the ping surface (the worker-teaching
+            // beats ping in white/red). Suppress the popup, the death ping, and the journal log
+            // together — no dedup key is stamped, so the first post-tutorial death still lands.
+            if (TiersSuppressed) return;
+
             if (tile == null || string.IsNullOrEmpty(entityId)) return;
             if (string.IsNullOrEmpty(cause) || !DeathCauses.Contains(cause)) return; // player removal / decomposition — never T3
 
@@ -544,8 +578,10 @@ namespace Habitales.Triggers
                 }
             }
 
+            // T4 — skipped wholesale while the Journal feature is parked (JournalStore.FeatureEnabled).
+            // The window key is left unstamped too, so flipping the feature back on mid-run works.
             string journalKey = $"T4:{entityId}";
-            if (!_windowFiredIds.Contains(journalKey))
+            if (JournalStore.FeatureEnabled && !_windowFiredIds.Contains(journalKey))
             {
                 _windowFiredIds.Add(journalKey);
                 LogJournalEntry(entityId, cause, speciesName);
@@ -573,25 +609,37 @@ namespace Habitales.Triggers
 
         /// <summary>CODE-ONLY template text for the T3-intrusive popup (T2/T3 text is never
         /// authored). "environment" names the tile's FIRST issue via the small IssueType ->
-        /// display-string map, falling back to a generic line when the issue list is empty.</summary>
+        /// display-string map, falling back to a generic line when the issue list is empty.
+        ///
+        /// <para>The closing "…in the Journal" sentence is appended ONLY when the Journal feature
+        /// is on (<see cref="JournalStore.FeatureEnabled"/>) — Azi must never point the player at
+        /// an app that isn't there. The explanation itself is the load-bearing part and stands
+        /// alone without it.</para></summary>
         private string BuildCauseExplanationText(string cause, string speciesName, Tile tile)
         {
-            switch (cause)
+            string body = cause switch
             {
-                case "drought":
-                    return $"The {speciesName} didn't make it — a long dry spell drained the soil past what it could " +
-                           "survive. Drought builds slowly and often stays hidden until it's too late; keep an eye on " +
-                           "long dry stretches. I've logged what happened in the Journal.";
-                case "flood":
-                    return $"The {speciesName} died in the storm — heavy rain and flooding can drown roots and wash " +
-                           "away everything holding a tile together. I've logged what happened in the Journal.";
-                case "environment":
-                    return $"Oh no, the {speciesName} died fast. {ResolveFirstIssueText(tile)} I've written it up in " +
-                           "the Journal so you can check back on it.";
-                default:
-                    return $"The {speciesName} died. I've made a note in the Journal.";
-            }
+                "drought"     => $"The {speciesName} didn't make it — a long dry spell drained the soil past what it could " +
+                                 "survive. Drought builds slowly and often stays hidden until it's too late; keep an eye on " +
+                                 "long dry stretches.",
+                "flood"       => $"The {speciesName} died in the storm — heavy rain and flooding can drown roots and wash " +
+                                 "away everything holding a tile together.",
+                "environment" => $"Oh no, the {speciesName} died fast. {ResolveFirstIssueText(tile)}",
+                _             => $"The {speciesName} died."
+            };
+
+            return JournalStore.FeatureEnabled ? $"{body} {JournalNoteSentence(cause)}" : body;
         }
+
+        /// <summary>The "I've logged it" closer for each cause. Only ever appended while the
+        /// Journal feature is enabled — see <see cref="BuildCauseExplanationText"/>.</summary>
+        private static string JournalNoteSentence(string cause) => cause switch
+        {
+            "drought"     => "I've logged what happened in the Journal.",
+            "flood"       => "I've logged what happened in the Journal.",
+            "environment" => "I've written it up in the Journal so you can check back on it.",
+            _             => "I've made a note in the Journal."
+        };
 
         private static string ResolveFirstIssueText(Tile tile)
         {
@@ -640,6 +688,8 @@ namespace Habitales.Triggers
         /// blank card.</summary>
         private void LogJournalEntry(string entityId, string cause, string speciesName)
         {
+            if (!JournalStore.FeatureEnabled) return; // feature parked — second guard, silent by design
+
             if (JournalStore.Instance == null)
             {
                 Debug.LogWarning("TriggerManager: JournalStore.Instance is null — T4 journal entry dropped (no JournalStore in the scene).", this);
