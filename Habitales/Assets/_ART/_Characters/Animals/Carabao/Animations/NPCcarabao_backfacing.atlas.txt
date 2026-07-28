@@ -1,0 +1,83 @@
+
+NPCcarabao_backfacing.png
+size: 486,486
+format: RGBA8888
+filter: Linear,Linear
+repeat: none
+Body
+  rotate: false
+  xy: 2, 246
+  size: 333, 238
+  orig: 333, 238
+  offset: 0, 0
+  index: -1
+Hair
+  rotate: false
+  xy: 337, 266
+  size: 138, 75
+  orig: 138, 75
+  offset: 0, 0
+  index: -1
+Head_backF
+  rotate: false
+  xy: 337, 343
+  size: 144, 141
+  orig: 147, 143
+  offset: 1, 1
+  index: -1
+L Horn_backF
+  rotate: false
+  xy: 191, 6
+  size: 57, 74
+  orig: 57, 74
+  offset: 0, 0
+  index: -1
+L Leg_back
+  rotate: true
+  xy: 191, 164
+  size: 80, 276
+  orig: 80, 276
+  offset: 0, 0
+  index: -1
+L Leg_front
+  rotate: false
+  xy: 73, 36
+  size: 57, 208
+  orig: 57, 208
+  offset: 0, 0
+  index: -1
+R Horn_backF
+  rotate: false
+  xy: 73, 2
+  size: 87, 32
+  orig: 87, 32
+  offset: 0, 0
+  index: -1
+R Leg_back
+  rotate: true
+  xy: 191, 82
+  size: 80, 276
+  orig: 80, 276
+  offset: 0, 0
+  index: -1
+R Leg_front
+  rotate: false
+  xy: 132, 36
+  size: 57, 208
+  orig: 57, 208
+  offset: 0, 0
+  index: -1
+Snout_backF
+  rotate: true
+  xy: 250, 11
+  size: 69, 54
+  orig: 71, 56
+  offset: 1, 1
+  index: -1
+Tail
+  rotate: false
+  xy: 2, 16
+  size: 69, 228
+  orig: 69, 241
+  offset: 0, 13
+  index: -1
