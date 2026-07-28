@@ -932,7 +932,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -8038,7 +8038,9 @@ MonoBehaviour:
   resourceManager: {fileID: 1232716294}
   zone1Profile: {fileID: 11400000, guid: 0940220e1294bfc4aa4618acf3e41b7b, type: 2}
   zone1RevealStagger: 0.006
-  regionRevealStagger: 0.04
+  regionRevealStagger: 0.011
+  tileRevealPopDuration: 0.27
+  tileRevealPopOvershoot: 1
   defaultProfiles:
   - {fileID: 11400000, guid: bd4b7f7b79cf0cc49982b66e3b184cbc, type: 2}
   - {fileID: 11400000, guid: 0fa185e372da3d64ba3c408205f399dc, type: 2}
@@ -9839,7 +9841,7 @@ MonoBehaviour:
     Path: event:/BGM/BG_Event
   Event: 
   EventPlayTrigger: 1
-  EventStopTrigger: 0
+  EventStopTrigger: 2
   AllowFadeout: 1
   TriggerOnce: 0
   Preload: 0
@@ -19990,8 +19992,8 @@ Camera:
     serializedVersion: 2
     x: 0
     y: 0
-    width: 2
-    height: 2
+    width: 1
+    height: 1
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60
@@ -20141,6 +20143,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  framingScreenOffset: {x: 0, y: 0}
+  groundPlaneY: 0
   zoomDuration: 0.4
   zoomCurve:
     serializedVersion: 2
@@ -23970,11 +23974,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.x
@@ -23982,7 +23986,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -50
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5370127297116874835, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7139721391478932944, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_Pivot.x

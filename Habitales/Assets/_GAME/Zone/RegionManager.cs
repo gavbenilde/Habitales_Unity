@@ -25,6 +25,12 @@ public class RegionManager : MonoBehaviour
     [SerializeField] private float zone1RevealStagger = 0.08f;
     [Tooltip("Per-tile stagger (seconds) for every SUBSEQUENT region's unlock reveal (not Zone 1). Larger = slower.")]
     [SerializeField] private float regionRevealStagger = 0.02f;
+    [Tooltip("Duration of each tile's zero→authored-scale pop during a region reveal. Purely presentational.")]
+    [SerializeField] private float tileRevealPopDuration = 0.27f;
+    [Tooltip("Ease-out-back overshoot amount — how far past the tile's final scale it bounces before " +
+             "settling. Keep low for a single clean overshoot-and-settle with no wobble. Mirrors " +
+             "TileManager's entitySpawnPopOvershoot so tiles and their entity children read alike.")]
+    [SerializeField] private float tileRevealPopOvershoot = 1f;
 
     [Header("Zone Profiles")]
     [Tooltip("Profiles used in order as regions unlock. Index 0 = Region 2, Index 1 = Region 3, etc.")]
@@ -519,41 +525,72 @@ public class RegionManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Zeroes out every tile's scale then kicks off the shared pop-in reveal coroutine. Used by
-    /// both GenerateNewRegion and GenerateInitialRegion (Zone 1) so every region — including the
-    /// very first — reveals through the same animated path instead of popping in instantly.
+    /// Captures every tile's AUTHORED scale, hides the tiles at zero, then kicks off the shared
+    /// pop-in reveal coroutine. Used by both GenerateNewRegion and GenerateInitialRegion (Zone 1)
+    /// so every region — including the very first — reveals through the same animated path instead
+    /// of popping in instantly.
+    ///
+    /// The authored scale is READ OFF the freshly instantiated tile rather than hardcoded, because
+    /// tweening toward a literal Vector3.one is what broke this before: the tile prefab is authored
+    /// at 0.55, so a 0→1 tween left every tile (and therefore every entity child, which inherits the
+    /// tile root's scale) ~1.8× oversized. The old code dodged that by running the tween BACKWARDS —
+    /// snap to 1, shrink to 0.55 — which is why the reveal looked inverted. Growing 0→captured keeps
+    /// the correct final size and follows the prefab if a designer ever rescales it.
     /// </summary>
     private void AnimateRegionReveal(List<Tile> regionTiles, float stagger, System.Action onComplete = null)
     {
+        var authoredScales = new Dictionary<Tile, Vector3>(regionTiles.Count);
+
         foreach (Tile tile in regionTiles)
         {
             GameObject tileGO = tileManager.GetTileGameObject(tile);
-            if (tileGO != null)
-                tileGO.transform.localScale = Vector3.zero;
+            if (tileGO == null) continue;
+
+            Vector3 authored = tileGO.transform.localScale;
+
+            // Defensive (Law 3 loud-warn): a tile already sitting at zero means something zeroed it
+            // ahead of us (a double reveal, or a cancelled tween left mid-flight). Capturing that
+            // would tween 0→0 and leave the tile permanently invisible, so fall back to unit scale.
+            if (authored.sqrMagnitude < 0.0001f)
+            {
+                Debug.LogWarning($"RegionManager: tile {tile.gridPosition} was already at zero scale when the " +
+                                 "reveal started — falling back to unit scale. Was AnimateRegionReveal called twice?");
+                authored = Vector3.one;
+            }
+
+            authoredScales[tile] = authored;
+            tileGO.transform.localScale = Vector3.zero; // invisible until its turn in the stagger
         }
-        StartCoroutine(AnimateTiles(regionTiles, stagger, onComplete));
+
+        StartCoroutine(AnimateTiles(regionTiles, authoredScales, stagger, onComplete));
     }
 
-    // Run animation separately
-    private System.Collections.IEnumerator AnimateTiles(List<Tile> tiles, float delay, System.Action onComplete = null)
+    // Run animation separately — staggered pop from zero up to each tile's captured authored scale.
+    private System.Collections.IEnumerator AnimateTiles(List<Tile> tiles, Dictionary<Tile, Vector3> authoredScales,
+        float delay, System.Action onComplete = null)
     {
         foreach (Tile tile in tiles)
         {
             GameObject t = tileManager.GetTileGameObject(tile);
             if (t == null) continue;
+            if (!authoredScales.TryGetValue(tile, out Vector3 target)) continue;
 
-            t.gameObject.transform.localScale = Vector3.one;
+            // Cancel-safe, mirroring EntitySpawnTween.PopIn: never let two tweens fight over
+            // localScale. Re-zero right before the pop so a tile stays hidden through its stagger
+            // delay no matter what touched it in between.
+            LeanTween.cancel(t);
+            t.transform.localScale = Vector3.zero;
 
-            // Use LeanTween to animate the scaling of the tile
-            LeanTween.scale(t.gameObject, new Vector3(0.55f,0.55f,0.55f), 0.27f)
-                .setEase(LeanTweenType.easeOutBack);
+            LeanTween.scale(t, target, tileRevealPopDuration)
+                .setEase(LeanTweenType.easeOutBack)
+                .setOvershoot(tileRevealPopOvershoot);
 
             // Yield to wait for the specified delay before continuing to the next tile
             yield return new WaitForSeconds(delay);
         }
 
         // Let the final tile's pop finish before signalling completion.
-        yield return new WaitForSeconds(0.27f);
+        yield return new WaitForSeconds(tileRevealPopDuration);
         onComplete?.Invoke();
     }
 

@@ -576,7 +576,11 @@ public class RunManager : MonoBehaviour {
 
         for (int d = 0; d < days; d++)
         {
-            if (IsCollapsed()) break;
+            if (IsCollapsed())
+            {
+                EvaluateGameOver();
+                break;
+            }
 
             // 1. Open the trigger-collection window: Fire() calls made while the day resolves
             // (kaingin, entity deaths, …) enqueue silently instead of popping mid-tick.
@@ -933,6 +937,7 @@ public class RunManager : MonoBehaviour {
         if (IsCollapsed())
         {
             Debug.LogWarning("[DEBUG] F1 ignored — isGameOver is true. Restart the scene to re-enable day advance.");
+            EvaluateGameOver();
             return;
         }
         if (resourceManager == null)
