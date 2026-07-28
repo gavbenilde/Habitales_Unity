@@ -654,7 +654,14 @@ namespace Habitales.Onboarding
                     break;
 
                 case OnboardingBeatId.Phase_16_ZoneUnlock:
-                    if (EventCameraHandler.Instance != null && TryGetNewRegionCentroid(out Vector3 centre))
+                    // Region framing is RegionRevealCameraFocus's job now (2026-07-28) — it fires on
+                    // RegionManager.OnRegionGenerated, so EVERY unlock gets the pan, not just this
+                    // one. Panning again here would restart the same tween mid-flight for no gain.
+                    // The fallback stays so phase 16 still frames the zone if that component was
+                    // never added to the camera.
+                    if (!RegionRevealCameraFocus.IsActive
+                        && EventCameraHandler.Instance != null
+                        && TryGetNewRegionCentroid(out Vector3 centre))
                         EventCameraHandler.Instance.PanTo(centre);
                     PresentPopup(id, advanceOnComplete: true);
                     break;
@@ -1021,9 +1028,11 @@ namespace Habitales.Onboarding
             return true;
         }
 
-        // Centroid of the most-recently generated region — the mean of its tiles' world positions.
+        // Framing centre of the most-recently generated region — the centre of the AABB spanning its
+        // tiles' extremes (2026-07-28: was the mean of tile positions, which pulled the camera toward
+        // the densest lobe of a concave flood-fill region).
         // Best-effort: returns false (and the caller skips the pan) if it can't be resolved.
-        // (Item F: formalised as the shared TileManager.TryGetRegionCentroid helper; this just
+        // (Item F: formalised as the shared TileManager.TryGetRegionBounds helper; this just
         // resolves WHICH region is the just-generated one and delegates.)
         bool TryGetNewRegionCentroid(out Vector3 world)
         {
@@ -1031,7 +1040,9 @@ namespace Habitales.Onboarding
             TileManager tm = TileManager.Instance;
             if (tm == null || regionManager == null) return false;
             int newRegionId = regionManager.NextRegionID - 1;   // the just-generated region
-            return tm.TryGetRegionCentroid(newRegionId, out world);
+            if (!tm.TryGetRegionBounds(newRegionId, out Bounds bounds)) return false;
+            world = bounds.center;
+            return true;
         }
 
         // The stable actionId phase 5 teaches. Falls back to the Plant Trees literal if a designer

@@ -319,37 +319,67 @@ public class TileManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Read-only (Law 1) mean of every tile's world position in a region — cheap camera-framing
-    /// centroid, NOT a geometric centroid of the region's shape. Caveat: flood-fill regions can be
-    /// concave, so the averaged point may land on a tile outside the region (or on no tile at all)
-    /// — harmless for camera framing, do not use this for tile-membership logic.
+    /// Read-only (Law 1) world-space axis-aligned bounding box of a region — the extremes of its
+    /// tiles' grid coords (-x/+x, -y/+y) converted to world and expanded by one tile so the box is
+    /// the region's actual footprint, not the box through its tile CENTRES.
+    /// `bounds.center` is the framing point the camera should look at; `bounds.size` is the extent
+    /// a future zoom-to-fit would read. Flat by construction (y = ground level, height = 0).
+    /// Caveat: flood-fill regions can be concave, so the centre may land on a tile outside the
+    /// region (or on no tile at all) — harmless for camera framing, do NOT use for tile-membership.
+    /// Returns false (bounds = default) if the region has no tiles.
+    /// (Added 2026-07-28 — replaces the mass-mean centroid for camera framing; a mean biases
+    /// toward whichever lobe of a concave region holds the most tiles, an AABB centre does not.)
+    /// </summary>
+    public bool TryGetRegionBounds(int regionID, out Bounds bounds)
+    {
+        bounds = default;
+
+        List<Tile> tiles = GetTilesInRegion(regionID);
+        if (tiles == null || tiles.Count == 0) return false;
+
+        int minX = int.MaxValue, maxX = int.MinValue;
+        int minY = int.MaxValue, maxY = int.MinValue;
+        int count = 0;
+
+        foreach (Tile tile in tiles)
+        {
+            if (tile == null) continue;
+            Vector2Int g = tile.gridPosition;
+            if (g.x < minX) minX = g.x;
+            if (g.x > maxX) maxX = g.x;
+            if (g.y < minY) minY = g.y;
+            if (g.y > maxY) maxY = g.y;
+            count++;
+        }
+
+        if (count == 0) return false;
+
+        Vector3 minWorld = GridToWorldPosition(new Vector2Int(minX, minY));
+        Vector3 maxWorld = GridToWorldPosition(new Vector2Int(maxX, maxY));
+
+        bounds = new Bounds((minWorld + maxWorld) * 0.5f, new Vector3(
+            maxWorld.x - minWorld.x + TileWorldSize,   // + one tile: centres → footprint
+            0f,
+            maxWorld.z - minWorld.z + TileWorldSize));
+        return true;
+    }
+
+    /// <summary>
+    /// Read-only (Law 1) camera-framing centre of a region. Delegates to <see cref="TryGetRegionBounds"/>
+    /// — kept as the convenience overload for callers that only want the point.
+    /// (2026-07-28: was the mean of tile world positions; now the AABB centre. Same contract, and it
+    /// no longer drifts toward the densest lobe of a concave region.)
     /// Returns false (world = Vector3.zero) if the region has no tiles.
     /// </summary>
     public bool TryGetRegionCentroid(int regionID, out Vector3 world)
     {
-        List<Tile> tiles = GetTilesInRegion(regionID);
-        if (tiles == null || tiles.Count == 0)
+        if (!TryGetRegionBounds(regionID, out Bounds b))
         {
             world = Vector3.zero;
             return false;
         }
 
-        Vector3 sum = Vector3.zero;
-        int count = 0;
-        foreach (Tile tile in tiles)
-        {
-            if (tile == null) continue;
-            sum += GridToWorldPosition(tile.gridPosition);
-            count++;
-        }
-
-        if (count == 0)
-        {
-            world = Vector3.zero;
-            return false;
-        }
-
-        world = sum / count;
+        world = b.center;
         return true;
     }
 
@@ -984,6 +1014,12 @@ public class TileManager : MonoBehaviour
         foreach (Tile tile in tileCache.Values)
             UpdateTileVisual(tile);
     }
+
+    /// <summary>
+    /// Edge length of one tile in world units — the grid spacing <see cref="GridToWorldPosition"/>
+    /// bakes in. Named so bounds/framing maths reads off the same number instead of assuming 1.
+    /// </summary>
+    public const float TileWorldSize = 1f;
 
     /// <summary>
     /// Converts grid coordinates to world position.

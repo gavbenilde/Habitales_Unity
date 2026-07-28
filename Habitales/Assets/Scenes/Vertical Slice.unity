@@ -614,7 +614,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -6296,7 +6296,9 @@ MonoBehaviour:
   resourceManager: {fileID: 1232716294}
   zone1Profile: {fileID: 11400000, guid: 0940220e1294bfc4aa4618acf3e41b7b, type: 2}
   zone1RevealStagger: 0.006
-  regionRevealStagger: 0.04
+  regionRevealStagger: 0.011
+  tileRevealPopDuration: 0.27
+  tileRevealPopOvershoot: 1
   defaultProfiles:
   - {fileID: 11400000, guid: bd4b7f7b79cf0cc49982b66e3b184cbc, type: 2}
   - {fileID: 11400000, guid: 0fa185e372da3d64ba3c408205f399dc, type: 2}
@@ -6575,7 +6577,7 @@ MonoBehaviour:
   collapseConversation: {fileID: 0}
   diffusionRate: 0.167
   cascadeIterations: 1
-  regionUnlockThreshold: 65
+  regionUnlockThreshold: 35.3
   collapseThreshold: 70
   criticalHealthThreshold: 33
   thrivingHealthThreshold: 67
@@ -6819,6 +6821,7 @@ MonoBehaviour:
   _tierEntityRegistry: {fileID: 11400000, guid: 2e30b846553348e49ad95ac22c0cf23f, type: 2}
   _checkInScheduler: {fileID: 9155000000000000007}
   _tierNonIntrusiveAutoDismiss: 6
+  _suppressTiersDuringOnboarding: 1
 --- !u!1 &615987770
 GameObject:
   m_ObjectHideFlags: 0
@@ -7073,7 +7076,7 @@ MonoBehaviour:
   actionBarUI: {fileID: 1601831423}
   objectiveBannerUI: {fileID: 1881321057783004282}
   regionManager: {fileID: 510870574}
-  debugStartPhaseIndex: 4
+  debugStartPhaseIndex: 0
 --- !u!1 &646212476
 GameObject:
   m_ObjectHideFlags: 0
@@ -13011,27 +13014,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   showDebugInfo: 1
-  profiles:
-  - state: 0
-    workSpeedMultiplier: 0
-    fatigueK: 0
-    fireSpreadMultiplier: 0
-    fireBonusDamage: 0
-  - state: 1
-    workSpeedMultiplier: 0
-    fatigueK: 0
-    fireSpreadMultiplier: 0
-    fireBonusDamage: 0
-  - state: 2
-    workSpeedMultiplier: 0
-    fatigueK: 0
-    fireSpreadMultiplier: 0
-    fireBonusDamage: 0
-  - state: 3
-    workSpeedMultiplier: 0
-    fatigueK: 0
-    fireSpreadMultiplier: 0
-    fireBonusDamage: 0
+  profiles: []
   transitionDays: 15
   persistenceBias: 0.25
   streakThreshold: 3
@@ -14539,8 +14522,8 @@ Camera:
     serializedVersion: 2
     x: 0
     y: 0
-    width: 2
-    height: 2
+    width: 1
+    height: 1
   near clip plane: 0.3
   far clip plane: 1000
   field of view: 60
@@ -14691,6 +14674,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  framingScreenOffset: {x: 0, y: 0}
+  groundPlaneY: 0
   zoomDuration: 0.4
   zoomCurve:
     serializedVersion: 2
@@ -15403,6 +15388,10 @@ MonoBehaviour:
   baseDayDuration: 3
   speedMultiplier: 2
   minDuration: 0.3125
+  driveSunTint: 1
+  nightTint: {r: 0.34, g: 0.4, b: 0.58, a: 1}
+  dayTint: {r: 1, g: 1, b: 1, a: 1}
+  lightColorInfluence: 1
 --- !u!1 &1852176796
 GameObject:
   m_ObjectHideFlags: 0
@@ -17410,7 +17399,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7968728462584192229, guid: af14ac4fdc1ddd549a2c30c9028cbb89, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 117.000305
+      value: 117.00002
       objectReference: {fileID: 0}
     - target: {fileID: 8170769003904844735, guid: af14ac4fdc1ddd549a2c30c9028cbb89, type: 3}
       propertyPath: m_AnchorMax.x
@@ -17487,18 +17476,34 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -0.000061035156
+      value: 0.000030517578
+      objectReference: {fileID: 0}
+    - target: {fileID: 5370127297116874835, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
+      propertyPath: m_Pivot.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5370127297116874835, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
+      propertyPath: m_Pivot.y
+      value: 0.5
       objectReference: {fileID: 0}
     - target: {fileID: 5370127297116874835, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchorMax.x
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5370127297116874835, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchorMax.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5370127297116874835, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
+      propertyPath: m_AnchorMin.y
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5370127297116874835, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5370127297116874835, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
+      propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7139721391478932944, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
