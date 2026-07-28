@@ -21629,6 +21629,10 @@ MonoBehaviour:
   favouriteActionText: {fileID: 65970463}
   mostAvoidedText: {fileID: 1994559764}
   mostChattedText: {fileID: 0}
+  commentsText: {fileID: 452980953}
+  passComments: Great Job! You can definitely reach higher than that though!
+  failComments: Try Again! Try looking at the tile stats when choosing what plant
+    to place next time!
   minipanelRoot: {fileID: 0}
   snapshotSlide: {fileID: 0}
   sparklineSlide: {fileID: 0}
@@ -23966,11 +23970,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.x
@@ -23978,7 +23982,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0
+      value: -50
       objectReference: {fileID: 0}
     - target: {fileID: 7139721391478932944, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_Pivot.x

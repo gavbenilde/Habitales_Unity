@@ -101,6 +101,11 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     [SerializeField] private TextMeshProUGUI favouriteActionText;
     [SerializeField] private TextMeshProUGUI mostAvoidedText;
     [SerializeField] private TextMeshProUGUI mostChattedText;
+    [SerializeField] private TextMeshProUGUI commentsText;
+
+    [Header("Comment Message")]
+    [SerializeField] private string passComments;
+    [SerializeField] private string failComments;
 
     [Header("Results Minipanel Carousel (OPTIONAL — unwired falls back to the flat layout)")]
     // WIRING (human): minipanelRoot is one shared container holding 3 slide roots that all
@@ -228,11 +233,13 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         {
             failedStampImage.gameObject.SetActive(true);
             aziSadImage.gameObject.SetActive(true);
+            commentsText.text = failComments;
         }
         else
         {
             passedStampImage.gameObject.SetActive(true);
             aziHappyImage.gameObject.SetActive(true);
+            commentsText.text = passComments;
         }
         
         _lastData = data;
