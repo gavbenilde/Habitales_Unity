@@ -84,6 +84,7 @@ public class WorkerWalker : Walker
         if (mode == Mode.Working)
         {
             CancelFlight();
+            GroundWalker();
             StopWorkingVFX();
             mode = Mode.Roaming;
             ResetToIdle();
@@ -101,6 +102,7 @@ public class WorkerWalker : Walker
         if (mode == Mode.Working)
         {
             CancelFlight();
+            GroundWalker();
             StopWorkingVFX();
             mode = Mode.Roaming;
             ResetToIdle(); // re-enter Roaming from the walker's current position
@@ -138,6 +140,20 @@ public class WorkerWalker : Walker
             StopCoroutine(flightRoutine);
             flightRoutine = null;
         }
+    }
+
+    /// <summary>Drops the walker back to ground height. Needed on every path that ends Working WITHOUT
+    /// starting a new flight — killing the flight coroutine mid-arc leaves the walker stranded at
+    /// whatever height it had reached, and the roam loop only walks it back down over its next move,
+    /// so an idle worker would visibly hover. EnterWorking deliberately does NOT call this: a
+    /// re-scatter's new arc starts from the current airborne position and lerps down to the new tile,
+    /// which reads as continuous flight rather than a drop-then-relaunch.</summary>
+    private void GroundWalker()
+    {
+        if (manager == null) return; // teardown — nothing to read the ground height from
+        Vector3 pos = transform.position;
+        pos.y = manager.WalkerY;
+        transform.position = pos;
     }
 
     /// <summary>Straight-line, walkability-ignoring, constant-duration parabolic lerp.

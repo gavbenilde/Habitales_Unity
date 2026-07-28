@@ -50,10 +50,17 @@ public class WalkerProfileSO : ScriptableObject
     public float flightDuration = 0.6f;
     [Tooltip("Max random launch delay (seconds) so a batch of workers scrambles instead of launching in lockstep.")]
     public float flightStaggerMax = 0.3f;
-    [Tooltip("Peak vertical offset of the parabolic arc, in world units.")]
+    [Tooltip("Peak vertical offset of the parabolic arc, in world units — the height reached where the curve " +
+             "below peaks at 1.")]
     public float arcHeight = 2f;
-    [Tooltip("0→1 curve shaping the arc's vertical offset over the flight (evaluated at normalized flight time).")]
-    public AnimationCurve arcCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 0f);
+    [Tooltip("The arc's whole vertical shape, evaluated at normalized flight time and multiplied by arcHeight. " +
+             "MUST start and end at 0 and hump in the middle — this is the offset itself, not an ease on top " +
+             "of some other arc, so a curve that doesn't return to 0 at both ends makes the walker pop up at " +
+             "launch and drop at landing instead of arcing. The default is the ballistic parabola 4t(1-t).")]
+    public AnimationCurve arcCurve = new AnimationCurve(
+        new Keyframe(0f,   0f,  4f,  4f),
+        new Keyframe(0.5f, 1f,  0f,  0f),
+        new Keyframe(1f,   0f, -4f, -4f));
     [Tooltip("VFXManager key for the looping 'working' smoke, played on landing and stopped on re-scatter/" +
              "return-to-roaming (worker-only). Empty = no VFX.")]
     public string workingVfxKey = "Smoke";
@@ -70,5 +77,18 @@ public class WalkerProfileSO : ScriptableObject
         if (flightDuration <= 0f)
             Debug.LogWarning($"WalkerProfileSO '{name}': flightDuration ({flightDuration}) should be positive — " +
                               "a Working walker would never finish its flight.", this);
+
+        // arcCurve IS the vertical offset, so non-zero ends are a teleport up at launch and a drop at
+        // landing, not a subtler arc. Flagged because it reads as "the arc isn't working" rather than
+        // as a curve problem, and a flat curve looks perfectly reasonable in the inspector thumbnail.
+        if (arcCurve != null && arcCurve.length > 0)
+        {
+            float atStart = arcCurve.Evaluate(0f);
+            float atEnd   = arcCurve.Evaluate(1f);
+            if (Mathf.Abs(atStart) > 0.001f || Mathf.Abs(atEnd) > 0.001f)
+                Debug.LogWarning($"WalkerProfileSO '{name}': arcCurve should start and end at 0 (currently " +
+                                 $"{atStart:0.###} → {atEnd:0.###}). The walker will snap {atStart * arcHeight:0.##} " +
+                                 "units into the air on launch instead of arcing.", this);
+        }
     }
 }
