@@ -46,7 +46,7 @@ namespace Habitales.UI
 
         private void Awake()
         {
-            if (_icon == null)
+           if (_icon == null)
             {
                 Debug.LogError($"{name}: TrendIndicatorUI._icon (Image) missing — wire it in the Inspector.", this);
                 enabled = false;
@@ -92,8 +92,8 @@ namespace Habitales.UI
 
         private void SetVisible(bool visible)
         {
-            if (_root != null && _root.activeSelf != visible)
-                _root.SetActive(visible);
+            // if (_root != null && _root.activeSelf != visible)
+            //     _root.SetActive(visible);
         }
     }
 }

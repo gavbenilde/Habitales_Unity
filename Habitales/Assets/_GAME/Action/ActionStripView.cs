@@ -64,37 +64,62 @@ namespace Habitales.UI.Actions
 
         private void HandleBackClicked() => OnBackClicked?.Invoke();
 
+        public bool AreButtonsInteractable()
+        {
+            return cleanupBack.interactable ||
+                   interveneBack.interactable ||
+                   examineBack.interactable;
+        }
+        
+        public void SetButtonsUninteractable()
+        {
+            Debug.Log("Disabling buttons");
+            
+            cleanupBack.interactable = false;
+            interveneBack.interactable = false;
+            examineBack.interactable = false;
+        }
+        
         public void HideButtons()
         {
-            Debug.Log("Hid Buttons");
-            
             cleanupBack.gameObject.SetActive(false);
             interveneBack.gameObject.SetActive(false);
             examineBack.gameObject.SetActive(false);
         }
-        
+
         public void SetCleanupActive()
         {
             HideButtons();
-            
-            if (cleanupBack != null) 
+
+            if (cleanupBack != null)
+            {
+                cleanupBack.interactable = true;
                 cleanupBack.gameObject.SetActive(true);
+            }
         }
         
         public void SetInterveneActive()
         {
             HideButtons();
             
+            Debug.Log("SetInterveneActive");
+
             if (interveneBack != null)
+            {
+                interveneBack.interactable = true;
                 interveneBack.gameObject.SetActive(true);
+            }
         }
         
         public void SetExamineActive()
         {
             HideButtons();
-            
+
             if (examineBack != null)
+            {
+                examineBack.interactable = true;
                 examineBack.gameObject.SetActive(true);
+            }
         }
 
     // ─── Strip visibility ─────────────────────────────────────────────────

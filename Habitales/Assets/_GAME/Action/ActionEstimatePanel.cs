@@ -121,6 +121,11 @@ namespace Habitales.UI.Actions
             if (confirmButton != null) confirmButton.interactable = interactable;
         }
 
+        public void SetCancelInteractable(bool interactable)
+        {
+            if (cancelButton != null) cancelButton.interactable = interactable;
+        }
+        
         // ─── Data render ──────────────────────────────────────────────────────
 
         /// <summary>

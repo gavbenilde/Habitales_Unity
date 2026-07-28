@@ -157,7 +157,8 @@ public class ActionManager : MonoBehaviour
         float weatherMult = WeatherManager.Instance != null
             ? WeatherManager.Instance.GetWorkSpeedMultiplier()
             : 1f;
-        int days = Mathf.Max(1, Mathf.RoundToInt(baseDays * weatherMult)) + kActionDurationBonusDays;
+        int days = Mathf.Max(1, Mathf.RoundToInt(baseDays * weatherMult)); 
+                   // + kActionDurationBonusDays;
 
         if (showDebugInfo)
             Debug.Log($"ACTION: {action.ActionName} | Tiles: {targetTiles.Count} | People: {availablePeople} | Days: {baseDays} → {days}");

@@ -596,6 +596,9 @@ public class TileSelector : MonoBehaviour
 
         // Adjacent / NonAdjacent click logic (original, unchanged).
         bool isShiftHeld = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        
+        Debug.Log(Input.GetKey(KeyCode.LeftShift));
+        Debug.Log(Input.GetKey(KeyCode.RightShift));
 
         if (selectedTiles.Contains(tile) && isShiftHeld)
         {
@@ -604,6 +607,7 @@ public class TileSelector : MonoBehaviour
                 Debug.Log($"Cannot deselect original tile {tile.gridPosition}");
                 return;
             }
+            Debug.Log("Tile Deslected");
             DeselectTile(tile);
         }
         else if (!selectedTiles.Contains(tile))

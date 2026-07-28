@@ -201,19 +201,14 @@ namespace Habitales.UI
             if (request.intrusiveness == PopupIntrusiveness.Intrusive)
             {
                 StartIntrusive(request, handle);
-                Debug.Log("Started Intrusive");
             }
             else if (request.intrusiveness == PopupIntrusiveness.NonIntrusive)
             {
                 StartSide(request, handle);
-                Debug.Log("Started SideView");
             }
             else if (request.intrusiveness == PopupIntrusiveness.Handbook)
             {
-                Debug.Log("Pre-Start-- " + request.lines[0].title);
-                
                 StartHandbook(request, handle);
-                Debug.Log("Started Handbook");
             }
 
             return handle;

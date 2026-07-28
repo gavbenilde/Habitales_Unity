@@ -168,6 +168,11 @@ namespace Habitales.Onboarding
         [Tooltip("Used to resolve the newly-unlocked zone's centroid for the phase-16 camera pan.")]
         [SerializeField] private RegionManager regionManager;
 
+        [Header("Hard Coded References for Ease")]
+        [SerializeField] private ActionCategoryBar categoryBar;
+        [SerializeField] private ActionStripView stripView;
+        [SerializeField] private ActionEstimatePanel estimatePanel;
+        
         [Header("Debug")]
         [Tooltip("Start from this index into the phase sequence (0 = normal start).")]
         [SerializeField] private int debugStartPhaseIndex = 0;
@@ -427,18 +432,18 @@ namespace Habitales.Onboarding
                     break;
 
                 case OnboardingBeatId.Phase_06_SelectTiles:
-                    _dragGhostDelayTimer += Time.unscaledDeltaTime;
-                    if (_dragGhostDelayTimer >= dragGhostDelaySeconds) RefreshDragGhostByArmState();
-                    if (!_dragDone)
-                    {
-                        TileSelector ts = GetTileSelector();
-                        int need = Mathf.Max(3, _dragBaselineCount + 1);
-                        if (ts != null && ts.IsFloodFillMode && ts.SelectedTileCount >= need)
-                        {
-                            _dragDone = true;
-                            CompletePhase();
-                        }
-                    }
+                    // _dragGhostDelayTimer += Time.unscaledDeltaTime;
+                    // if (_dragGhostDelayTimer >= dragGhostDelaySeconds) RefreshDragGhostByArmState();
+                    // if (!_dragDone)
+                    // {
+                    //     TileSelector ts = GetTileSelector();
+                    //     int need = Mathf.Max(3, _dragBaselineCount + 1);
+                    //     if (ts != null && ts.IsFloodFillMode && ts.SelectedTileCount >= need)
+                    //     {
+                    //         _dragDone = true;
+                    //         CompletePhase();
+                    //     }
+                    // }
                     break;
 
                 case OnboardingBeatId.Phase_07_Confirm:
@@ -446,17 +451,15 @@ namespace Habitales.Onboarding
                     break;
                 
                 case OnboardingBeatId.Phase_CleaningBar:
-                    Debug.Log("Cleaning Bar Entered");
                     if (actionBarUI != null && actionBarUI.IsStripOpen) CompletePhase();
                     break;
 
                 case OnboardingBeatId.Phase_CleaningCard:
-                    Debug.Log("Cleaning Card Entered");
+                    if (stripView.AreButtonsInteractable()) stripView.SetButtonsUninteractable();
                     if (_cleanupArmed) CompletePhase();
                     break;
                 
                 case OnboardingBeatId.Phase_CleaningConfirm:
-                    Debug.Log("Cleaning Confirm Entered");
                     if (_cleanConfirmed) CompletePhase();
                     break;
 
@@ -483,7 +486,7 @@ namespace Habitales.Onboarding
 
             CurrentBeat = id;
             OnBeatEntered?.Invoke(id);
-
+            
             switch (id)
             {
                 // case OnboardingBeatId.Phase_01_LoadingReveal:
@@ -492,6 +495,7 @@ namespace Habitales.Onboarding
 
                 case OnboardingBeatId.Phase_04_ActionBar:
                     PresentPopup(id, advanceOnComplete: false);
+                    categoryBar.DisableCleanup();
                     // _currentCueTarget = actionBarUI != null ? actionBarUI.GetArmCueRect(null) : null;
                     // ShowMark(new CoachMarkRequest
                     // {
@@ -514,6 +518,7 @@ namespace Habitales.Onboarding
                         // no-replay force-open.
                         actionBarUI.RevealCategory(ActionCategory.Intervene);
                         actionBarUI.LockCardsExcept(plant);
+                        stripView.SetButtonsUninteractable();
                     }
                     // PresentPopup(id, advanceOnComplete: false);
                     // _currentCueTarget = actionBarUI != null ? actionBarUI.GetArmCueRect(plant) : null;
@@ -545,6 +550,7 @@ namespace Habitales.Onboarding
                     //     trackTarget       = actionBarUI != null ? actionBarUI.GetConfirmButtonRect() : null,
                     //     screenSpaceTarget = true,
                     // });
+                    estimatePanel.SetCancelInteractable(false);
                     break;
 
                 case OnboardingBeatId.Phase_08_TimeStamina:
@@ -569,6 +575,7 @@ namespace Habitales.Onboarding
                 
                 case OnboardingBeatId.Phase_CleaningBar:
                     PresentPopup(id, advanceOnComplete: false);
+                    categoryBar.DisableIntervene();
                     break;
 
                 case OnboardingBeatId.Phase_CleaningCard:
@@ -581,6 +588,7 @@ namespace Habitales.Onboarding
                     break;
                 
                 case OnboardingBeatId.Phase_CleaningConfirm:
+                    estimatePanel.SetCancelInteractable(false);
                     break;
                 
                 case OnboardingBeatId.Phase_15_FreePlay:
@@ -681,8 +689,6 @@ namespace Habitales.Onboarding
             }
 
             List<ResolvedLine> lines = so.ResolveLines(dialogueRegistry);
-            
-            Debug.Log("PRESENTED POPUP WITH TITLE-- " + lines[0].title);
             
             PopupStyle preset = PresetFor(id);
 

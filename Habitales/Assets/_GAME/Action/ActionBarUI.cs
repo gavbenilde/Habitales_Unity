@@ -480,6 +480,7 @@ namespace Habitales.UI.Actions
             // Hide any lingering brush slider from a previously armed FloodFill action;
             // a FloodFill entry re-shows it via TileSelector.OnBrushSizeChanged.
             if (estimatePanel != null) estimatePanel.HideBrush();
+            if (estimatePanel != null) estimatePanel.SetCancelInteractable(true);
             if (estimatePanel != null) estimatePanel.SetArmedActionSprite(action.Icon);
             // Arming swaps the strip out for the estimate panel — the two are stacked states, not
             // shown together. Disarm/Cancel/Confirm re-show the strip via Disarm().

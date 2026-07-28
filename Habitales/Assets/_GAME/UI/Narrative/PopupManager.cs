@@ -102,8 +102,6 @@ namespace Habitales.UI
                 autoDismissSeconds = style.autoAdvanceSeconds,
                 anchor             = style.anchor
             };
-
-            Debug.Log("PopupManager-- " + resolved[0].title);
             
             // Route through the hub so intrusive popups pause the sim (manageSimState);
             // non-intrusive side bubbles leave the sim running.

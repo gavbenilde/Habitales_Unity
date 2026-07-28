@@ -30,7 +30,9 @@ namespace Habitales.UI.Actions
             if (examineTab   != null) examineTab.onClick.AddListener(  () => OnCategorySelected?.Invoke(ActionCategory.Examine));
             if (examineTab   != null) examineTab.interactable = false;
             if (interveneTab != null) interveneTab.onClick.AddListener(() => OnCategorySelected?.Invoke(ActionCategory.Intervene));
+            if (interveneTab != null) interveneTab.interactable = true;
             if (cleanupTab   != null) cleanupTab.onClick.AddListener(  () => OnCategorySelected?.Invoke(ActionCategory.Cleanup));
+            if (cleanupTab   != null) cleanupTab.interactable = true;
         }
 
         void OnDisable()
@@ -77,6 +79,16 @@ namespace Habitales.UI.Actions
                 default:                       tab = interveneTab; break;
             }
             return tab != null ? tab.transform as RectTransform : null;
+        }
+
+        public void DisableIntervene()
+        {
+            interveneTab.interactable = false;
+        }
+        
+        public void DisableCleanup()
+        {
+            cleanupTab.interactable = false;
         }
     }
 }
