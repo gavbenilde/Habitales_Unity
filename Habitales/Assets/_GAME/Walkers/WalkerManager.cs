@@ -270,11 +270,16 @@ public class WalkerManager : MonoBehaviour
         aw.Initialize(profile, spawnTile);
         roster.Add(aw);
 
-        // Card-flip spawn: x-rotation -180 -> 0 (reverse of the despawn fold below).
+        // Card-flip spawn: tilt -180 -> 0 (reverse of the despawn fold below). Driven through
+        // Walker.SetLifecycleTilt rather than by rotating the walker root — the billboard rewrites
+        // the rig roots' WORLD rotation every LateUpdate, so a root tween is erased before it is
+        // ever drawn and the animal simply popped in. Seeded before the tween so there is no frame
+        // at the untilted pose.
         LeanTween.cancel(go);
-        Vector3 e = go.transform.eulerAngles;
-        go.transform.eulerAngles = new Vector3(-180f, e.y, e.z);
-        LeanTween.rotateX(go, 0f, lifecycleTweenDuration).setEase(LeanTweenType.easeOutQuad);
+        aw.SetLifecycleTilt(-180f);
+        LeanTween.value(go, -180f, 0f, lifecycleTweenDuration)
+            .setEase(LeanTweenType.easeOutQuad)
+            .setOnUpdate((float v) => { if (aw != null) aw.SetLifecycleTilt(v); });
     }
 
     private void DespawnAnimal(List<AnimalWalker> roster)
@@ -292,10 +297,13 @@ public class WalkerManager : MonoBehaviour
 
         GameObject go = victim.gameObject;
 
-        // Card-fold despawn: x-rotation 0 -> -180, then Destroy.
+        // Card-fold despawn: tilt 0 -> -180, then Destroy. Same channel as the spawn flip above.
+        // SetLifecycleTilt pushes to the rigs immediately rather than waiting for LateUpdate, which
+        // is what makes this still animate with the component disabled on the line above.
         LeanTween.cancel(go);
-        LeanTween.rotateX(go, -180f, lifecycleTweenDuration)
+        LeanTween.value(go, 0f, -180f, lifecycleTweenDuration)
             .setEase(LeanTweenType.easeInQuad)
+            .setOnUpdate((float v) => { if (victim != null) victim.SetLifecycleTilt(v); })
             .setOnComplete(() => Destroy(go));
     }
 }

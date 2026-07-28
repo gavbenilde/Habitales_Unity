@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 
 // ScreenshotService — U4 Screenshot + Gallery (UI Architecture §5.5).
 // Owns the GalleryPath convention (S2 — one folder, shared by capture and gallery).
@@ -104,7 +105,7 @@ namespace Habitales.UI
             try
             {
                 // ScreenCapture.CaptureScreenshotAsTexture captures the full display.
-                screenshot = ScreenCapture.CaptureScreenshotAsTexture();
+                screenshot = AsSRGB(ScreenCapture.CaptureScreenshotAsTexture());
             }
             catch (Exception ex)
             {
@@ -151,6 +152,33 @@ namespace Habitales.UI
         }
 
         // ─── Helpers ──────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Re-wraps a captured frame in an sRGB-flagged texture so UI can display it correctly.
+        /// </summary>
+        /// <remarks>
+        /// In Linear colour space CaptureScreenshotAsTexture returns the backbuffer bytes —
+        /// which are already sRGB-encoded, i.e. display-ready — in a texture flagged *linear*
+        /// (R8G8B8A8_UNorm). A RawImage therefore skips the sRGB→linear decode on sample while
+        /// the canvas still encodes linear→sRGB on write, so the picture is gamma-encoded twice
+        /// and comes out washed toward white. Copying the same bytes into an sRGB-flagged
+        /// texture restores the decode. No-op if the capture is already sRGB (Gamma projects).
+        /// GetPixels32/SetPixels32 move raw bytes and apply no colour conversion, so the PNG
+        /// written by SaveToGallery is byte-identical either way.
+        /// </remarks>
+        private static Texture2D AsSRGB(Texture2D src)
+        {
+            if (src == null || GraphicsFormatUtility.IsSRGBFormat(src.graphicsFormat))
+                return src;
+
+            // linear: false → the texture is sRGB and gets decoded when sampled.
+            var srgb = new Texture2D(src.width, src.height, TextureFormat.RGBA32, false, false);
+            srgb.SetPixels32(src.GetPixels32());
+            srgb.Apply(false, false);
+
+            Destroy(src);
+            return srgb;
+        }
 
         private static void EnsureDirectoryExists()
         {

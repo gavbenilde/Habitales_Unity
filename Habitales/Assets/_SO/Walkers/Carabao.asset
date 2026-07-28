@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 843fe0c7e1eec1a43a350ab1ad62ff79, type: 3}
-  m_Name: Worker
+  m_Name: Carabao
   m_EditorClassIdentifier: 
-  displayName: Worker
-  prefab: {fileID: 1977535379005478696, guid: 18366cb4fe7377f41ac06a9fd1d0b318, type: 3}
-  moveSpeed: 1.5
+  displayName: Carabao
+  prefab: {fileID: 1977535379005478696, guid: 0de149d643af0e545a1079e1aa7504d4, type: 3}
+  moveSpeed: 1.2
   fatiguedSpeedMultiplier: 0.4
-  idleMin: 1.5
-  idleMax: 4
+  idleMin: 4
+  idleMax: 8
   roamDeviation: 0.6
   workDeviation: 0.1
   destinationRadius: 9999
@@ -26,16 +26,16 @@ MonoBehaviour:
   followChance: 0
   flightDuration: 0.75
   flightStaggerMax: 0.6
-  arcHeight: 0.5
+  arcHeight: 1
   arcCurve:
     serializedVersion: 2
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
-      inSlope: 2
-      outSlope: 2
-      tangentMode: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 34
       weightedMode: 0
       inWeight: 0
       outWeight: 0
@@ -44,7 +44,7 @@ MonoBehaviour:
       value: 1
       inSlope: 0
       outSlope: 0
-      tangentMode: 0
+      tangentMode: 34
       weightedMode: 0
       inWeight: 0
       outWeight: 0

@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 6846007304020909983}
   - component: {fileID: 2759237124124184549}
   m_Layer: 0
-  m_Name: Spine GameObject (NPCworker_backfacing)
+  m_Name: Spine GameObject (NPCcarabao_backfacing)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -63,7 +63,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 883e55c3d55ab894b9a150d7ad27baee, type: 2}
+  - {fileID: 2100000, guid: f8eaf18bc269eb04ab21061275c24fef, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -97,7 +97,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d247ba06193faa74d9335f5481b2b56c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  skeletonDataAsset: {fileID: 11400000, guid: 470087df5f14a9740a3251934c3865b4, type: 2}
+  skeletonDataAsset: {fileID: 11400000, guid: 9e8525f6fee3a7a46a20bcf9943189e0, type: 2}
   initialSkinName: 
   initialFlipX: 0
   initialFlipY: 0
@@ -119,7 +119,7 @@ MonoBehaviour:
     materialsInsideMask: []
     materialsOutsideMask: []
   disableRenderingOnOverride: 1
-  _animationName: NPCworker_backidle
+  _animationName: NPCcarabao_backidle
   loop: 1
   timeScale: 1
 --- !u!95 &2759237124124184549
@@ -152,9 +152,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3977674617980200409}
-  - component: {fileID: 2001198806244761905}
+  - component: {fileID: 4159672569915372381}
   m_Layer: 0
-  m_Name: Walker
+  m_Name: Carabao
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -177,7 +177,7 @@ Transform:
   - {fileID: 3418026640654235185}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2001198806244761905
+--- !u!114 &4159672569915372381
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -186,26 +186,26 @@ MonoBehaviour:
   m_GameObject: {fileID: 1977535379005478696}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a0ace3e5972e972409ef1199ce2dcec4, type: 3}
+  m_Script: {fileID: 11500000, guid: fe6ddcfa392561642aa2b246129c9acf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  profile: {fileID: 11400000, guid: 0f0f09ec042fbc642a6d998a9420869b, type: 2}
+  profile: {fileID: 11400000, guid: 328d4daa41850604991ff774ae778f4f, type: 2}
   frontRig:
     root: {fileID: 3918885154263250919}
     spine: {fileID: 6721121779369327250}
     animator: {fileID: 2267423914913383613}
-    idleClip: NPCworker_frontidle
-    walkClip: NPCworker_frontwalk
-    flyClip: NPCworker_frontwalk
-    workClip: NPCworker_frontidle
+    idleClip: NPCcarabao_frontidle
+    walkClip: NPCcarabao_frontrun
+    flyClip: 
+    workClip: 
   backRig:
     root: {fileID: 608189126973306611}
-    spine: {fileID: 0}
+    spine: {fileID: 6846007304020909983}
     animator: {fileID: 2759237124124184549}
-    idleClip: NPCworker_backidle
-    walkClip: NPCworker_backwalk
-    flyClip: NPCworker_backwalk
-    workClip: NPCworker_backidle
+    idleClip: NPCcarabao_backidle
+    walkClip: NPCcarabao_backrun
+    flyClip: 
+    workClip: 
   mecanimCrossfade: 0.1
   moveSpeedThreshold: 0.1
   speedSmoothing: 12
@@ -214,7 +214,6 @@ MonoBehaviour:
   invertFlip: 0
   receiveDayNightTint: 1
   billboard: 2
-  desaturatedTint: {r: 0.3490566, g: 0.3490566, b: 0.3490566, a: 1}
 --- !u!1 &3918885154263250919
 GameObject:
   m_ObjectHideFlags: 0
@@ -229,7 +228,7 @@ GameObject:
   - component: {fileID: 6721121779369327250}
   - component: {fileID: 2267423914913383613}
   m_Layer: 0
-  m_Name: Spine GameObject (NPCworker_frontfacing)
+  m_Name: Spine GameObject (NPCcarabao_frontfacing)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -278,7 +277,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: dd7101908a7a920449eaf78508fbe77c, type: 2}
+  - {fileID: 2100000, guid: 987d834496620ab4285596f833dbe11b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -312,7 +311,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d247ba06193faa74d9335f5481b2b56c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  skeletonDataAsset: {fileID: 11400000, guid: 944d771f7a1a7cf4ca4288fc7e14658c, type: 2}
+  skeletonDataAsset: {fileID: 11400000, guid: 92418f7fddd933e48825d26c8cac7c1c, type: 2}
   initialSkinName: 
   initialFlipX: 0
   initialFlipY: 0
@@ -334,7 +333,7 @@ MonoBehaviour:
     materialsInsideMask: []
     materialsOutsideMask: []
   disableRenderingOnOverride: 1
-  _animationName: NPCworker_frontidle
+  _animationName: NPCcarabao_frontidle
   loop: 1
   timeScale: 1
 --- !u!95 &2267423914913383613

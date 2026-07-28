@@ -9787,7 +9787,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.33962262, g: 0.33962262, b: 0.33962262, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -15837,7 +15837,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   workerProfile: {fileID: 11400000, guid: 0f0f09ec042fbc642a6d998a9420869b, type: 2}
-  animalProfiles: []
+  animalProfiles:
+  - {fileID: 11400000, guid: 328d4daa41850604991ff774ae778f4f, type: 2}
   tilesPerAnimal: 10
   walkerY: 1.22
   lifecycleTweenDuration: 0.4
@@ -21132,6 +21133,8 @@ MonoBehaviour:
   - {fileID: 1263045829}
   - {fileID: 1719611115}
   - {fileID: 524668921}
+  - {fileID: 966839169}
+  - {fileID: 524668921}
   actionBar: {fileID: 1601831423}
   popups: {fileID: 581280667}
   tooltip: {fileID: 1468745794}
@@ -23974,11 +23977,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.x
@@ -23986,7 +23989,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0
+      value: -50
       objectReference: {fileID: 0}
     - target: {fileID: 5370127297116874835, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.y
