@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 843fe0c7e1eec1a43a350ab1ad62ff79, type: 3}
+  m_Name: Carabao
+  m_EditorClassIdentifier: 
+  displayName: Carabao
+  prefab: {fileID: 1977535379005478696, guid: 0de149d643af0e545a1079e1aa7504d4, type: 3}
+  moveSpeed: 1.2
+  fatiguedSpeedMultiplier: 0.4
+  idleMin: 4
+  idleMax: 8
+  roamDeviation: 0.6
+  workDeviation: 0.1
+  destinationRadius: 9999
+  falloffExponent: 2.5
+  waypointJitter: 0.15
+  followChance: 0
+  flightDuration: 0.75
+  flightStaggerMax: 0.6
+  arcHeight: 1
+  arcCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 34
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  workingVfxKey: Smoke
