@@ -23,7 +23,7 @@ MonoBehaviour:
   - type: 0
     entityToPlace: {fileID: 11400000, guid: b6b8b1d73c81f2744b74aea09d5e4503, type: 2}
     customBehaviour: {fileID: 0}
-  baseDays: 1
+  baseDays: 2
   minDays: 1
   minPeoplePerTile: 1
   fatigueMultiplierPerTile: 2

@@ -29,11 +29,21 @@ MonoBehaviour:
     nutrientBalance: 0
     soilOrganicMatter: 0
     soilStructure: 0
-    biologicalActivity: 0
+    biologicalActivity: 4
     waterDynamics: 0
     erosionResistance: 0
     vegetationCover: 0
-    contamination: -0.5
+    contamination: -5
   dailyEffects: []
+  droughtResistance: 0.473
+  floodResistance: 0.478
   deathConditions: []
   behaviour: {fileID: 0}
+  tier1Intro:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}
+  tier4JournalEntry:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}

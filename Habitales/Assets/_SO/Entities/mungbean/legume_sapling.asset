@@ -17,7 +17,7 @@ MonoBehaviour:
   tileSprite: {fileID: 21300000, guid: 706006a3692cd124f9f9d88ed22c40f1, type: 3}
   vfxKey: 
   billboardScale: 1
-  promoteAfterDays: 5
+  promoteAfterDays: 7
   nextStage: {fileID: 11400000, guid: 814c4286b96a655438bb29a8ea35d1fc, type: 2}
   transitionEffects: []
   requirePromoteCondition: 0
@@ -26,16 +26,24 @@ MonoBehaviour:
     comparator: 0
     threshold: 0
   plantDailyDeltas:
-    nutrientBalance: -0.6
-    soilOrganicMatter: 0
-    soilStructure: 0.8
-    biologicalActivity: 1.3
+    nutrientBalance: 8
+    soilOrganicMatter: 5
+    soilStructure: 0
+    biologicalActivity: 5
     waterDynamics: 0
     erosionResistance: 0
-    vegetationCover: 1.3
+    vegetationCover: 3
     contamination: 0
   dailyEffects: []
-  droughtResistance: 0
-  floodResistance: 0
+  droughtResistance: 0.348
+  floodResistance: 0.701
   deathConditions: []
   behaviour: {fileID: 0}
+  tier1Intro:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}
+  tier4JournalEntry:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}

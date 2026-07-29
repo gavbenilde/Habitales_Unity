@@ -10,19 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ba6e1b4d668228b4fac2b43e82af637c, type: 3}
-  m_Name: HMC_Factory
+  m_Name: WeakSoil
   m_EditorClassIdentifier: 
-  sizeRange: {x: 150, y: 200}
+  sizeRange: {x: 25, y: 40}
   flowFalloff: 1.2
   enclosureBonus: 0.3
-  nutrientBalanceRange: {x: 30, y: 50}
-  soilOrganicMatterRange: {x: 15, y: 30}
-  soilStructureRange: {x: 10, y: 20}
-  biologicalActivityRange: {x: 15, y: 30}
-  waterDynamicsRange: {x: 20, y: 30}
-  erosionResistanceRange: {x: 5, y: 15}
-  vegetationCoverRange: {x: 5, y: 15}
-  contaminationRange: {x: 20, y: 30}
+  nutrientBalanceRange: {x: 70, y: 80}
+  soilOrganicMatterRange: {x: 80, y: 90}
+  soilStructureRange: {x: 10, y: 30}
+  biologicalActivityRange: {x: 80, y: 90}
+  waterDynamicsRange: {x: 50, y: 60}
+  erosionResistanceRange: {x: 10, y: 25}
+  vegetationCoverRange: {x: 5, y: 25}
+  contaminationRange: {x: 5, y: 10}
   loggedTreesWeight: 3
   nutrientDepletionWeight: 3
   heavyMetalContaminationWeight: 1
@@ -30,20 +30,19 @@ MonoBehaviour:
   drainageCollapseWeight: 2
   soilCompactionWeight: 2
   chemicalBurnoutWeight: 1
-  matureTreeSpawnChance: 0
-  saplingSpawnChance: 0
-  seedlingSpawnChance: 0
-  deadTreeSpawnChance: 0
-  stumpSpawnChance: 0
-  bioTrashSpawnChance: 0
-  forceTheme: 1
-  forcedTheme: 2
+  spawnTable:
+  - entity: {fileID: 11400000, guid: aafd120f67b4dba46aa54a96194530a8, type: 2}
+    frequency: 0.146
+    minCount: 5
+    maxCount: 8
+  - entity: {fileID: 11400000, guid: 6142a4b349dc7ef42abb7447b155b714, type: 2}
+    frequency: 0.146
+    minCount: 6
+    maxCount: 12
+  forceTheme: 0
+  forcedTheme: 0
   issueDensityRange: {x: 0.3, y: 0.5}
   offThemeIssueProbability: 0.2
-  maxVillages: 0
-  maxFactories: 2
-  villageSpawnChance: 0
-  factorySpawnChance: 0.25
   workerReward: 4
   forceSpecificEntities: 0
   forcedEntities: []

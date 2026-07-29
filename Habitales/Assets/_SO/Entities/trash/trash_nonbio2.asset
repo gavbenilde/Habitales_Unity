@@ -33,10 +33,10 @@ MonoBehaviour:
     waterDynamics: 0
     erosionResistance: 0
     vegetationCover: 0
-    contamination: 2
+    contamination: 10
   dailyEffects: []
-  droughtResistance: 0
-  floodResistance: 0
+  droughtResistance: 1
+  floodResistance: 1
   deathConditions: []
   behaviour: {fileID: 0}
   tier1Intro:

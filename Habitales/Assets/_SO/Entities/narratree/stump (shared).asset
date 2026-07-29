@@ -21,9 +21,11 @@ MonoBehaviour:
   nextStage: {fileID: 0}
   transitionEffects:
   - stat: 1
-    delta: 10
+    delta: 5
   - stat: 4
     delta: -4
+  - stat: 0
+    delta: 5
   requirePromoteCondition: 0
   promoteWhen:
     stat: 0
@@ -38,6 +40,18 @@ MonoBehaviour:
     erosionResistance: 0
     vegetationCover: 0
     contamination: 0
-  dailyEffects: []
+  dailyEffects:
+  - stat: 3
+    delta: 0.3
+  droughtResistance: 0
+  floodResistance: 0
   deathConditions: []
   behaviour: {fileID: 0}
+  tier1Intro:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}
+  tier4JournalEntry:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}

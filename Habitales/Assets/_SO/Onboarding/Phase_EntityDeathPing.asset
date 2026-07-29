@@ -21,13 +21,13 @@ MonoBehaviour:
     customName: 
     portraitOverride: {fileID: 21300000, guid: 9963f0bca13156a41ba32228c388607c, type: 3}
     portraitAnimatorOverride: {fileID: 0}
-    title: DEATH PINGS!
-    body: 'When plants die, Azi will send a ping- visualized by a circle that expands
-      outwards- right on the tile the death occurred.
+    title: WARNING PING!
+    body: 'When plants die, Azi will send a warning ping- visualized by a circle
+      that expands outwards- right on the tile the death occurred.
 
 
-      This also happens when
-      trash decomposes and gets absorbed into the soil!'
+      This also
+      happens when trash decomposes and gets absorbed into the soil!'
   fireOnce: 0
   linkedThread: {fileID: 0}
   focusCameraOnTarget: 0

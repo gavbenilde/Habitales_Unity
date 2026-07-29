@@ -19,7 +19,9 @@ MonoBehaviour:
   billboardScale: 0.25
   promoteAfterDays: 7
   nextStage: {fileID: 0}
-  transitionEffects: []
+  transitionEffects:
+  - stat: 1
+    delta: 10
   requirePromoteCondition: 0
   promoteWhen:
     stat: 0
@@ -27,15 +29,15 @@ MonoBehaviour:
     threshold: 0
   plantDailyDeltas:
     nutrientBalance: 0
-    soilOrganicMatter: 3.4
+    soilOrganicMatter: 0
     soilStructure: 0
-    biologicalActivity: 3.4
+    biologicalActivity: 3.5
     waterDynamics: 0
     erosionResistance: 0
     vegetationCover: 0
     contamination: 0
   dailyEffects: []
-  droughtResistance: 0
+  droughtResistance: 0.5
   floodResistance: 0
   deathConditions: []
   behaviour: {fileID: 0}

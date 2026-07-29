@@ -19,7 +19,13 @@ MonoBehaviour:
   billboardScale: 1
   promoteAfterDays: 28
   nextStage: {fileID: 0}
-  transitionEffects: []
+  transitionEffects:
+  - stat: 3
+    delta: 5
+  - stat: 0
+    delta: 5
+  - stat: 4
+    delta: -4
   requirePromoteCondition: 0
   promoteWhen:
     stat: 0
@@ -37,5 +43,15 @@ MonoBehaviour:
   dailyEffects:
   - stat: 1
     delta: 0.3
+  droughtResistance: 0
+  floodResistance: 0
   deathConditions: []
   behaviour: {fileID: 0}
+  tier1Intro:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}
+  tier4JournalEntry:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}

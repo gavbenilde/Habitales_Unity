@@ -193,8 +193,8 @@ public class WeatherManager : MonoBehaviour
     {
         WeatherState.Sunny  => new WeatherProfile { state = s, workSpeedMultiplier = 1.00f, fatigueK = 1.5f, fireSpreadMultiplier = 1.5f, fireBonusDamage = 4f },
         WeatherState.Cloudy => new WeatherProfile { state = s, workSpeedMultiplier = 1.00f, fatigueK = 3.0f, fireSpreadMultiplier = 1.0f, fireBonusDamage = 0f },
-        WeatherState.Rainy  => new WeatherProfile { state = s, workSpeedMultiplier = 0.85f, fatigueK = 3.0f, fireSpreadMultiplier = 0.5f, fireBonusDamage = 0f },
-        WeatherState.Stormy => new WeatherProfile { state = s, workSpeedMultiplier = 0.50f, fatigueK = 1.5f, fireSpreadMultiplier = 0.5f, fireBonusDamage = 0f },
+        WeatherState.Rainy  => new WeatherProfile { state = s, workSpeedMultiplier = 1.30f, fatigueK = 3.0f, fireSpreadMultiplier = 0.5f, fireBonusDamage = 0f },
+        WeatherState.Stormy => new WeatherProfile { state = s, workSpeedMultiplier = 2.00f, fatigueK = 1.5f, fireSpreadMultiplier = 0.5f, fireBonusDamage = 0f },
         _                   => new WeatherProfile { state = s },
     };
 

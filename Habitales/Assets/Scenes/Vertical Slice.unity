@@ -818,7 +818,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: 780eee6a2e8fbcb4aac7ce24079a30fb, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -2578,7 +2578,7 @@ ParticleSystem:
     m_UseMeshMaterialIndex: 0
     m_UseMeshColors: 1
     alignToDirection: 0
-    m_Texture: {fileID: 0}
+    m_Texture: {fileID: 2800000, guid: 6539bd700b99fa7498fa3783b7753ae5, type: 3}
     m_TextureClipChannel: 3
     m_TextureClipThreshold: 0
     m_TextureUVChannel: 0
@@ -7176,7 +7176,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: 4a9b892b0dbd38447bcbe9879db19791, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -8114,7 +8114,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: fe8246d1bd5e03946a99f730ec005e7e, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -8167,7 +8167,12 @@ MonoBehaviour:
   tileRevealPopDuration: 0.27
   tileRevealPopOvershoot: 1
   defaultProfiles:
+  - {fileID: 11400000, guid: 973d7726fb5cdc445854ded7b200dff3, type: 2}
+  - {fileID: 11400000, guid: 0fa185e372da3d64ba3c408205f399dc, type: 2}
   - {fileID: 11400000, guid: 9bf30ac1a663fe148b3b1041bd32ef80, type: 2}
+  - {fileID: 11400000, guid: c44407f84e1a4054fa7e1bdcd946100c, type: 2}
+  - {fileID: 11400000, guid: c0fcf57fe0965f647a072eddcad86fb8, type: 2}
+  - {fileID: 11400000, guid: 15b469f189925a7438e969acc2eec34d, type: 2}
   fallbackProfile: {fileID: 11400000, guid: c9768c6d6ac7b654fbe633476ce9dc61, type: 2}
   showDebugInfo: 1
   regionHistoryCap: 360
@@ -8593,7 +8598,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: 9963f0bca13156a41ba32228c388607c, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -8981,7 +8986,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &610707573
 Transform:
   m_ObjectHideFlags: 0
@@ -9004,7 +9009,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 610707572}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c46bbc0cd2643c94693500a02a8c44b1, type: 3}
   m_Name: 
@@ -9690,7 +9695,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: 0b22609174e42604784f82d385ac418e, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -11491,7 +11496,7 @@ ParticleSystem:
     m_UseMeshMaterialIndex: 0
     m_UseMeshColors: 1
     alignToDirection: 0
-    m_Texture: {fileID: 0}
+    m_Texture: {fileID: 2800000, guid: 6539bd700b99fa7498fa3783b7753ae5, type: 3}
     m_TextureClipChannel: 3
     m_TextureClipThreshold: 0
     m_TextureUVChannel: 0
@@ -15535,7 +15540,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &815163697
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -15543,7 +15548,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 815163696}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d78e6ca1d2c3c264e84e86dbaba18eb9, type: 3}
   m_Name: 
@@ -17270,7 +17275,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: 3e36f57c6e6aeff448172f93c53300ce, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -17423,7 +17428,7 @@ MonoBehaviour:
   profiles: []
   transitionDays: 15
   persistenceBias: 0.25
-  streakThreshold: 3
+  streakThreshold: 10
   cloudyDrySpellRelief: 1
   rainDrySpellRelief: 3
   forecastDecay: 0.94
@@ -17604,7 +17609,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: d9ee5b45e349c7045b96837a36e076af, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -19183,7 +19188,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: ebf8d40910d5bad408bd386a4a1afdbd, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -19258,7 +19263,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: ec8648250c6ed914b8133916703557c4, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -21422,7 +21427,7 @@ Light:
   m_BounceIntensity: 1
   m_ColorTemperature: 6570
   m_UseColorTemperature: 0
-  m_BoundingSphereOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_BoundingSphereOverride: {x: 0, y: 6e-44, z: 3.6e-44, w: 3.531e-42}
   m_UseBoundingSphereOverride: 0
   m_UseViewFrustumForShadowCasterCull: 1
   m_ShadowRadius: 0
@@ -21971,7 +21976,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 0}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -22475,7 +22480,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 21300000, guid: ba0efd725d93b5d4dbb5e6f310e3a935, type: 3}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1
@@ -22987,6 +22992,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: IntrusivePortrait**
       objectReference: {fileID: 0}
+    - target: {fileID: 5459565090755639428, guid: 9f6a25818bdaf2c4bbbbbff5ef4bf57d, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -23349,6 +23358,10 @@ PrefabInstance:
     - target: {fileID: 8873558207591884232, guid: 3eca31390f60f804ba9f19f4cb9692a4, type: 3}
       propertyPath: m_Name
       value: SideBubble
+      objectReference: {fileID: 0}
+    - target: {fileID: 8873558207591884232, guid: 3eca31390f60f804ba9f19f4cb9692a4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -24738,19 +24751,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 0
+      value: 250
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 0
+      value: -50
       objectReference: {fileID: 0}
     - target: {fileID: 5370127297116874835, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -26317,7 +26330,6 @@ MonoBehaviour:
     bodyText: 'When workers are fatigued, they become tinted in a dark-blueish color.
 
 
-
       Workers
       indicated by this change in color will not participate in the next few actions,
       so as to take rest.'
@@ -26337,10 +26349,9 @@ MonoBehaviour:
       helps restore the environment and prevents further degredation.
     animatedImage: {fileID: 1898428332}
   - phase: 7
-    titleText: DEATH PINGS!
-    bodyText: 'When plants die, Azi will send a ping- visualized by a circle that
-      expands outwards- right on the tile the death occurred.
-
+    titleText: WARNING PING!
+    bodyText: 'When plants die, Azi will send a warning ping- visualized by a circle
+      that expands outwards- right on the tile the death occurred.
 
 
       This also
@@ -26357,7 +26368,6 @@ MonoBehaviour:
     bodyText: 'A new zone has opened up for you to analyze and plant on!
 
 
-
       Each
       zone has their own unique stat distribution, indicated by looking at their
       stats in the Inspect Panel. Make sure to utiilize that to ensure you plant
@@ -26369,14 +26379,12 @@ MonoBehaviour:
       there''s a chance for the factory to dump trash around its surroundings.
 
 
-
       Be
       wary, as some types of trash can cause contamination to the tile underneath!'
     animatedImage: {fileID: 1106899312}
   - phase: 11
     titleText: CONTAMINATION!
     bodyText: 'A buildup of contamination leads to purple tiles.
-
 
 
       Rinorea
@@ -26410,7 +26418,7 @@ MonoBehaviour:
       m_Calls: []
   m_Sprite: {fileID: 0}
   m_Type: 0
-  m_PreserveAspect: 1
+  m_PreserveAspect: 0
   m_FillCenter: 1
   m_FillMethod: 4
   m_FillAmount: 1

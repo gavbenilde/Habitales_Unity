@@ -34,7 +34,9 @@ MonoBehaviour:
     erosionResistance: 0
     vegetationCover: 0
     contamination: 0
-  dailyEffects: []
+  dailyEffects:
+  - stat: 7
+    delta: 5
   droughtResistance: 0
   floodResistance: 0
   deathConditions: []

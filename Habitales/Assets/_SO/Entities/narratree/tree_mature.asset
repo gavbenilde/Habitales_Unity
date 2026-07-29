@@ -26,17 +26,17 @@ MonoBehaviour:
     comparator: 0
     threshold: 0
   plantDailyDeltas:
-    nutrientBalance: 10
+    nutrientBalance: 5
     soilOrganicMatter: 10
-    soilStructure: 10
-    biologicalActivity: 10
-    waterDynamics: 10
-    erosionResistance: 10
+    soilStructure: 8
+    biologicalActivity: 7
+    waterDynamics: 8
+    erosionResistance: 9
     vegetationCover: 10
     contamination: 0
   dailyEffects: []
-  droughtResistance: 0
-  floodResistance: 0
+  droughtResistance: 1
+  floodResistance: 1
   deathConditions:
   - stat: 8
     comparator: 0

@@ -17,7 +17,7 @@ MonoBehaviour:
   tileSprite: {fileID: 21300000, guid: e9687b7bc33f3f444b3d51ca4a6e80ba, type: 3}
   vfxKey: 2
   billboardScale: 1
-  promoteAfterDays: 5
+  promoteAfterDays: 10
   nextStage: {fileID: 11400000, guid: 2636aa4747d73fc409be76a3813642ad, type: 2}
   transitionEffects:
   - stat: 6
@@ -37,15 +37,25 @@ MonoBehaviour:
     vegetationCover: 0
     contamination: 0
   dailyEffects: []
-  droughtResistance: 0
-  floodResistance: 0
+  droughtResistance: 0.293
+  floodResistance: 0.31
   deathConditions:
-  - stat: 0
+  - stat: 2
     comparator: 0
-    threshold: 20
-    outcome: 1
+    threshold: 40
+    outcome: 0
     transformTarget: {fileID: 0}
-    onSatisfied: []
+    onSatisfied:
+    - stat: 0
+      delta: 5
+  - stat: 7
+    comparator: 2
+    threshold: 30
+    outcome: 0
+    transformTarget: {fileID: 0}
+    onSatisfied:
+    - stat: 0
+      delta: 5
   behaviour: {fileID: 0}
   tier1Intro:
     source: 0
