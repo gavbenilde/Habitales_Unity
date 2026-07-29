@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1c3a940bee44d3f4db380ef7f747e0a9, type: 3}
+  m_Name: Phase_FactoryIntro
+  m_EditorClassIdentifier: 
+  eventName: Phase_FactoryIntro
+  intrusiveness: 3
+  posX: 0
+  posY: 0
+  lines:
+  - speaker: 2
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: d9ee5b45e349c7045b96837a36e076af, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: FACTORIES!
+    body: 'Factories spawn randomly upon unlocking a zone. Every passing day, there''s
+      a chance for the factory to dump trash around its surroundings.
+
+
+      Be
+      wary, as some types of trash can cause contamination to the tile underneath!'
+  - speaker: 2
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 0b22609174e42604784f82d385ac418e, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: CONTAMINATION!
+    body: 'A buildup of contamination leads to purple tiles.
+
+
+      Rinorea and
+      Sunflowers are your best bet for eating away at high levels of contamination
+      like these.'
+  fireOnce: 0
+  linkedThread: {fileID: 0}
+  focusCameraOnTarget: 0

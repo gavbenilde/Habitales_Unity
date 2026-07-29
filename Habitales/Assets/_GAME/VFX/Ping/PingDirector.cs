@@ -290,6 +290,7 @@ public class PingDirector : MonoBehaviour
     {
         if (!enabled) return;
         ground.Add(worldPos, clock, pingLifetimeSeconds, defaultPingColor);
+        Debug.Log("PINGED AT LOCATION");
     }
 
     /// <summary>One-shot single ping on the GROUND surface in an explicit color. Anchored at a world

@@ -27,6 +27,17 @@ MonoBehaviour:
       workers\u2019 energy, so be sure to not overwork them."
   - speaker: 0
     customName: 
+    portraitOverride: {fileID: 21300000, guid: ec8648250c6ed914b8133916703557c4, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: WORKER FATIGUE INDICATOR!
+    body: 'When workers are fatigued, they become tinted in a dark-blueish color.
+
+
+      Workers
+      indicated by this change in color will not participate in the next few actions,
+      so as to take rest.'
+  - speaker: 0
+    customName: 
     portraitOverride: {fileID: 21300000, guid: 3e36f57c6e6aeff448172f93c53300ce, type: 3}
     portraitAnimatorOverride: {fileID: 0}
     title: WEATHER!

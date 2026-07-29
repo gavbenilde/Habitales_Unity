@@ -86,7 +86,7 @@ public class TileVisualizer : MonoBehaviour
         switch (currentState)
         {
             case TileVisualState.Hover:
-                finalColor = Color.Lerp(baseColor, Color.yellow, 0.8f);              break;
+                finalColor = Color.Lerp(baseColor, Color.cyan, 0.8f);              break;
             case TileVisualState.Selected:
                 finalColor = Color.Lerp(baseColor, new Color(0f, 0.8f, 0.8f, 1f), 0.7f); break;
             case TileVisualState.Adjacent:

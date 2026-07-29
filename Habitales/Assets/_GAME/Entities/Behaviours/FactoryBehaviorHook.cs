@@ -15,12 +15,26 @@ namespace Habitales.Entities
     [CreateAssetMenu(menuName = "Habitales/Entities/Behaviours/Factory")]
     public class FactoryBehaviorHook : EntityBehaviourHook
     {
-        private const float TRASH_DAILY_CHANCE = 0.015f;
+        private static readonly string[] TRASH_IDS =
+        {
+            "trash_bio_1",
+            "trash_bio_2",
+            "trash_bio_3",
+            "trash_nonbio_1",
+            "trash_nonbio_2",
+            "trash_nonbio_3",
+        };
+        
+        private const float TRASH_DAILY_CHANCE = 0.215f;
         private const int   TRASH_RADIUS          = 4;
 
         public override void OnDailyUpdate(Tile tile, TileEntity entity, in TickContext ctx)
         {
+            Debug.Log($"FactoryBehaviorHook.OnDailyUpdate for {entity?.entityId}");
+            
             if (Random.value >= TRASH_DAILY_CHANCE) return;
+            
+            Debug.Log("Spawning trash!");
 
             // Fire the "kaingin just started" interruption through the meaning-event sink — no
             // singleton grab (S1). The real sink (EventManagerEntitySink) routes it to EventManager.
@@ -48,7 +62,10 @@ namespace Habitales.Entities
                 bool isOccupied = target.entity != null && target.entity.def != null;
                 
                 if (!isOccupied)
-                    ctx.Tiles.SpawnById(target, "trash_bio");
+                {
+                    string trashId = TRASH_IDS[Random.Range(0, TRASH_IDS.Length)];
+                    ctx.Tiles.SpawnById(target, trashId);
+                }
 
                 targets.RemoveAt(idx);
             }

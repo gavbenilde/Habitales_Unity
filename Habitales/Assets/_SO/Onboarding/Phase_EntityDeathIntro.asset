@@ -10,9 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c3a940bee44d3f4db380ef7f747e0a9, type: 3}
-  m_Name: Phase_18_Maintenance
+  m_Name: Phase_EntityDeathIntro
   m_EditorClassIdentifier: 
-  eventName: Phase_18_Maintenance
+  eventName: Phase_EntityDeathIntro
   intrusiveness: 0
   posX: 0
   posY: 0
@@ -22,14 +22,21 @@ MonoBehaviour:
     portraitOverride: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
     portraitAnimatorOverride: {fileID: 0}
     title: 
-    body: Oh, just a reminder to not forget about your previous zone, the more zones
-      you unlock, the more you'll have to maintain.
+    body: Oh yeah, you will notice it later, but sometimes plants die due to poor
+      health conditions, or weather-related conditions.
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 21300000, guid: 001dd9f17d9137c41bd14078f68137c6, type: 3}
+    portraitOverride: {fileID: 21300000, guid: 03efae62146028145b5c57653a188b3b, type: 3}
     portraitAnimatorOverride: {fileID: 0}
     title: 
-    body: Good luck!
+    body: It's unfortunate, but make sure you take any such event as a learning experience...
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: 
+    body: ...just in case you don't notice it, I'll send out pings to any plants
+      that die, right on top of the tile they were on!
   fireOnce: 0
   linkedThread: {fileID: 0}
   focusCameraOnTarget: 0

@@ -10,28 +10,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
-  m_Name: tree_seedling
+  m_Name: trash_bio2
   m_EditorClassIdentifier: 
-  displayName: Narra Tree Seedling
+  displayName: Trash Bio 2
   category: 0
-  tileSprite: {fileID: 21300000, guid: e9687b7bc33f3f444b3d51ca4a6e80ba, type: 3}
-  vfxKey: 2
-  billboardScale: 1
-  promoteAfterDays: 5
-  nextStage: {fileID: 11400000, guid: 2636aa4747d73fc409be76a3813642ad, type: 2}
-  transitionEffects:
-  - stat: 6
-    delta: 10
+  tileSprite: {fileID: 21300000, guid: 54493a9268c51da45956d3162df0a77e, type: 3}
+  vfxKey: 
+  billboardScale: 0.25
+  promoteAfterDays: 7
+  nextStage: {fileID: 0}
+  transitionEffects: []
   requirePromoteCondition: 0
   promoteWhen:
     stat: 0
     comparator: 0
     threshold: 0
   plantDailyDeltas:
-    nutrientBalance: -0.5
-    soilOrganicMatter: 0
+    nutrientBalance: 0
+    soilOrganicMatter: 3.4
     soilStructure: 0
-    biologicalActivity: 0
+    biologicalActivity: 3.4
     waterDynamics: 0
     erosionResistance: 0
     vegetationCover: 0
@@ -39,13 +37,7 @@ MonoBehaviour:
   dailyEffects: []
   droughtResistance: 0
   floodResistance: 0
-  deathConditions:
-  - stat: 0
-    comparator: 0
-    threshold: 20
-    outcome: 1
-    transformTarget: {fileID: 0}
-    onSatisfied: []
+  deathConditions: []
   behaviour: {fileID: 0}
   tier1Intro:
     source: 0

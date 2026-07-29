@@ -193,6 +193,7 @@ namespace Habitales.Onboarding
             OnboardingBeatId.Phase_05_PickCard,
             // OnboardingBeatId.Phase_06_SelectTiles,
             OnboardingBeatId.Phase_07_Confirm,
+            OnboardingBeatId.Phase_WorkerSurprise,
             OnboardingBeatId.Onboarding_UI,
             // OnboardingBeatId.Phase_08_TimeStamina,
             // OnboardingBeatId.Phase_09_Weather,
@@ -203,6 +204,8 @@ namespace Habitales.Onboarding
             OnboardingBeatId.Phase_CleaningBar,
             OnboardingBeatId.Phase_CleaningCard,
             OnboardingBeatId.Phase_CleaningConfirm,
+            OnboardingBeatId.Phase_EntityDeathIntro,
+            OnboardingBeatId.Phase_EntityDeathPing,
             OnboardingBeatId.Phase_EndingIntro,
             OnboardingBeatId.Onboarding_Ending,
             OnboardingBeatId.Phase_11_GoalDeadline,
@@ -211,7 +214,9 @@ namespace Habitales.Onboarding
             OnboardingBeatId.Phase_14_HelpAffordance,
             OnboardingBeatId.Phase_15_FreePlay,
             OnboardingBeatId.Phase_16_ZoneUnlock,
+            OnboardingBeatId.Phase_ZoneUnlocked,
             OnboardingBeatId.Phase_17_Factory,
+            OnboardingBeatId.Phase_FactoryIntro,
             OnboardingBeatId.Phase_18_Maintenance,
         };
 
@@ -243,6 +248,8 @@ namespace Habitales.Onboarding
                 case OnboardingBeatId.Phase_CleaningCard:
                 case OnboardingBeatId.Phase_CleaningConfirm:
                 case OnboardingBeatId.Phase_EndingIntro:
+                case OnboardingBeatId.Phase_WorkerSurprise:
+                case OnboardingBeatId.Phase_EntityDeathIntro:
                     return PopupStyle.Dialog; // 1, 2, 3, 11, 12, 13
 
                 // case OnboardingBeatId.Phase_04_ActionBar:
@@ -256,6 +263,9 @@ namespace Habitales.Onboarding
                 case OnboardingBeatId.Onboarding_UI:
                 case OnboardingBeatId.Onboarding_Cleaning:
                 case OnboardingBeatId.Onboarding_Ending:
+                case OnboardingBeatId.Phase_EntityDeathPing:
+                case OnboardingBeatId.Phase_ZoneUnlocked:
+                case OnboardingBeatId.Phase_FactoryIntro:
                     return PopupStyle.Handbook;
                     
                 default: // 8, 9, 10, 10.1, 14, 16, 17, 18

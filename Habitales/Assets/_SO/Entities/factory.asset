@@ -34,10 +34,16 @@ MonoBehaviour:
     erosionResistance: 0
     vegetationCover: 0
     contamination: 0
-  dailyEffects:
-  - stat: 0
-    delta: 0.03
+  dailyEffects: []
   droughtResistance: 0
   floodResistance: 0
   deathConditions: []
   behaviour: {fileID: 11400000, guid: 37f619404a4931940a5342fee37b847e, type: 2}
+  tier1Intro:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}
+  tier4JournalEntry:
+    source: 0
+    text: 
+    sourceSO: {fileID: 0}

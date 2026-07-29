@@ -12,10 +12,15 @@ public enum OnboardingPhase
     Controls,
     PlantingAction,
     Resources,
+    WorkerFatigue,
     Weather,
     Inspector,
     CleanupAction,
+    DeathPings,
     EndReport,
+    ZoneUnlocked,
+    Factory,
+    Contamination
 }
 
 [Serializable]

@@ -10,20 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54c76fcfd6f12da4f889e6e27463eceb, type: 3}
-  m_Name: trash_bio
+  m_Name: trash_nonbio2
   m_EditorClassIdentifier: 
-  displayName: Biodegradeable Trash
-  category: 3
-  tileSprite: {fileID: 21300000, guid: a2ff8de207c005c49b4c5d256b9136e0, type: 3}
+  displayName: Trash NonBio 2
+  category: 0
+  tileSprite: {fileID: 21300000, guid: d5ebaa77aec4ed5489809a50fd402ac6, type: 3}
   vfxKey: 
   billboardScale: 0.25
-  promoteAfterDays: 7
+  promoteAfterDays: 100
   nextStage: {fileID: 0}
-  transitionEffects:
-  - stat: 1
-    delta: 5
-  - stat: 3
-    delta: -5
+  transitionEffects: []
   requirePromoteCondition: 0
   promoteWhen:
     stat: 0
@@ -37,10 +33,8 @@ MonoBehaviour:
     waterDynamics: 0
     erosionResistance: 0
     vegetationCover: 0
-    contamination: 0
-  dailyEffects:
-  - stat: 3
-    delta: 0.8
+    contamination: 2
+  dailyEffects: []
   droughtResistance: 0
   floodResistance: 0
   deathConditions: []

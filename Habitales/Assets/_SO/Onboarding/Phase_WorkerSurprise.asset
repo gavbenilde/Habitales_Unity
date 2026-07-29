@@ -10,26 +10,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1c3a940bee44d3f4db380ef7f747e0a9, type: 3}
-  m_Name: Phase_18_Maintenance
+  m_Name: Phase_WorkerSurprise
   m_EditorClassIdentifier: 
-  eventName: Phase_18_Maintenance
+  eventName: Phase_WorkerSurprise
   intrusiveness: 0
   posX: 0
   posY: 0
   lines:
   - speaker: 0
     customName: 
-    portraitOverride: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
-    portraitAnimatorOverride: {fileID: 0}
-    title: 
-    body: Oh, just a reminder to not forget about your previous zone, the more zones
-      you unlock, the more you'll have to maintain.
-  - speaker: 0
-    customName: 
     portraitOverride: {fileID: 21300000, guid: 001dd9f17d9137c41bd14078f68137c6, type: 3}
     portraitAnimatorOverride: {fileID: 0}
     title: 
-    body: Good luck!
+    body: Woah! There's your team of volunteers!
+  - speaker: 0
+    customName: 
+    portraitOverride: {fileID: 21300000, guid: 3cb2b81b9d777bf4a8dd90f777df3918, type: 3}
+    portraitAnimatorOverride: {fileID: 0}
+    title: 
+    body: That's great... Now you might have noticed some other information on your
+      screen.
   fireOnce: 0
   linkedThread: {fileID: 0}
   focusCameraOnTarget: 0

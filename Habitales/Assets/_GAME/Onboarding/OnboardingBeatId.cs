@@ -60,6 +60,12 @@ namespace Habitales.Onboarding
         Phase_CleaningCard      = 26,
         Phase_CleaningConfirm   = 27,
         Phase_EndingIntro       = 28,
+        Phase_WorkerSurprise    = 29,
+        Phase_EntityDeathPing   = 30,
+        Phase_FactoryIntro      = 31,
+        // Phase_WorkerFatigue     = 32,
+        Phase_ZoneUnlocked      = 33,
+        Phase_EntityDeathIntro  = 34,
     }
 
     // ─────────────────────────────────────────────────────────────────────────

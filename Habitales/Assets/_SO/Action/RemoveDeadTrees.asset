@@ -15,6 +15,7 @@ MonoBehaviour:
   actionId: remove_deadtrees
   displayName: Remove Stump & Dead Trees
   group: 2
+  examineReport: 0
   description: 
   icon: {fileID: 21300000, guid: dea19332a221c234388707e0b28406a8, type: 3}
   selectionMode: 2
@@ -22,10 +23,10 @@ MonoBehaviour:
   - type: 1
     entityToPlace: {fileID: 0}
     customBehaviour: {fileID: 11400000, guid: 9cdca914eaee5204e99bca5edf721700, type: 2}
-  baseDays: 1
+  baseDays: 2
   minDays: 1
-  minPeoplePerTile: 1
-  fatigueMultiplierPerTile: 2
+  minPeoplePerTile: 2
+  fatigueMultiplierPerTile: 3
   lore: 
   infoTooltip: 
   supplementaryImages: []

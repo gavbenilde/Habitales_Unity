@@ -519,37 +519,42 @@ namespace Habitales.Triggers
             if (tile == null || string.IsNullOrEmpty(entityId)) return;
             if (string.IsNullOrEmpty(cause) || !DeathCauses.Contains(cause)) return; // player removal / decomposition — never T3
 
-            string speciesName = ResolveSpeciesNameForTier(tile, entityId);
+            // string speciesName = ResolveSpeciesNameForTier(tile, entityId);
+
+            Debug.Log("Entity Died");
 
             if (TileManager.Instance != null)
+            {
                 PingDirector.Instance?.PingAt(TileManager.Instance.GridToWorldPosition(tile.gridPosition));
-
-            string causeKey = $"T3cause:{cause}";
-            if (!_firedIds.Contains(causeKey))
-            {
-                _firedIds.Add(causeKey);
-                _windowFiredIds.Add($"T3sp:{entityId}"); // one death never makes two popups
-
-                string text = BuildCauseExplanationText(cause, speciesName, tile);
-                EnqueueTierPopup(BuildAziRequest(text, PopupIntrusiveness.Intrusive));
-            }
-            else
-            {
-                string spKey = $"T3sp:{entityId}";
-                if (!_windowFiredIds.Contains(spKey))
-                {
-                    _windowFiredIds.Add(spKey);
-                    string text = $"Another {speciesName} died — {CauseShortPhrase(cause)}.";
-                    EnqueueTierPopup(BuildAziRequest(text, PopupIntrusiveness.NonIntrusive));
-                }
+                Debug.Log("Called Ping");
             }
 
-            string journalKey = $"T4:{entityId}";
-            if (!_windowFiredIds.Contains(journalKey))
-            {
-                _windowFiredIds.Add(journalKey);
-                LogJournalEntry(entityId, cause, speciesName);
-            }
+            // string causeKey = $"T3cause:{cause}";
+            // if (!_firedIds.Contains(causeKey))
+            // {
+            //     _firedIds.Add(causeKey);
+            //     _windowFiredIds.Add($"T3sp:{entityId}"); // one death never makes two popups
+            //
+            //     string text = BuildCauseExplanationText(cause, speciesName, tile);
+            //     EnqueueTierPopup(BuildAziRequest(text, PopupIntrusiveness.Intrusive));
+            // }
+            // else
+            // {
+            //     string spKey = $"T3sp:{entityId}";
+            //     if (!_windowFiredIds.Contains(spKey))
+            //     {
+            //         _windowFiredIds.Add(spKey);
+            //         string text = $"Another {speciesName} died — {CauseShortPhrase(cause)}.";
+            //         EnqueueTierPopup(BuildAziRequest(text, PopupIntrusiveness.NonIntrusive));
+            //     }
+            // }
+            //
+            // string journalKey = $"T4:{entityId}";
+            // if (!_windowFiredIds.Contains(journalKey))
+            // {
+            //     _windowFiredIds.Add(journalKey);
+            //     LogJournalEntry(entityId, cause, speciesName);
+            // }
         }
 
         /// <summary>Best-effort species display name for a just-died entityId. Prefers the tile's

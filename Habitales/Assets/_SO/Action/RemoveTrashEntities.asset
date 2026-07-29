@@ -13,5 +13,9 @@ MonoBehaviour:
   m_Name: RemoveTrashEntities
   m_EditorClassIdentifier: 
   entitiesToRemove:
+  - {fileID: 11400000, guid: c890882b837add8498966b1d487f5492, type: 2}
   - {fileID: 11400000, guid: 68d66e3633bd14c41b1481f382ebb2d6, type: 2}
+  - {fileID: 11400000, guid: 17e6742644d4e094898480d44fd10014, type: 2}
   - {fileID: 11400000, guid: cb3ecb5d9e7980b46b398ae640887abc, type: 2}
+  - {fileID: 11400000, guid: eaa48e81aee562140a891f72acf786fd, type: 2}
+  - {fileID: 11400000, guid: 5b451616fdb24ef459d5517377f326a1, type: 2}

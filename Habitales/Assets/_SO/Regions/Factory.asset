@@ -30,20 +30,15 @@ MonoBehaviour:
   drainageCollapseWeight: 2
   soilCompactionWeight: 2
   chemicalBurnoutWeight: 1
-  matureTreeSpawnChance: 0
-  saplingSpawnChance: 0
-  seedlingSpawnChance: 0
-  deadTreeSpawnChance: 0
-  stumpSpawnChance: 0
-  bioTrashSpawnChance: 0
+  spawnTable:
+  - entity: {fileID: 11400000, guid: 7d238b9538689f644a8f82d12ee18174, type: 2}
+    frequency: 0.312
+    minCount: 0
+    maxCount: 1
   forceTheme: 0
   forcedTheme: 0
   issueDensityRange: {x: 0.3, y: 0.5}
   offThemeIssueProbability: 0.2
-  maxVillages: 0
-  maxFactories: 2
-  villageSpawnChance: 0
-  factorySpawnChance: 0.25
   workerReward: 4
   forceSpecificEntities: 0
   forcedEntities: []
