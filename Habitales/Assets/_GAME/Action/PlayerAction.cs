@@ -73,6 +73,14 @@ public abstract class PlayerAction
     public virtual bool CanExecute(List<Tile> tiles)
         => tiles != null && tiles.Count > 0;
 
+    // ── Targeting filter ────────────────────────────────────────────────────
+    // Asked by TileSelector.CanSelectTile before a tile may join the selection, so an action
+    // the player cannot aim at a tile simply refuses to pick it up. Default: no restriction.
+    // Authored actions get theirs from their effects (GenericPlayerAction.CanTargetTile) — e.g.
+    // a removal action only accepts tiles holding one of the entities it removes.
+    // This gates SELECTION only; CanExecute/ExecuteOnTile still guard themselves.
+    public virtual bool CanTargetTile(Tile tile) => true;
+
     // ── Per-tile work ────────────────────────────────────────────────────────
     // Called once per tile by ActionManager as each day completes.
     // Put all stat changes, entity spawns, and overlay ops here.

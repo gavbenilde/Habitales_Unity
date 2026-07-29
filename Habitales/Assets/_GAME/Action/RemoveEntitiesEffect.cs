@@ -33,5 +33,21 @@ namespace Habitales.Actions
                 }
             }
         }
+
+        // Selection filter (2026-07-29): the action can only be AIMED at a tile holding one of
+        // the entities it removes — so "Remove Trash" picks up trash tiles only, and "Remove
+        // Stump & Dead Trees" only stumps/dead trees, straight off this same authored list with
+        // no second list to keep in sync. An empty list means "not authored yet": stay silent
+        // (return null) rather than making the action unaimable at everything.
+        public override bool? CanTargetTile(Tile tile)
+        {
+            if (entitiesToRemove == null || entitiesToRemove.Count == 0) return null;
+            if (tile == null || tile.entity == null) return false;
+
+            foreach (var e in entitiesToRemove)
+                if (e != null && e.EntityId == tile.entity.entityId) return true;
+
+            return false;
+        }
     }
 }

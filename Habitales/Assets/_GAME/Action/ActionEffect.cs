@@ -48,14 +48,52 @@ namespace Habitales.Actions
                 case ActionEffectType.PlaceEntity:
                     // Mirror the dominant existing pattern (PlantTreesAction): never overwrite
                     // an occupied tile. Authors wanting replacement use a CustomBehavior hook.
-                    if (entityToPlace != null && tile.entity == null)
+                    if (entityToPlace == null) break;
+                    if (tile.entity == null)
+                    {
                         tileManager.SpawnById(tile, entityToPlace.EntityId);
+                    }
+                    else
+                    {
+                        // Reachable despite CanTargetTile: the tile was empty when the player
+                        // selected it, and something (factory trash, fire spread) claimed it during
+                        // the days the action was working — ActionManager applies each day's batch
+                        // as that day comes. Loud rather than silent (Law 3): the player paid days
+                        // and fatigue for a plant that isn't there.
+                        Debug.LogWarning($"PlaceEntity '{entityToPlace.EntityId}' skipped at " +
+                                         $"{tile.gridPosition}: tile is occupied by '{tile.entity.entityId}'.");
+                    }
                     break;
 
                 case ActionEffectType.CustomBehavior:
                     if (customBehaviour != null)
                         customBehaviour.Apply(tile, tileManager);
                     break;
+            }
+        }
+
+        /// <summary>
+        /// This effect's opinion on whether the action may be AIMED at <paramref name="tile"/>, in
+        /// the same three-valued shape as <see cref="ActionEffectHook.CanTargetTile"/>: true/false
+        /// = an opinion, null = no opinion (GenericPlayerAction ORs the opinions together).
+        ///
+        /// <para>PlaceEntity refuses occupied tiles because <see cref="Apply"/> refuses them — before
+        /// this (2026-07-29) a plant action would happily take a trash/tree tile, burn its days and
+        /// fatigue, and place nothing, which reads as "my buckwheat never grew".</para>
+        /// </summary>
+        public bool? CanTargetTile(Tile tile)
+        {
+            switch (type)
+            {
+                case ActionEffectType.PlaceEntity:
+                    if (entityToPlace == null) return null;      // not authored yet — stay silent
+                    return tile != null && tile.entity == null;
+
+                case ActionEffectType.CustomBehavior:
+                    return customBehaviour != null ? customBehaviour.CanTargetTile(tile) : null;
+
+                default:
+                    return null;
             }
         }
     }

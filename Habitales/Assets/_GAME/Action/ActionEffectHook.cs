@@ -15,5 +15,15 @@ namespace Habitales.Actions
         // selected tile. Put stat changes, conditional spawns, overlay ops, etc. here.
         // `tileManager` is the live manager so hooks can spawn/remove entities.
         public abstract void Apply(Tile tile, TileManager tileManager);
+
+        // Optional SELECTION filter, asked once per candidate tile while the player is still
+        // picking targets (TileSelector → PlayerAction.CanTargetTile → GenericPlayerAction):
+        //   null  — this effect has no opinion. THE DEFAULT: effects don't restrict targeting.
+        //   true  — this effect can act on the tile.
+        //   false — it cannot.
+        // GenericPlayerAction ORs the non-null verdicts: a tile is targetable if ANY filtering
+        // effect accepts it, and every tile is targetable when no effect filters at all — so
+        // adding this changed nothing for existing hooks.
+        public virtual bool? CanTargetTile(Tile tile) => null;
     }
 }

@@ -21,11 +21,52 @@ public class TileVisualizer : MonoBehaviour
     [SerializeField] private Color pulseColorB = new Color(0.10f, 0.45f, 0.85f); // blue
     [SerializeField] private float pulseSpeed  = 1.5f;
 
+    // ── Selection Juice (2026-07-29) ──────────────────────────────────────────
+    // Everything about selection used to be COLOUR — the pulse above is a hue lerp, which reads as
+    // "glowing", not as "responding". These two add the missing kinetic and negative feedback.
+    [Header("Selection Juice")]
+    [Tooltip("Peak scale multiplier of the select punch; 1 disables it. Kept small on purpose — " +
+             "tiles sit shoulder to shoulder on a grid, so much past ~1.1 visibly overlaps neighbours.")]
+    [SerializeField] private float punchScale = 1.07f;
+    [Tooltip("Punch duration in seconds, there and back. Short is the point: this should read as a " +
+             "press, not an animation.")]
+    [SerializeField] private float punchDuration = 0.13f;
+    [Tooltip("Colour a tile flashes when an action refuses it — wrong entity for a filtered cleanup " +
+             "action, or the workforce budget is spent.")]
+    [SerializeField] private Color refusalColor = new Color(0.85f, 0.20f, 0.20f);
+    [Tooltip("Refusal flash duration in seconds.")]
+    [SerializeField] private float refusalDuration = 0.22f;
+
+    // Captured once so repeated punches can never ratchet the tile's size.
+    private Vector3 baseScale = Vector3.one;
+    // Elapsed seconds into the refusal flash; negative = not flashing.
+    private float refusalT = -1f;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     void Update()
     {
-        if (currentState != TileVisualState.Selected || materialInstance == null) return;
+        if (materialInstance == null) return;
+
+        // The refusal flash owns _BaseColor while it runs, then hands back to the state colour.
+        if (refusalT >= 0f)
+        {
+            refusalT += Time.unscaledDeltaTime;
+            float d = Mathf.Max(0.01f, refusalDuration);
+
+            if (refusalT >= d)
+            {
+                refusalT = -1f;
+                UpdateMaterial();   // restore whatever state applies NOW (it may have changed mid-flash)
+            }
+            else
+            {
+                // Hard on, ease off — a flash, not a fade in and out.
+                materialInstance.SetColor("_BaseColor", Color.Lerp(refusalColor, ComputeStateColor(), refusalT / d));
+            }
+            return;
+        }
+
+        if (currentState != TileVisualState.Selected) return;
         float t = Mathf.PingPong(Time.time * pulseSpeed, 1f);
         materialInstance.SetColor("_BaseColor", Color.Lerp(pulseColorA, pulseColorB, t));
     }
@@ -38,7 +79,48 @@ public class TileVisualizer : MonoBehaviour
             materialInstance = meshRenderer.material;
             originalColor = materialInstance.GetColor("_BaseColor");
         }
+
+        // Defensive, mirroring RegionManager.AnimateRegionReveal: a zero baseline would make every
+        // punch a no-op and could leave the tile invisible if anything ever tweened off it.
+        baseScale = transform.localScale;
+        if (baseScale.sqrMagnitude < 0.0001f) baseScale = Vector3.one;
     }
+
+    // ── Selection juice, driven by TileSelector ───────────────────────────────
+
+    /// <summary>
+    /// Scale punch on select/deselect. <paramref name="amplitude"/> scales the overshoot, so a
+    /// deselect can land softer than a select.
+    ///
+    /// <para>Uses LeanTween rather than a hand-rolled timer specifically so it interops with
+    /// <c>RegionManager.AnimateRegionReveal</c>, which tweens this same localScale and calls
+    /// <c>LeanTween.cancel</c> to keep two tweens from fighting over it. Sharing the idiom means
+    /// a region reveal cleanly kills a mid-flight punch instead of capturing a punched scale as
+    /// the tile's "authored" size and leaving it permanently wrong.</para>
+    /// </summary>
+    public void Punch(float amplitude = 1f)
+    {
+        if (punchScale <= 1f || amplitude <= 0f) return;
+
+        float peak = 1f + (punchScale - 1f) * amplitude;
+
+        LeanTween.cancel(gameObject);
+        transform.localScale = baseScale;
+
+        LeanTween.scale(gameObject, baseScale * peak, Mathf.Max(0.01f, punchDuration) * 0.5f)
+                 .setEase(LeanTweenType.easeOutQuad)
+                 .setLoopPingPong(1)
+                 // Idempotent end state, matching ObjectiveBannerUI: land exactly on baseScale even
+                 // if the tween is interrupted, so punches can never accumulate drift.
+                 .setOnComplete(() => transform.localScale = baseScale);
+    }
+
+    /// <summary>
+    /// Flashes the tile toward <see cref="refusalColor"/> — this action cannot be aimed here. Before
+    /// this, a refused tile did nothing visible at all, which reads as an unresponsive game rather
+    /// than an invalid target.
+    /// </summary>
+    public void FlashRefusal() => refusalT = 0f;
 
     public void Initialize(Tile tileData)
     {
@@ -68,7 +150,18 @@ public class TileVisualizer : MonoBehaviour
     {
         if (meshRenderer == null || materialInstance == null || tile == null) return;
         meshRenderer = GetTileRenderer();
-        
+
+        materialInstance.SetColor("_BaseColor", ComputeStateColor());
+    }
+
+    /// <summary>
+    /// The colour this tile should rest at for its current state. Split out of UpdateMaterial so the
+    /// refusal flash can ease back toward the right destination instead of guessing white.
+    /// </summary>
+    Color ComputeStateColor()
+    {
+        if (tile == null) return originalColor;
+
         // Base colour is the material's original tint — health is communicated by the tile
         // SHADER (fed _Soil_Composite/_Vegetation_Cover in GetTileRenderer), never by a C#
         // tint (GetHealthColor deleted 2026-07-08; the shader owns health visuals).
@@ -100,7 +193,7 @@ public class TileVisualizer : MonoBehaviour
             default: // Default
                 finalColor = baseColor;                                              break;
         }
-        materialInstance.SetColor("_BaseColor", finalColor);
+        return finalColor;
     }
 
     // ── Overlay list reader ───────────────────────────────────────────────────

@@ -8459,6 +8459,12 @@ MonoBehaviour:
   actionManager: {fileID: 651731309}
   deselectKey: 27
   minBrushSize: 3
+  commitPoofScale: 1
+  dragPoofScale: 0.45
+  dragPoofInterval: 0.05
+  selectSoundMinInterval: 0.04
+  pitchLadderSemitones: 0.5
+  pitchLadderMaxSteps: 12
 --- !u!114 &545579445
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -16661,6 +16667,7 @@ MonoBehaviour:
   hotkey: 290
   previewGrade: 3
   historyPoints: 120
+  healthTarget: 65
   thrivingCount: 14
   degradedCount: 6
   criticalCount: 2
@@ -19945,7 +19952,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   vfx: {fileID: 2936124630731098737, guid: c4438443e4c59d94fa4b95be0bf261ae, type: 3}
-  cam: {fileID: 1710253718}
+  poolSize: 16
 --- !u!4 &1554458887
 Transform:
   m_ObjectHideFlags: 0
@@ -21474,6 +21481,10 @@ MonoBehaviour:
   baseDayDuration: 3
   speedMultiplier: 2
   minDuration: 0.3125
+  driveSunTint: 1
+  nightTint: {r: 0.34, g: 0.4, b: 0.58, a: 1}
+  dayTint: {r: 1, g: 1, b: 1, a: 1}
+  lightColorInfluence: 1
 --- !u!23 &1824121018 stripped
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: 4185488437558469132, guid: d0a8a3ee88d222749a3e63ce096a8822, type: 3}
@@ -24727,19 +24738,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchorMax.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchorMin.y
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: 250
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4962073821388473963, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -50
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5370127297116874835, guid: 5158e5b5a0327584f960dcccc1261d7a, type: 3}
       propertyPath: m_AnchoredPosition.y
@@ -26305,7 +26316,7 @@ MonoBehaviour:
     titleText: WORKER FATIGUE INDICATOR!
     bodyText: 'When workers are fatigued, they become tinted in a dark-blueish color.
 
-      
+
 
       Workers
       indicated by this change in color will not participate in the next few actions,
@@ -26330,10 +26341,10 @@ MonoBehaviour:
     bodyText: 'When plants die, Azi will send a ping- visualized by a circle that
       expands outwards- right on the tile the death occurred.
 
-      
 
-      This
-      also happens when trash decomposes and gets absorbed into the soil!'
+
+      This also
+      happens when trash decomposes and gets absorbed into the soil!'
     animatedImage: {fileID: 547357354}
   - phase: 8
     titleText: END REPORT!
@@ -26345,7 +26356,7 @@ MonoBehaviour:
     titleText: ZONE UNLOCKED!
     bodyText: 'A new zone has opened up for you to analyze and plant on!
 
-      
+
 
       Each
       zone has their own unique stat distribution, indicated by looking at their
@@ -26357,7 +26368,7 @@ MonoBehaviour:
     bodyText: 'Factories spawn randomly upon unlocking a zone. Every passing day,
       there''s a chance for the factory to dump trash around its surroundings.
 
-      
+
 
       Be
       wary, as some types of trash can cause contamination to the tile underneath!'
@@ -26366,7 +26377,7 @@ MonoBehaviour:
     titleText: CONTAMINATION!
     bodyText: 'A buildup of contamination leads to purple tiles.
 
-      
+
 
       Rinorea
       and Sunflowers are your best bet for eating away at high levels of contamination

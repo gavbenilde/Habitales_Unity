@@ -333,9 +333,13 @@ namespace Habitales.UI.Actions
                 RefreshEstimates();
 
             // Confirm is interactable only when an action is armed AND at least one tile is selected.
+            // Reads the ACTUAL selection count, not the single-select highlight (2026-07-29): a
+            // filtered action can leave a clicked tile highlighted but unselected, and NonAdjacent
+            // re-click can now empty the selection — both used to leave Confirm lit over a
+            // selection ConfirmSelection would silently refuse to send.
             if (estimatePanel != null)
                 estimatePanel.SetConfirmInteractable(
-                    currentAction != null && tileSelector != null && tileSelector.GetSelectedTile() != null);
+                    currentAction != null && tileSelector != null && tileSelector.SelectedTileCount > 0);
         }
 
         // ─── View event handlers (upward channel) ─────────────────────────────

@@ -51,6 +51,43 @@ public class TileSelector : MonoBehaviour
     private Tile lastHoveredTile = null;
     private HashSet<Tile> adjacentAvailableTiles = new HashSet<Tile>();
 
+    // ─── Click-drag stroke state (Adjacent / NonAdjacent) ─────────────────────
+    // The LMB-down latches a stroke mode which is then replayed onto every NEW tile the cursor
+    // enters while the button is held, so one press-and-drag picks a run of tiles instead of
+    // needing a click each (user spec 2026-07-29). FloodFill is excluded — it has its own
+    // brush stroke (HandlePaintStroke).
+    private enum StrokeMode { None, Add, Erase }
+    private StrokeMode _strokeMode = StrokeMode.None;
+    private Tile _strokeLastTile = null;
+    private bool _strokeOverflowWarned = false;
+
+    // ─── Selection juice (2026-07-29) ─────────────────────────────────────────
+    // Two layers, because they say different things. The TEXTURE is a small poof at the cursor on a
+    // fixed interval for as long as the button is held — "my finger is down and moving". The BEAT is
+    // a full-size poof + tile punch + one-shot, fired only when a tile genuinely joined or left the
+    // selection — "that did something". Texture alone makes a refused drag feel like it worked; beat
+    // alone makes a slow drag feel dead between tiles.
+    [Header("Selection Juice")]
+    [Tooltip("Poof scale for a tile that actually joined or left the selection (the BEAT).")]
+    [SerializeField] private float commitPoofScale = 1f;
+    [Tooltip("Poof scale for the continuous drag TEXTURE emitted at the cursor while LMB is held.")]
+    [SerializeField] private float dragPoofScale = 0.45f;
+    [Tooltip("Seconds between drag-texture poofs. ~0.07 reads as a continuous trail without turning to mush.")]
+    [SerializeField] private float dragPoofInterval = 0.07f;
+    [Tooltip("Minimum seconds between selection one-shots, so a fast drag can't machine-gun the SFX.")]
+    [SerializeField] private float selectSoundMinInterval = 0.04f;
+    [Tooltip("Semitones the select one-shot climbs per tile committed within one stroke. 0 = ladder off.")]
+    [SerializeField] private float pitchLadderSemitones = 1f;
+    [Tooltip("How many rungs the pitch ladder climbs before it stops rising.")]
+    [SerializeField] private int pitchLadderMaxSteps = 12;
+
+    private float   _nextDragPoofTime    = 0f;
+    private float   _nextSelectSoundTime = 0f;
+    private int     _strokeCommitCount   = 0;
+    // Cached raycast hit point from UpdateHoveredTile, so the texture layer follows the actual
+    // cursor without paying for a second raycast.
+    private Vector3 _hoverPoint = Vector3.zero;
+
     // ─── FloodFill (brush) state ──────────────────────────────────────────────
     // The selection is the union of per-seed blobs. Each seed caches the blob it stamped
     // (BFS of `size` tiles from `tile`, occupied tiles as walls) at placement time, so
@@ -129,6 +166,8 @@ public class TileSelector : MonoBehaviour
 
         HandleMouseInput();
         HandlePaintStroke();
+        HandleClickDragStroke();
+        HandleDragPoofTexture();
         HandleBrushResizeInput();
         HandleDeselectInput();
     }
@@ -200,6 +239,10 @@ public class TileSelector : MonoBehaviour
         if (!IsWithinOneTileGapOfSelection(tile)) return false;
 
         AddBrushSeed(tile);
+        // Beat on the SEED, not on every tile of its blob — the seed is the unit the player is
+        // actually placing, and a blob-sized burst would be a wall of poofs. Note the initial seed
+        // is juiced by SelectSingleTile instead, so it never double-fires here.
+        EmitCommitJuice(tile, selected: true);
         return true;
     }
 
@@ -402,7 +445,20 @@ public class TileSelector : MonoBehaviour
             maxSelectableTiles = 1;
 
         originalTile = initialTile;
-        selectedTiles.Add(initialTile);
+
+        // The seed is auto-selected as before, EXCEPT when the action's target filter refuses it
+        // (2026-07-29) — a removal action must not start on a tile it cannot act on. Deliberately
+        // filter-only, not a full CanSelectTile: the budget/adjacency checks are irrelevant for
+        // the first tile and gating on them would silently select nothing at zero workforce.
+        // SelectSingleTile already painted the tile as the single-select highlight, so a refused
+        // seed is repainted Default here; the highlight comes back on cancel (ExitMultiSelectMode).
+        if (initialTile != null)
+        {
+            if (action.CanTargetTile(initialTile))
+                selectedTiles.Add(initialTile);
+            else
+                UpdateTileVisual(initialTile, TileVisualState.Default);
+        }
 
         UpdateAdjacentVisuals();
 
@@ -426,6 +482,7 @@ public class TileSelector : MonoBehaviour
         _brushSeeds.Clear();
 
         // ── Shared resets ─────────────────────────────────────────────────────
+        EndStroke();
         multiSelectMode = false;
         currentAction = null;
         originalTile = null;
@@ -482,6 +539,183 @@ public class TileSelector : MonoBehaviour
         // left the cluster, so reset the flood at the cursor — same as a fresh LMB press there.
         if (!selectedTiles.Contains(hoveredTile) && !IsWithinOneTileGapOfSelection(hoveredTile))
             EnterFloodFillMode(currentAction, hoveredTile);
+    }
+
+    // ─── Click-drag stroke (LMB held, Adjacent / NonAdjacent) ─────────────────
+
+    /// <summary>
+    /// Drag-select for the click-based modes: the press latched a stroke mode (Add or Erase —
+    /// see HandleTileClick) and every NEW tile the cursor enters while LMB is held gets that
+    /// same operation, so the player paints a run of tiles in one gesture instead of clicking
+    /// each one (user spec 2026-07-29). FloodFill is excluded — HandlePaintStroke owns it.
+    /// Camera panning is on RMB (CameraDrag), so the two gestures never fight.
+    /// </summary>
+    void HandleClickDragStroke()
+    {
+        if (!multiSelectMode || floodFillMode) return;
+        if (_strokeMode == StrokeMode.None) return;
+
+        // Button released → the stroke is over.
+        if (!Input.GetMouseButton(0)) { EndStroke(); return; }
+
+        if (Input.GetMouseButtonDown(0)) return; // down-frame is owned by HandleMouseInput
+        if (TriggerManager.Instance != null && TriggerManager.Instance.IsBusy) return;
+        if (IsPointerOverUI()) return;           // dragging across UI pauses, never breaks the stroke
+        if (hoveredTile == null) return;         // off-grid → pause, keep the selection intact
+        if (hoveredTile == _strokeLastTile) return;
+
+        _strokeLastTile = hoveredTile;
+        ApplyStroke(hoveredTile);
+    }
+
+    /// <summary>Clears the latched stroke. Called on mouse-up and on every mode exit.</summary>
+    void EndStroke()
+    {
+        _strokeMode           = StrokeMode.None;
+        _strokeLastTile       = null;
+        _strokeOverflowWarned = false;
+        _strokeCommitCount    = 0;   // pitch ladder drops back to the root note
+    }
+
+    /// <summary>
+    /// Applies the latched stroke operation to one tile — used for BOTH the initial click and
+    /// each tile the drag then reaches, so a click and a one-tile drag behave identically.
+    /// Add respects CanSelectTile (budget, adjacency, and the action's target filter); Erase
+    /// refuses the seed tile in Adjacent mode, where it anchors the connected cluster.
+    /// </summary>
+    void ApplyStroke(Tile tile)
+    {
+        if (tile == null || currentAction == null) return;
+
+        if (_strokeMode == StrokeMode.Erase)
+        {
+            if (!selectedTiles.Contains(tile)) return;
+            if (tile == originalTile && currentAction.selectionMode == SelectionMode.Adjacent)
+            {
+                Debug.Log($"Cannot deselect original tile {tile.gridPosition}");
+                return;
+            }
+            DeselectTile(tile);
+            return;
+        }
+
+        if (selectedTiles.Contains(tile)) return;
+
+        if (CanSelectTile(tile))
+        {
+            SelectTile(tile);
+            return;
+        }
+
+        // Budget exhaustion is the one refusal worth surfacing in TEXT — once per stroke, so dragging
+        // across a full grid doesn't machine-gun tips at the cursor.
+        if (selectedTiles.Count >= maxSelectableTiles && !_strokeOverflowWarned)
+        {
+            _strokeOverflowWarned = true;
+            if (OverflowTipSpawner.Instance != null)
+                OverflowTipSpawner.Instance.SpawnAtCursor("Your team cannot handle this much work at once!");
+        }
+
+        // The tile itself flashes on every refusal, budget or filter. Cheap, local, and it answers
+        // "why did nothing happen?" right where the player is looking — the text tip only covers the
+        // budget case, and says nothing at all when a cleanup action rejects the wrong entity.
+        FlashRefusal(tile);
+
+        Debug.Log($"Cannot select tile at {tile.gridPosition}: invalid adjacency/target, or max reached");
+    }
+
+    // ─── Selection juice ──────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The drag TEXTURE: a small poof at the cursor on a fixed interval for as long as LMB is held
+    /// over the grid, whether or not anything got selected. This is the "my finger is down and
+    /// moving" signal; <see cref="EmitCommitJuice"/> is what says a tile actually changed.
+    /// Deliberately emitted at the raycast hit point rather than the tile centre, so the trail
+    /// follows the cursor smoothly while the beat snaps to cells.
+    /// </summary>
+    void HandleDragPoofTexture()
+    {
+        // Stroke over → pitch ladder back to the root. Lives here rather than in EndStroke alone
+        // because FloodFill paints without ever latching a click-drag stroke.
+        if (Input.GetMouseButtonUp(0)) _strokeCommitCount = 0;
+
+        if (!multiSelectMode || !Input.GetMouseButton(0)) return;
+        if (TriggerManager.Instance != null && TriggerManager.Instance.IsBusy) return;
+        if (IsPointerOverUI() || hoveredTile == null) return;
+        if (ClickVFX.Instance == null) return;
+        if (Time.unscaledTime < _nextDragPoofTime) return;
+
+        _nextDragPoofTime = Time.unscaledTime + Mathf.Max(0.01f, dragPoofInterval);
+        ClickVFX.Instance.Emit(_hoverPoint, dragPoofScale);
+    }
+
+    /// <summary>
+    /// The selection BEAT: poof + tile punch + one-shot, fired when a tile genuinely joined
+    /// (<paramref name="selected"/>) or left the selection — never on a refused click. Consecutive
+    /// commits within one stroke climb the pitch ladder, so a six-tile drag reads as six tiles
+    /// instead of six identical blips; the ladder resets when the button comes up.
+    /// </summary>
+    void EmitCommitJuice(Tile tile, bool selected)
+    {
+        if (tile == null || tileManager == null) return;
+
+        GameObject tileObj = tileManager.GetTileGameObject(tile);
+        if (tileObj == null) return;
+
+        Vector3 worldPos = tileObj.transform.position;
+
+        if (ClickVFX.Instance != null)
+        {
+            ClickVFX.Instance.Emit(worldPos, selected ? commitPoofScale : commitPoofScale * 0.7f);
+            // Push the texture layer out one interval so a commit and a trail poof can't land on the
+            // same frame and read as one shapeless blob.
+            _nextDragPoofTime = Time.unscaledTime + Mathf.Max(0.01f, dragPoofInterval);
+        }
+
+        TileVisualizer viz = tileObj.GetComponent<TileVisualizer>();
+        if (viz != null) viz.Punch(selected ? 1f : 0.6f);
+
+        PlaySelectSound(tile, worldPos);
+
+        _strokeCommitCount++;
+    }
+
+    /// <summary>
+    /// The per-tile-select one-shot. MOVED here from HandleMouseInput (2026-07-29, user call): it
+    /// used to fire once per tile CLICK — including clicks the selection refused — and stayed silent
+    /// for every tile a drag picked up. Now it tracks the selection itself, one blip per tile.
+    /// </summary>
+    void PlaySelectSound(Tile tile, Vector3 worldPos)
+    {
+        if (AudioManager.instance == null || FMODEvents.instance == null) return;
+        if (Time.unscaledTime < _nextSelectSoundTime) return;
+        _nextSelectSoundTime = Time.unscaledTime + Mathf.Max(0f, selectSoundMinInterval);
+
+        // Health bands preserved exactly as they were: >=66 healthy, 0..66 critical, negative
+        // (a sentinel, not a real reading) falls back to healthy.
+        float health = tile.stats.CalculateHealth();
+        FMODUnity.EventReference ev = (health >= 66f || health < 0f)
+            ? FMODEvents.instance.tileSelectedHealthy
+            : FMODEvents.instance.tileSelectedCritical;
+
+        float pitch = 1f;
+        if (pitchLadderSemitones > 0f)
+        {
+            int rung = Mathf.Min(_strokeCommitCount, Mathf.Max(0, pitchLadderMaxSteps));
+            pitch = Mathf.Pow(2f, (rung * pitchLadderSemitones) / 12f);
+        }
+
+        AudioManager.instance.PlayOneShot(ev, worldPos, pitch);
+    }
+
+    /// <summary>Flashes a tile the action just refused. No-op if the tile has no visualizer.</summary>
+    void FlashRefusal(Tile tile)
+    {
+        if (tile == null || tileManager == null) return;
+
+        GameObject tileObj = tileManager.GetTileGameObject(tile);
+        TileVisualizer viz = tileObj != null ? tileObj.GetComponent<TileVisualizer>() : null;
+        if (viz != null) viz.FlashRefusal();
     }
 
     // ─── Brush resize (Ctrl+Scroll / slider, flood-fill mode) ─────────────────
@@ -548,24 +782,11 @@ public class TileSelector : MonoBehaviour
                 TileVisualizer visualizer = hit.collider.GetComponent<TileVisualizer>();
                 if (visualizer != null)
                 {
-                    Tile clickedTile = visualizer.GetTileData();
-                    
-                    HandleTileClick(clickedTile, hit.point);
-
-                    float currentHealth = clickedTile.stats.CalculateHealth();
-                    
-                    if (currentHealth >= 66f)
-                    {
-                        AudioManager.instance.PlayOneShot(FMODEvents.instance.tileSelectedHealthy, mainCamera.transform.position);
-                    }
-                    else if (currentHealth >= 0f)
-                    {
-                        AudioManager.instance.PlayOneShot(FMODEvents.instance.tileSelectedCritical, mainCamera.transform.position);
-                    }
-                    else
-                    {
-                        AudioManager.instance.PlayOneShot(FMODEvents.instance.tileSelectedHealthy, mainCamera.transform.position);
-                    }
+                    // The select one-shot used to fire HERE, on every tile click — including clicks
+                    // the selection then refused, and never for tiles a drag picked up. It now lives
+                    // on the selection itself (PlaySelectSound, via EmitCommitJuice), one blip per
+                    // tile actually selected (2026-07-29, user call).
+                    HandleTileClick(visualizer.GetTileData(), hit.point);
                 }
             }
             else if (!multiSelectMode)
@@ -594,38 +815,24 @@ public class TileSelector : MonoBehaviour
             return;
         }
 
-        // Adjacent / NonAdjacent click logic (original, unchanged).
+        // ─── Adjacent / NonAdjacent ──────────────────────────────────────────
+        // The press LATCHES a stroke mode that the drag then replays onto every tile the cursor
+        // enters (HandleClickDragStroke), so click and press-and-drag share one code path.
+        //
+        // Erase is latched when the press lands on an already-selected tile AND either:
+        //   NonAdjacent — a plain re-click deselects, no modifier needed (user spec 2026-07-29);
+        //   Shift held  — the legacy modifier deselect, kept for Adjacent.
+        // In Adjacent a plain press on a selected tile latches ADD instead, so the player can
+        // start a drag from a tile already in the cluster and grow it outward.
         bool isShiftHeld = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-        
-        Debug.Log(Input.GetKey(KeyCode.LeftShift));
-        Debug.Log(Input.GetKey(KeyCode.RightShift));
+        bool eraseGesture = selectedTiles.Contains(tile) &&
+                            (currentAction.selectionMode == SelectionMode.NonAdjacent || isShiftHeld);
 
-        if (selectedTiles.Contains(tile) && isShiftHeld)
-        {
-            if (tile == originalTile)
-            {
-                Debug.Log($"Cannot deselect original tile {tile.gridPosition}");
-                return;
-            }
-            Debug.Log("Tile Deslected");
-            DeselectTile(tile);
-        }
-        else if (!selectedTiles.Contains(tile))
-        {
-            if (CanSelectTile(tile))
-            {
-                SelectTile(tile);
-            }
-            else
-            {
-                if (selectedTiles.Count >= maxSelectableTiles)
-                {
-                    if (OverflowTipSpawner.Instance != null)
-                        OverflowTipSpawner.Instance.SpawnAtCursor("Your team cannot handle this much work at once!");
-                }
-                Debug.Log($"Cannot select tile at {tile.gridPosition}: invalid adjacency or max reached");
-            }
-        }
+        _strokeMode           = eraseGesture ? StrokeMode.Erase : StrokeMode.Add;
+        _strokeLastTile       = tile;
+        _strokeOverflowWarned = false;
+
+        ApplyStroke(tile);
     }
 
     // ─── Adjacent visual update ───────────────────────────────────────────────
@@ -731,7 +938,12 @@ public class TileSelector : MonoBehaviour
         if (Physics.Raycast(ray, out hit, Mathf.Infinity, tileLayer))
         {
             TileVisualizer visualizer = hit.collider.GetComponent<TileVisualizer>();
-            if (visualizer != null) { hoveredTile = visualizer.GetTileData(); return; }
+            if (visualizer != null)
+            {
+                hoveredTile = visualizer.GetTileData();
+                _hoverPoint = hit.point;   // free for the drag-texture layer — no second raycast
+                return;
+            }
         }
         hoveredTile = null;
     }
@@ -752,6 +964,10 @@ public class TileSelector : MonoBehaviour
         Debug.Log($"Setting tile {currentTile.gridPosition} to Selected (cyan)");
         UpdateTileVisual(currentTile, TileVisualState.Selected);
 
+        // The seed click's beat. EnterMultiSelectMode/EnterFloodFillMode adopt this same tile
+        // moments later without re-firing, so the first click poofs exactly once.
+        EmitCommitJuice(tile, selected: true);
+
         OnTileSelected?.Invoke(tile, worldPos);
     }
 
@@ -770,6 +986,7 @@ public class TileSelector : MonoBehaviour
         selectedTiles.Add(tile);
         UpdateTileVisual(tile, TileVisualState.Selected);
         UpdateAdjacentVisuals(); // Recalculate after selection (original behaviour preserved)
+        EmitCommitJuice(tile, selected: true);
         Debug.Log($"Selected tile {tile.gridPosition} | Total: {selectedTiles.Count}/{maxSelectableTiles}");
     }
 
@@ -779,6 +996,7 @@ public class TileSelector : MonoBehaviour
         UpdateTileVisual(tile, TileVisualState.Default);
         ValidateConnectedCluster();
         UpdateAdjacentVisuals();
+        EmitCommitJuice(tile, selected: false);
         Debug.Log($"Deselected tile {tile.gridPosition} | Total: {selectedTiles.Count}/{maxSelectableTiles}");
     }
 
@@ -842,6 +1060,12 @@ public class TileSelector : MonoBehaviour
     bool CanSelectTile(Tile tile)
     {
         if (selectedTiles.Count >= maxSelectableTiles) return false;
+
+        // The action's own target filter — e.g. a removal action only accepts tiles holding one
+        // of the entities it removes. Actions that declare no filter accept every tile, so this
+        // is a no-op for planting/examining (see PlayerAction.CanTargetTile).
+        if (currentAction != null && !currentAction.CanTargetTile(tile)) return false;
+
         if (selectedTiles.Count == 0) return true;
         if (currentAction.selectionMode == SelectionMode.Adjacent)
             return IsAdjacentToAnySelected(tile);

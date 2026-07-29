@@ -2,13 +2,15 @@ using System.Collections.Generic;
 using UnityEngine;
 using Habitales.Core;
 
-// VillageBehaviourHook — bespoke Village behaviour ported from the legacy VillageEntity
-// (arch §5.3 / 4c). SUPPLEMENTS the generic lifecycle (village.asset has no dailyEffects, so the
-// data pipeline is a no-op and this hook runs after it). Each day it rolls a small chance to start
-// a kaingin (slash-and-burn) fire cluster — the "fire just started" interruption the prototype
-// relies on.
+// FactoryBehaviorHook — bespoke Factory behaviour (arch §5.3). SUPPLEMENTS the generic lifecycle
+// (factory.asset has no dailyEffects/promotion, so the data pipeline is a no-op and this hook runs
+// after it). Each day it rolls a small chance to litter a cluster of trash on EMPTY tiles around
+// the factory, and announces the first cluster as an interruption.
 //
-// Author one asset (Habitales/Entities/Behaviours/Village) and assign it to the `village`
+// Trash lifetime is authored on the trash SOs, not here: trash_bio* promote after 7 days with no
+// nextStage (GenericTileEntity step 3 → RemoveEntity, i.e. it decays away), trash_nonbio* after 100.
+//
+// Author one asset (Habitales/Entities/Behaviours/Factory) and assign it to the `factory`
 // TileEntitySO's `behaviour` field.
 namespace Habitales.Entities
 {
@@ -28,15 +30,27 @@ namespace Habitales.Entities
         private const float TRASH_DAILY_CHANCE = 0.215f;
         private const int   TRASH_RADIUS          = 4;
 
+        // hookState key for the once-per-factory "first trash" interruption (per-instance scratch
+        // on the runtime entity — never on this shared SO, arch §5.3/§5.4).
+        private const string ANNOUNCED_KEY = "trash_announced";
+
         public override void OnDailyUpdate(Tile tile, TileEntity entity, in TickContext ctx)
         {
-            Debug.Log($"FactoryBehaviorHook.OnDailyUpdate for {entity?.entityId}");
-            
             if (Random.value >= TRASH_DAILY_CHANCE) return;
-            
-            Debug.Log("Spawning trash!");
 
-            // Fire the "kaingin just started" interruption through the meaning-event sink — no
+            // Spawn FIRST, announce second: a roll that lands on nothing (every tile in radius
+            // already occupied) is not a story beat, and "first_trash" must mean the first trash
+            // this factory actually produced.
+            if (SpawnTrash(tile, in ctx) == 0) return;
+
+            var runtime = entity as GenericTileEntity;
+            if (runtime != null)
+            {
+                if (runtime.hookState.ContainsKey(ANNOUNCED_KEY)) return;   // already told that story
+                runtime.hookState[ANNOUNCED_KEY] = 1f;
+            }
+
+            // Fire the "first trash appeared" interruption through the meaning-event sink — no
             // singleton grab (S1). The real sink (EventManagerEntitySink) routes it to EventManager.
             ctx.Events.Raise(new EntityEvent
             {
@@ -45,30 +59,34 @@ namespace Habitales.Entities
                 gridPosition = tile.gridPosition,
                 cause        = "first_trash",
             });
-
-            SpawnTrash(tile, in ctx);
         }
 
-        private void SpawnTrash(Tile tile, in TickContext ctx)
+        /// <summary>Scatters this roll's trash on EMPTY tiles only; returns how many landed.</summary>
+        private int SpawnTrash(Tile tile, in TickContext ctx)
         {
             int trashCount = Random.Range(4, 8);
             List<Tile> targets = TilesInRadius(tile, in ctx, TRASH_RADIUS);
+            int placed = 0;
 
             for (int i = 0; i < trashCount && targets.Count > 0; i++)
             {
                 int idx = Random.Range(0, targets.Count);
                 Tile target = targets[idx];
-                
-                bool isOccupied = target.entity != null && target.entity.def != null;
-                
-                if (!isOccupied)
+
+                // Never squat a living tile — trees, crops, buildings, fire and older trash all
+                // hold their tile. (SpawnById would otherwise silently REPLACE the occupant:
+                // TileManager.SpawnFromDef pre-clears whatever is there.)
+                if (target.entity == null)
                 {
                     string trashId = TRASH_IDS[Random.Range(0, TRASH_IDS.Length)];
                     ctx.Tiles.SpawnById(target, trashId);
+                    placed++;
                 }
 
                 targets.RemoveAt(idx);
             }
+
+            return placed;
         }
 
         private List<Tile> TilesInRadius(Tile center, in TickContext ctx, int radius)
