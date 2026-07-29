@@ -54,7 +54,7 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
     [SerializeField] private string          gradeStampTemplate = "HQ rates this expedition: {0}";
 
     [Header("Season Sparkline (OPTIONAL — screen still works unwired, see Show())")]
-    [Tooltip("Renders data.healthHistory with a peak-day marker at data.peakAtDay. Reveals right before the grade stamp.")]
+    [Tooltip("Renders data.thrivingHistory (thriving-tile count per day) with a peak-day marker at data.peakAtDay. Reveals right before the grade stamp.")]
     [SerializeField] private HealthSparklineUI seasonSparkline;
 
     [Header("Presentation Variants")]
@@ -304,9 +304,11 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
 
     private void Populate(EndGameData data)
     {
-        // Header
+        // Header — progress toward the run's health TARGET, not raw world health: at a 65%
+        // target a world health of 65 reads as 100%. Anything above the target still caps at
+        // 100 (no 130% readouts).
         // endReasonText.text   = data.endReason;
-        worldHealthText.text = $"{data.worldHealth:F1}% World Health";
+        worldHealthText.text = $"{HeaderHealthPercent(data):F1}% World Health";
         // yearDayText.text     = $"Year {data.currentYear}, Day {data.totalDays}";
 
         // // Zone pills — clear old, spawn new
@@ -342,7 +344,7 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
         // live in-scene, so a missing sparkline ref must degrade gracefully, not brick Show().
         if (seasonSparkline != null)
         {
-            seasonSparkline.SetHistory(data.healthHistory ?? new List<float>(), data.peakAtDay);
+            seasonSparkline.SetHistory(BuildSparklineSeries(data), data.peakAtDay);
         }
         else if (!_sparklineWarned)
         {
@@ -398,6 +400,33 @@ public class EndGameScreenUI : MonoBehaviour, IUISubsystem
 
     private static string Coalesce(string value) =>
         string.IsNullOrEmpty(value) ? "—" : value;
+
+    /// <summary>
+    /// The header number: world health rescaled so <see cref="EndGameData.healthTarget"/> IS
+    /// 100%. A non-positive target (or an unset one on a hand-built EndGameData) falls back to
+    /// raw world health, so callers that don't know about the target still print something sane.
+    /// </summary>
+    private static float HeaderHealthPercent(EndGameData data)
+    {
+        if (data.healthTarget <= 0.01f) return data.worldHealth;
+        return Mathf.Clamp(data.worldHealth / data.healthTarget * 100f, 0f, 100f);
+    }
+
+    /// <summary>
+    /// What the season sparkline plots: the run's thriving-tile count per day — a number that
+    /// climbs as tiles are healed and as new regions unlock, rather than the average-health
+    /// percentage (which plateaus and reads as "nothing happened"). Deliberately the HONEST
+    /// per-day count, not a running max: a bad stretch should visibly dip. Falls back to
+    /// healthHistory only when no thriving series was recorded, so an older/hand-built
+    /// EndGameData still draws something.
+    /// </summary>
+    private static IReadOnlyList<float> BuildSparklineSeries(EndGameData data)
+    {
+        if (data.thrivingHistory != null && data.thrivingHistory.Count > 0)
+            return data.thrivingHistory;
+
+        return data.healthHistory ?? new List<float>();
+    }
 
     // -------------------------------------------------------------------------
     // Presentation variants — Collapse vs Season Complete

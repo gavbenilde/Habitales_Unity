@@ -189,6 +189,16 @@ public class WalkerManager : MonoBehaviour
 
     private void HandleActionDayStarted(IReadOnlyList<Tile> batch)
     {
+        // Safety net for the reveal. Workers spawn hidden (HideForReveal) and stay frozen — the
+        // base roam loop is gated off for the whole reveal override — until something calls
+        // RevealInitialWorkers. Onboarding's Phase_WorkerSurprise is the intended cue, but a
+        // skipped, reordered or disabled tutorial would otherwise leave the crew hidden AND
+        // motionless for the rest of the run: the flight coroutine isn't gated by the override, so
+        // they'd pop into view mid-arc on the first action and then never roam again. Revealing
+        // here makes the first action day the worst case rather than a dead end. Idempotent, so the
+        // onboarding beat still owns the cue whenever it gets there first.
+        RevealInitialWorkers();
+
         for (int i = 0; i < workerWalkers.Count; i++)
             workerWalkers[i]?.NotifyActionDayStarted(batch);
     }

@@ -151,7 +151,12 @@ public class RunManager : MonoBehaviour {
     // record surfaced at run end via EndGameData.healthHistory. The trend arrow only peeks its
     // last TrendWindowDays samples (WorldHealthTrend); it does NOT define or shorten this list.
     private List<float> healthHistory = new List<float>();
-    
+
+    // Full-run thriving-tile time series (one sample per resolved day, appended in the same step
+    // as healthHistory so the two share indices — peakAtDay is valid for both). Surfaced at run
+    // end via EndGameData.thrivingHistory, which is what the end-report sparkline plots.
+    private List<float> thrivingHistory = new List<float>();
+
     public static RunManager Instance { get; private set; }
     
     void Awake() {
@@ -625,6 +630,7 @@ public class RunManager : MonoBehaviour {
             TryFlagRegionUnlock(regionManager.GetTotalAverageHealth());
             EvaluateThrivingPeak();
             healthHistory.Add(regionManager.GetTotalAverageHealth());
+            thrivingHistory.Add(GetThrivingTileCount());
 
             // 5. Visuals refresh after all data has settled.
             tileManager.RefreshAllVisuals();
@@ -701,7 +707,11 @@ public class RunManager : MonoBehaviour {
             currentYear    = resourceManager.CurrentYear,
             totalDays      = resourceManager.TotalDays,
             worldHealth    = regionManager.GetTotalAverageHealth(),
-            healthHistory  = new List<float>(healthHistory),
+            // The end-report header reads as progress toward the unlock threshold, not raw
+            // health — same single source of truth the health-bar marker uses (S2).
+            healthTarget    = regionUnlockThreshold,
+            healthHistory   = new List<float>(healthHistory),
+            thrivingHistory = new List<float>(thrivingHistory),
         };
 
         // Tile counts — reuses existing threshold fields on this class

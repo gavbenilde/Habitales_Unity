@@ -774,8 +774,7 @@ public abstract class Walker : MonoBehaviour
     /// </summary>
     private void ApplyCompositeTint()
     {
-        Color composite = receiveDayNightTint ? artTint : artTint; 
-                                                // * SunSignal.Tint : artTint;
+        Color composite = receiveDayNightTint ? artTint * SunSignal.Tint : artTint;
         if (composite == lastAppliedTint) return; // nothing moved this frame
         lastAppliedTint = composite;
 

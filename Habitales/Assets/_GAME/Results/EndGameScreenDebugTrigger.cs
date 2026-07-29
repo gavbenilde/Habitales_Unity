@@ -32,8 +32,10 @@ public class EndGameScreenDebugTrigger : MonoBehaviour
     [Header("Preview Data")]
     [Tooltip("Collapse → muted variant + 'Ecosystem Collapse'; anything else → celebratory + 'Field Season Complete'.")]
     [SerializeField] private SeasonGrade previewGrade = SeasonGrade.Commendable;
-    [Tooltip("How many synthetic health-history points to generate (drives the sparkline sweep).")]
+    [Tooltip("How many synthetic history points to generate (drives the sparkline sweep).")]
     [SerializeField] private int historyPoints = 120;
+    [Tooltip("Preview of RunManager.ZoneUnlockThreshold — the world health that reads as 100% in the header. Keep in sync with the real value to preview the header honestly.")]
+    [SerializeField] private float healthTarget = 65f;
     [SerializeField] private int thrivingCount = 14;
     [SerializeField] private int degradedCount = 6;
     [SerializeField] private int criticalCount = 2;
@@ -82,7 +84,11 @@ public class EndGameScreenDebugTrigger : MonoBehaviour
             currentYear    = 1,
             totalDays      = history.Count,
             worldHealth    = history[history.Count - 1],
+            healthTarget   = healthTarget,
             healthHistory  = history,
+            // The sparkline plots this one — derived from the health curve so the collapse
+            // preview still dips and the peak marker still lands on the high-water mark.
+            thrivingHistory = BuildSyntheticThriving(history, thrivingCount),
 
             thrivingCount = thrivingCount,
             degradedCount = degradedCount,
@@ -109,6 +115,24 @@ public class EndGameScreenDebugTrigger : MonoBehaviour
             mostAvoidedAction = "Controlled Burn",
             mostChattedWorker = "Bob",
         };
+    }
+
+    /// <summary>
+    /// Reshapes the synthetic health curve into a thriving-tile count series that peaks at
+    /// <paramref name="peakCount"/>, so the debug preview exercises the same series the real
+    /// run feeds the sparkline (whole numbers, peaking at the run's best day).
+    /// </summary>
+    private static List<float> BuildSyntheticThriving(List<float> health, int peakCount)
+    {
+        var list = new List<float>(health.Count);
+        float max = 0.0001f;
+        for (int i = 0; i < health.Count; i++)
+            if (health[i] > max) max = health[i];
+
+        for (int i = 0; i < health.Count; i++)
+            list.Add(Mathf.Round(health[i] / max * Mathf.Max(peakCount, 0)));
+
+        return list;
     }
 
     /// <summary>

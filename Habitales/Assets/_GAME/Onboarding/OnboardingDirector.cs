@@ -563,6 +563,16 @@ namespace Habitales.Onboarding
                     estimatePanel.SetCancelInteractable(false);
                     break;
 
+                case OnboardingBeatId.Phase_WorkerSurprise:
+                    // "Oh — there are your workers!" This is the beat the crew's entrance belongs to.
+                    // WalkerManager spawns them hidden and turned away (Walker.HideForReveal); this is
+                    // the counterpart cue. Idempotent, and WalkerManager also reveals on the first
+                    // action day as a safety net, so a skipped/reordered tutorial can't strand them —
+                    // whichever fires first does the lerp and the other no-ops.
+                    if (WalkerManager.Instance != null) WalkerManager.Instance.RevealInitialWorkers();
+                    PresentPopup(id, advanceOnComplete: true);
+                    break;
+
                 case OnboardingBeatId.Phase_08_TimeStamina:
                     ShowHighlight(dayCounterTarget);   // day counter + stamina cluster
                     PresentPopup(id, advanceOnComplete: true);

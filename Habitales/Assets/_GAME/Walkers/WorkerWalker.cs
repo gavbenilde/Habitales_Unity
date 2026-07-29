@@ -5,18 +5,31 @@ using UnityEngine;
 using UnityEngine.VFX;
 
 // Binds 1:1 to a ResourceManager Worker record. Adds two things on top of the base Walker's
-// roaming: the Working state (a flight animation to a work tile) and a visual tint reflecting
+// roaming: the Working state (a flight animation to a work tile) and a colour adjustment reflecting
 // Worker.isFatigued. This component never writes worker data, only reads it — Walkers
 // represent existing Workers, they don't create new ones.
 [DisallowMultipleComponent]
 public class WorkerWalker : Walker
 {
     [Header("Exhausted Visual (worker-only)")]
-    [Tooltip("Tint multiplied over the whole Spine skeleton while Worker.isFatigued is true, via the " +
-             "skeleton's vertex color (Skeleton.R/G/B/A). Kept as a multiply — grays/dims the worker. " +
-             "This is NOT a material property: the Spine/Skeleton shader has no _BaseColor/_Color, so the " +
-             "old MaterialPropertyBlock tint never took; vertex color is Spine's supported channel.")]
-    [SerializeField] private Color desaturatedTint = new Color(0.55f, 0.55f, 0.55f, 1f);
+    [Tooltip("Hue rotation in degrees applied over the whole Spine skeleton while Worker.isFatigued " +
+             "is true. Same units as an image editor's Hue/Saturation dialog, and the adjustment is " +
+             "done in HSL to match it. A rotation is NOT expressible as a tint, which is why this " +
+             "runs in the shader rather than through Skeleton.R/G/B or a _Color multiply — see the " +
+             "`Spine/Skeleton HSL Adjust` shader the worker materials are on.")]
+    [SerializeField, Range(-180f, 180f)] private float fatigueHue = -150f;
+    [Tooltip("Saturation percentage, −100 (fully grey) to +100. Negative scales the existing " +
+             "saturation: −80 leaves a fifth of it.")]
+    [SerializeField, Range(-100f, 100f)] private float fatigueSaturation = -80f;
+    [Tooltip("Lightness percentage, −100 (black) to +100 (white). 0 leaves lightness alone.")]
+    [SerializeField, Range(-100f, 100f)] private float fatigueLightness = 0f;
+
+    // Shader uniforms on Spine/Skeleton HSL Adjust. Pushed per-walker through a
+    // MaterialPropertyBlock so every worker keeps sharing the same two materials.
+    private static readonly int HueID        = Shader.PropertyToID("_HueShift");
+    private static readonly int SaturationID = Shader.PropertyToID("_Saturation");
+    private static readonly int LightnessID  = Shader.PropertyToID("_Lightness");
+    private static readonly int AmountID     = Shader.PropertyToID("_AdjustAmount");
 
     private enum Mode { Roaming, Working }
     private Mode mode = Mode.Roaming;
@@ -25,9 +38,13 @@ public class WorkerWalker : Walker
     private bool isGameOver;
     private bool isExhaustedVisual;
 
-    // Both facing rigs' skeletons, so the tint tracks whichever one is currently shown. Found in
-    // children (true = include inactive), matching the base Walker's keep-both-rigs-active rule.
-    private SkeletonAnimation[] skeletons;
+    // The renderer of every rig's skeleton, so the adjustment covers whichever facing is currently
+    // shown. Taken from the SkeletonAnimations rather than a blanket GetComponentsInChildren
+    // <MeshRenderer> so it can't pick up unrelated mesh art hung off the prefab later. Searched with
+    // true (include inactive), matching the base Walker's keep-both-rigs-active rule.
+    private MeshRenderer[] rigRenderers;
+    private MaterialPropertyBlock propertyBlock;
+    private bool warnedAboutShader;
 
     private VisualEffect activeWorkingVFX;
     private Coroutine flightRoutine;
@@ -45,7 +62,24 @@ public class WorkerWalker : Walker
     protected override void Awake()
     {
         base.Awake();
-        skeletons = GetComponentsInChildren<SkeletonAnimation>(true);
+
+        SkeletonAnimation[] skeletons = GetComponentsInChildren<SkeletonAnimation>(true);
+        List<MeshRenderer> found = new List<MeshRenderer>(skeletons.Length);
+        foreach (SkeletonAnimation sa in skeletons)
+        {
+            MeshRenderer mr = sa != null ? sa.GetComponent<MeshRenderer>() : null;
+            if (mr != null) found.Add(mr);
+        }
+        rigRenderers = found.ToArray();
+    }
+
+    /// <summary>Bind runs between Instantiate and Initialize, so Awake is too early to read the
+    /// worker — this is the first point where a walker spawned onto an ALREADY fatigued worker can
+    /// be pushed into the exhausted look, instead of waiting for the next action to complete.</summary>
+    public override void Initialize(WalkerProfileSO walkerProfile, Tile startTile)
+    {
+        base.Initialize(walkerProfile, startTile);
+        SyncExhaustedVisual(force: true);
     }
 
     void OnEnable()
@@ -214,27 +248,53 @@ public class WorkerWalker : Walker
 
     // ── Exhausted visual (reads Worker.isFatigued; no new fatigue system) ──────────────────────
 
-    private void SyncExhaustedVisual()
+    private void SyncExhaustedVisual(bool force = false)
     {
         bool fatigued = worker != null && worker.isFatigued;
-        if (fatigued == isExhaustedVisual) return; // avoid redundant skeleton-color writes
+        if (fatigued == isExhaustedVisual && !force) return; // avoid redundant renderer writes
         isExhaustedVisual = fatigued;
-        ApplyTint(fatigued ? desaturatedTint : Color.white);
+        ApplyExhaustedAdjust(fatigued);
     }
 
-    /// <summary>Writes the tint into every rig's Spine skeleton vertex color. SkeletonRenderer bakes
-    /// this into the mesh on its next update, so it survives the front/back renderer toggling and
-    /// doesn't fight SkeletonRenderer's own MaterialPropertyBlock usage.</summary>
-    private void ApplyTint(Color tint)
+    /// <summary>
+    /// Pushes the Hue/Saturation/Lightness adjustment to every rig renderer through a
+    /// MaterialPropertyBlock, with the amount as the on/off switch.
+    ///
+    /// A property block rather than a material instance so all workers keep sharing the two
+    /// authored materials — per-instance materials would break their batching and leak a clone per
+    /// walker. It survives the front/back renderer toggle (which only touches Renderer.enabled) and
+    /// doesn't collide with SkeletonRenderer's own property-block use, which is scoped to
+    /// per-submesh draw-order fixing and reads the per-renderer block back in before writing.
+    ///
+    /// The base Walker's ArtTint/sun-tint channel is untouched by all of this: that one still rides
+    /// the skeleton's vertex colour, so a fatigued worker at night reads as both.
+    /// </summary>
+    private void ApplyExhaustedAdjust(bool fatigued)
     {
-        if (skeletons == null) return;
-        foreach (SkeletonAnimation sa in skeletons)
+        if (rigRenderers == null || rigRenderers.Length == 0) return;
+        if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();
+
+        foreach (MeshRenderer mr in rigRenderers)
         {
-            if (sa == null || sa.Skeleton == null) continue;
-            sa.Skeleton.R = tint.r;
-            sa.Skeleton.G = tint.g;
-            sa.Skeleton.B = tint.b;
-            sa.Skeleton.A = tint.a;
+            if (mr == null) continue;
+
+            // The adjustment lives in the shader, so a material left on plain Spine/Skeleton would
+            // swallow these writes in silence — exactly how the previous attempt at this failed.
+            // Say so once instead.
+            if (fatigued && !warnedAboutShader && mr.sharedMaterial != null && !mr.sharedMaterial.HasProperty(AmountID))
+            {
+                warnedAboutShader = true;
+                Debug.LogWarning($"{name}: material '{mr.sharedMaterial.name}' has no _AdjustAmount — " +
+                                 "put it on the 'Spine/Skeleton HSL Adjust' shader or the fatigued " +
+                                 "look will not appear.", this);
+            }
+
+            mr.GetPropertyBlock(propertyBlock); // keep anything else already in the block
+            propertyBlock.SetFloat(HueID,        fatigueHue);
+            propertyBlock.SetFloat(SaturationID, fatigueSaturation);
+            propertyBlock.SetFloat(LightnessID,  fatigueLightness);
+            propertyBlock.SetFloat(AmountID,     fatigued ? 1f : 0f);
+            mr.SetPropertyBlock(propertyBlock);
         }
     }
 }

@@ -15,8 +15,22 @@ public class EndGameData
     public int       totalDays;
     public float     worldHealth;
 
+    /// <summary>
+    /// World-health % that reads as a full 100% on the header (RunManager.ZoneUnlockThreshold).
+    /// The header shows PROGRESS TOWARD THE TARGET, not raw health — at a 65 target, a world
+    /// health of 65 displays as 100%. 0 or less means "no target", and the header falls back to
+    /// printing <see cref="worldHealth"/> straight.
+    /// </summary>
+    public float healthTarget = 100f;
+
     // Health history — one entry per day elapsed (filled by GameManager per OnTimeAdvanced)
     public List<float> healthHistory = new();
+
+    // Thriving-tile count history — one entry per day elapsed, same indices as healthHistory
+    // (both are appended in the same per-day step), so peakAtDay indexes into either. This is
+    // what the end-report sparkline plots: a count that grows as the world is healed and as new
+    // regions unlock, instead of the average-health percentage that flattens out.
+    public List<float> thrivingHistory = new();
 
     // Tile breakdown
     public int thrivingCount;
