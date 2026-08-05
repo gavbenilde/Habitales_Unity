@@ -27,8 +27,8 @@ namespace Habitales.Entities
             "trash_nonbio_3",
         };
         
-        private const float TRASH_DAILY_CHANCE = 0.215f;
-        private const int   TRASH_RADIUS          = 4;
+        private const float TRASH_DAILY_CHANCE = 0.115f;
+        private const int   TRASH_RADIUS          = 6;
 
         // hookState key for the once-per-factory "first trash" interruption (per-instance scratch
         // on the runtime entity — never on this shared SO, arch §5.3/§5.4).

@@ -49,8 +49,16 @@ namespace Habitales.Entities
                 {
                     foreach (var cond in def.deathConditions)
                     {
+                        float value = GetStat(tile, cond.stat);
+
+                        Debug.Log(
+                            $"{entityId}: {cond.stat} = {value}, " +
+                            $"{cond.comparator} {cond.threshold}");
+                        
                         if (Satisfied(tile, cond))
                         {
+                            Debug.Log($"{entityId}: DEATH CONDITION MET");
+                            
                             ApplyEffects(tile, cond.onSatisfied);   // e.g. Sapling +10 SOM on death
                             ResolveOutcome(tile, ctx, cond);
                             return;                                  // entity transformed/removed — stop

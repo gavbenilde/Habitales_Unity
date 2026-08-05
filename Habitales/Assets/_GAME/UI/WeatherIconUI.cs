@@ -31,6 +31,8 @@ namespace Habitales.UI
         [SerializeField] private Sprite _rainy;
         [SerializeField] private Sprite _stormy;
 
+        private Vector3 originalScale;
+        
         private void Awake()
         {
             if (_icon == null) _icon = GetComponent<Image>();
@@ -39,6 +41,8 @@ namespace Habitales.UI
                 Debug.LogError($"{name}: WeatherIconUI._icon (Image) missing — wire it in the Inspector.", this);
                 enabled = false;
             }
+            
+            originalScale = _icon.rectTransform.localScale;
         }
 
         private void OnEnable()
@@ -73,6 +77,16 @@ namespace Habitales.UI
             }
 
             _icon.sprite = sprite;
+            
+            LeanTween.cancel(_icon.gameObject);
+
+            LeanTween.scale(_icon.rectTransform, originalScale * 0.85f, 0.1f)
+                .setEaseOutQuad()
+                .setOnComplete(() =>
+                {
+                    LeanTween.scale(_icon.rectTransform, originalScale, 0.15f)
+                        .setEaseOutBack();
+                });
         }
 
         private Sprite SpriteFor(WeatherState state) => state switch

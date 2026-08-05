@@ -63,6 +63,7 @@ namespace Habitales.UI
         [SerializeField] private float pulseDuration = 0.8f;
 
         private Vector3 _dayCounterBaseScale = Vector3.one;
+        private Vector3 timeTextOriginalScale;
 
         void Awake()
         {
@@ -72,6 +73,14 @@ namespace Habitales.UI
                 _dayCounterBaseScale = dayCounterText.rectTransform.localScale;
         }
 
+        private void Start()
+        {
+            if (timeText != null)
+            {
+                timeTextOriginalScale = timeText.transform.localScale;
+            }
+        }
+        
         /// <summary>
         /// Called by HudController to push the current run-clock values.
         /// Passive: no game-state reads or writes. Both args come from ResourceManager
@@ -83,6 +92,16 @@ namespace Habitales.UI
                 dayCounterText.text = $"Day {totalDays} of {runLengthDays}";
 
             if (timeText == null) return;
+            
+            LeanTween.cancel(timeText.gameObject);
+
+            LeanTween.scale(timeText.gameObject, timeTextOriginalScale * 0.85f, 0.1f)
+                .setEaseOutQuad()
+                .setOnComplete(() =>
+                {
+                    LeanTween.scale(timeText.gameObject, timeTextOriginalScale, 0.15f)
+                        .setEaseOutBack();
+                });
 
             int daysLeft = Mathf.Max(0, runLengthDays - totalDays);
 

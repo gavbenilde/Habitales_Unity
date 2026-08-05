@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Habitales.UI;
 
 /// <summary>
 /// Drives the region boundary outline. Call ActivateRegion(id) when a tile is

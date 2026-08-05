@@ -254,9 +254,12 @@ namespace Habitales.UI.Actions
         private static void ApplyCardLock(GameObject card, bool locked)
         {
             var cg = card.GetComponent<CanvasGroup>();
-            if (cg == null) cg = card.AddComponent<CanvasGroup>();
-            cg.alpha        = locked ? LockedCardAlpha : 1f;
-            cg.interactable = !locked;   // blocks the Button underneath without touching its colours
+            if (cg == null)
+                cg = card.AddComponent<CanvasGroup>();
+
+            cg.alpha = locked ? LockedCardAlpha : 1f;
+            cg.interactable = !locked;
+            cg.blocksRaycasts = !locked;
         }
 
         // ─── Rect resolution ─────────────────────────────────────────────────

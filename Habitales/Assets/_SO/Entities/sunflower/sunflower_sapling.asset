@@ -41,7 +41,7 @@ MonoBehaviour:
   - stat: 7
     comparator: 2
     threshold: 60
-    outcome: 0
+    outcome: 1
     transformTarget: {fileID: 0}
     onSatisfied: []
   behaviour: {fileID: 0}

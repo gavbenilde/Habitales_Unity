@@ -43,7 +43,7 @@ MonoBehaviour:
   - stat: 2
     comparator: 0
     threshold: 40
-    outcome: 0
+    outcome: 1
     transformTarget: {fileID: 0}
     onSatisfied:
     - stat: 0
@@ -51,7 +51,15 @@ MonoBehaviour:
   - stat: 7
     comparator: 2
     threshold: 30
-    outcome: 0
+    outcome: 1
+    transformTarget: {fileID: 0}
+    onSatisfied:
+    - stat: 0
+      delta: 5
+  - stat: 0
+    comparator: 0
+    threshold: 30
+    outcome: 1
     transformTarget: {fileID: 0}
     onSatisfied:
     - stat: 0

@@ -493,16 +493,16 @@ namespace Habitales.Triggers
         /// </summary>
         private void HandleTileTierChangedForTier(Tile tile, Tier oldTier, Tier newTier)
         {
-            if (newTier != Tier.Critical) return; // only the downward crossing INTO Critical matters
-            TileEntitySO def = tile?.entity?.def;
-            if (def == null || def.category != EntityCategory.Plant) return;
-
-            string key = $"T2:{tile.entity.entityId}";
-            if (_firedIds.Contains(key)) return;
-            _firedIds.Add(key);
-
-            string text = $"This {def.displayName} is dying — it won't survive much longer without help.";
-            EnqueueTierPopup(BuildAziRequest(text, PopupIntrusiveness.NonIntrusive));
+            // if (newTier != Tier.Critical) return; // only the downward crossing INTO Critical matters
+            // TileEntitySO def = tile?.entity?.def;
+            // if (def == null || def.category != EntityCategory.Plant) return;
+            //
+            // string key = $"T2:{tile.entity.entityId}";
+            // if (_firedIds.Contains(key)) return;
+            // _firedIds.Add(key);
+            //
+            // string text = $"This {def.displayName} is dying — it won't survive much longer without help.";
+            // EnqueueTierPopup(BuildAziRequest(text, PopupIntrusiveness.NonIntrusive));
         }
 
         /// <summary>
@@ -520,8 +520,6 @@ namespace Habitales.Triggers
             if (string.IsNullOrEmpty(cause) || !DeathCauses.Contains(cause)) return; // player removal / decomposition — never T3
 
             // string speciesName = ResolveSpeciesNameForTier(tile, entityId);
-
-            Debug.Log("Entity Died");
 
             if (TileManager.Instance != null)
             {

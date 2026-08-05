@@ -15,14 +15,14 @@ MonoBehaviour:
   sizeRange: {x: 150, y: 200}
   flowFalloff: 1.2
   enclosureBonus: 0.3
-  nutrientBalanceRange: {x: 30, y: 50}
-  soilOrganicMatterRange: {x: 15, y: 30}
-  soilStructureRange: {x: 10, y: 20}
-  biologicalActivityRange: {x: 15, y: 30}
-  waterDynamicsRange: {x: 20, y: 30}
-  erosionResistanceRange: {x: 5, y: 15}
-  vegetationCoverRange: {x: 5, y: 15}
-  contaminationRange: {x: 20, y: 30}
+  nutrientBalanceRange: {x: 55, y: 60}
+  soilOrganicMatterRange: {x: 50, y: 60}
+  soilStructureRange: {x: 50, y: 70}
+  biologicalActivityRange: {x: 35, y: 50}
+  waterDynamicsRange: {x: 50, y: 60}
+  erosionResistanceRange: {x: 40, y: 50}
+  vegetationCoverRange: {x: 20, y: 40}
+  contaminationRange: {x: 40, y: 60}
   loggedTreesWeight: 3
   nutrientDepletionWeight: 3
   heavyMetalContaminationWeight: 1
@@ -33,8 +33,16 @@ MonoBehaviour:
   spawnTable:
   - entity: {fileID: 11400000, guid: 7d238b9538689f644a8f82d12ee18174, type: 2}
     frequency: 0.312
-    minCount: 0
+    minCount: 1
     maxCount: 1
+  - entity: {fileID: 11400000, guid: 6142a4b349dc7ef42abb7447b155b714, type: 2}
+    frequency: 0.195
+    minCount: 6
+    maxCount: 12
+  - entity: {fileID: 11400000, guid: aafd120f67b4dba46aa54a96194530a8, type: 2}
+    frequency: 0.266
+    minCount: 3
+    maxCount: 7
   forceTheme: 0
   forcedTheme: 0
   issueDensityRange: {x: 0.3, y: 0.5}

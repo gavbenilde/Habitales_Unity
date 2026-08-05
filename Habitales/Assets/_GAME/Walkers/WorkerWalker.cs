@@ -103,6 +103,9 @@ public class WorkerWalker : Walker
     {
         float speed = profile.moveSpeed;
         if (worker != null && worker.isFatigued) speed *= profile.fatiguedSpeedMultiplier;
+        
+        speed *= TimeFlowSignal.SpeedFactor;
+        
         return speed;
     }
 
@@ -207,7 +210,8 @@ public class WorkerWalker : Walker
     {
         // State is deliberately left alone during the stagger delay — the walker is standing still
         // waiting its turn to launch, so the base derivation reading that as Idle is correct.
-        float delay = Random.Range(0f, profile.flightStaggerMax);
+        float delay = Random.Range(0f, profile.flightStaggerMax)
+                      / Mathf.Max(TimeFlowSignal.SpeedFactor, 0.01f);
         if (delay > 0f) yield return new WaitForSeconds(delay);
 
         SetState(WalkerState.Flying);
@@ -218,7 +222,10 @@ public class WorkerWalker : Walker
         float t = 0f;
         while (t < 1f)
         {
-            t += Time.deltaTime / Mathf.Max(profile.flightDuration, 0.01f);
+            float effectiveFlightDuration =
+                profile.flightDuration / Mathf.Max(TimeFlowSignal.SpeedFactor, 0.01f);
+
+            t += Time.deltaTime / Mathf.Max(effectiveFlightDuration, 0.01f);
             float clamped = Mathf.Clamp01(t);
             Vector3 pos = Vector3.Lerp(start, end, clamped);
             pos.y += profile.arcCurve.Evaluate(clamped) * profile.arcHeight;

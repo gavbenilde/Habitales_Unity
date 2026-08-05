@@ -12,6 +12,14 @@ public class AnimalWalker : Walker
     // for the one list this override needs (the base's WeightedPick still takes a List<Tile>).
     private readonly List<Tile> followCandidates = new List<Tile>();
 
+    protected override float EffectiveMoveSpeed()
+    {
+        float speed = profile.moveSpeed;
+        speed *= TimeFlowSignal.SpeedFactor;
+        
+        return speed;
+    }
+    
     /// <summary>Rolls followChance; on success, targets a tile with exactly one WorkerWalker
     /// claim instead of an empty one, so the animal walks over and stands with the worker.
     /// Falls back to the normal empty-tile pick otherwise.</summary>

@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba6e1b4d668228b4fac2b43e82af637c, type: 3}
+  m_Name: Landfill
+  m_EditorClassIdentifier: 
+  sizeRange: {x: 150, y: 200}
+  flowFalloff: 1.2
+  enclosureBonus: 0.3
+  nutrientBalanceRange: {x: 40, y: 60}
+  soilOrganicMatterRange: {x: 30, y: 40}
+  soilStructureRange: {x: 0, y: 20}
+  biologicalActivityRange: {x: 40, y: 50}
+  waterDynamicsRange: {x: 10, y: 25}
+  erosionResistanceRange: {x: 10, y: 25}
+  vegetationCoverRange: {x: 10, y: 25}
+  contaminationRange: {x: 30, y: 40}
+  loggedTreesWeight: 3
+  nutrientDepletionWeight: 3
+  heavyMetalContaminationWeight: 1
+  activeErosionWeight: 2
+  drainageCollapseWeight: 2
+  soilCompactionWeight: 2
+  chemicalBurnoutWeight: 1
+  spawnTable:
+  - entity: {fileID: 11400000, guid: c890882b837add8498966b1d487f5492, type: 2}
+    frequency: 0.137
+    minCount: 0
+    maxCount: 10
+  - entity: {fileID: 11400000, guid: 68d66e3633bd14c41b1481f382ebb2d6, type: 2}
+    frequency: 0.123
+    minCount: 0
+    maxCount: 10
+  - entity: {fileID: 11400000, guid: 17e6742644d4e094898480d44fd10014, type: 2}
+    frequency: 0.116
+    minCount: 0
+    maxCount: 10
+  - entity: {fileID: 11400000, guid: cb3ecb5d9e7980b46b398ae640887abc, type: 2}
+    frequency: 0.26
+    minCount: 10
+    maxCount: 22
+  - entity: {fileID: 11400000, guid: eaa48e81aee562140a891f72acf786fd, type: 2}
+    frequency: 0.164
+    minCount: 10
+    maxCount: 22
+  - entity: {fileID: 11400000, guid: 5b451616fdb24ef459d5517377f326a1, type: 2}
+    frequency: 0.233
+    minCount: 10
+    maxCount: 22
+  forceTheme: 0
+  forcedTheme: 0
+  issueDensityRange: {x: 0.3, y: 0.5}
+  offThemeIssueProbability: 0.2
+  workerReward: 4
+  forceSpecificEntities: 0
+  forcedEntities: []
+  aziCalloutKey: 

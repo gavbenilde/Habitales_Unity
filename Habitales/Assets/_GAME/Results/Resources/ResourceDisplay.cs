@@ -70,7 +70,21 @@ public class ResourceDisplay : MonoBehaviour
         int recovering = resourceManager.RecoveringPeopleCount;
 
         float fraction = total > 0 ? (float)available / total : 0f;
-        workforceBar.value = fraction;
+        
+        // tween to new value
+        LeanTween.cancel(workforceBar.gameObject);
+
+        LeanTween.value(
+                workforceBar.gameObject,
+                workforceBar.value,
+                fraction,
+                0.3f
+            )
+            .setEaseOutQuad()
+            .setOnUpdate((float value) =>
+            {
+                workforceBar.value = value;
+            });
 
         if (workforceFill != null)
         {

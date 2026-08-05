@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 4044630224935922933}
   - component: {fileID: 4218935483293865289}
   - component: {fileID: 4985024013749654080}
+  - component: {fileID: 1972889591512568745}
   - component: {fileID: 351224219977170590}
   - component: {fileID: 5085041496439296795}
   m_Layer: 5
@@ -81,6 +82,21 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &1972889591512568745
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1560006941438916198}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a12f5390c1e1db49bbc585c40650906, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  liftAmount: 15
+  duration: 0.15
+  buttonObject: {fileID: 351224219977170590}
 --- !u!114 &351224219977170590
 MonoBehaviour:
   m_ObjectHideFlags: 0
