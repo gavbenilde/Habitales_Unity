@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ba6e1b4d668228b4fac2b43e82af637c, type: 3}
+  m_Name: TrailerRegion
+  m_EditorClassIdentifier: 
+  sizeRange: {x: 150, y: 200}
+  flowFalloff: 1.2
+  enclosureBonus: 0.3
+  nutrientBalanceRange: {x: 90, y: 100}
+  soilOrganicMatterRange: {x: 90, y: 100}
+  soilStructureRange: {x: 90, y: 100}
+  biologicalActivityRange: {x: 90, y: 100}
+  waterDynamicsRange: {x: 90, y: 100}
+  erosionResistanceRange: {x: 90, y: 100}
+  vegetationCoverRange: {x: 90, y: 100}
+  contaminationRange: {x: 0, y: 0}
+  loggedTreesWeight: 3
+  nutrientDepletionWeight: 3
+  heavyMetalContaminationWeight: 1
+  activeErosionWeight: 2
+  drainageCollapseWeight: 2
+  soilCompactionWeight: 2
+  chemicalBurnoutWeight: 1
+  spawnTable:
+  - entity: {fileID: 11400000, guid: 3c0d5804efc2a364094f37be451ea959, type: 2}
+    frequency: 0.331
+    minCount: 0
+    maxCount: 30
+  - entity: {fileID: 11400000, guid: 814c4286b96a655438bb29a8ea35d1fc, type: 2}
+    frequency: 0.333
+    minCount: 0
+    maxCount: 30
+  - entity: {fileID: 11400000, guid: 2dbb6079d64e0cd4f88bae884960122f, type: 2}
+    frequency: 0.313
+    minCount: 0
+    maxCount: 30
+  - entity: {fileID: 11400000, guid: e32c25b4af662b241ba30a9df36bdb16, type: 2}
+    frequency: 0.295
+    minCount: 0
+    maxCount: 30
+  - entity: {fileID: 11400000, guid: 0978765d898e75941890423e1009ff56, type: 2}
+    frequency: 0.265
+    minCount: 0
+    maxCount: 30
+  - entity: {fileID: 11400000, guid: ae2f233169b97d043943e2546856ff52, type: 2}
+    frequency: 0.226
+    minCount: 0
+    maxCount: 30
+  forceTheme: 0
+  forcedTheme: 0
+  issueDensityRange: {x: 0.3, y: 0.5}
+  offThemeIssueProbability: 0.2
+  workerReward: 4
+  forceSpecificEntities: 0
+  forcedEntities: []
+  aziCalloutKey: 

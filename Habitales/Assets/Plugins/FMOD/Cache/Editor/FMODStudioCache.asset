@@ -33,7 +33,7 @@ MonoBehaviour:
   Path: Assets/_UTILITIES/FMOD/Desktop/Music.bank
   Name: Music
   StudioPath: bank:/Music
-  lastModified: 639208101790999554
+  lastModified: 639215345110704605
   FileSizes: []
   Exists: 1
 --- !u!114 &-4333664098034853325
@@ -105,10 +105,10 @@ MonoBehaviour:
   Path: Assets/_UTILITIES/FMOD/Desktop/Master.strings.bank
   Name: Master.strings
   StudioPath: bank:/Master.strings
-  lastModified: 639208101790523503
+  lastModified: 639215345030008251
   FileSizes:
   - Name: 
-    Value: 1156
+    Value: 1208
   Exists: 1
 --- !u!114 &11400000
 MonoBehaviour:
@@ -132,13 +132,14 @@ MonoBehaviour:
   - {fileID: -4333664098034853325}
   - {fileID: -3007649733799753220}
   - {fileID: 3277982129201421525}
+  - {fileID: 4403796906436753438}
   EditorParameters: []
   MasterBanks:
   - {fileID: 2715011326057622540}
   StringsBanks:
   - {fileID: -264931591928530861}
   cacheVersion: 131858
-  cacheTime: 639208101791191267
+  cacheTime: 639215345110704605
   SerializableEventsDict:
   - key: event:/BGM/BG_Event
     index: 0
@@ -148,6 +149,8 @@ MonoBehaviour:
     index: 2
   - key: event:/OBJ/TileSelect_Critical
     index: 3
+  - key: event:/BGM/BG_MainMenu
+    index: 4
 --- !u!114 &2036239430379903484
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -174,7 +177,7 @@ MonoBehaviour:
   Parameters: []
   MinDistance: 1
   MaxDistance: 20
-  Length: 386250
+  Length: 607910
 --- !u!114 &2715011326057622540
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -190,7 +193,7 @@ MonoBehaviour:
   Path: Assets/_UTILITIES/FMOD/Desktop/Master.bank
   Name: Master
   StudioPath: bank:/Master
-  lastModified: 639208101790513550
+  lastModified: 639215345029983173
   FileSizes: []
   Exists: 1
 --- !u!114 &3277982129201421525
@@ -220,3 +223,30 @@ MonoBehaviour:
   MinDistance: 1
   MaxDistance: 20
   Length: 300
+--- !u!114 &4403796906436753438
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/BGM/BG_MainMenu
+  m_EditorClassIdentifier: 
+  Path: event:/BGM/BG_MainMenu
+  Guid:
+    Data1: -1671252178
+    Data2: 1246651041
+    Data3: -856677239
+    Data4: 311262599
+  Banks:
+  - {fileID: -5189863605241900639}
+  IsStream: 1
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 233195

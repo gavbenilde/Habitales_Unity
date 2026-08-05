@@ -223,6 +223,9 @@ namespace Habitales.UI
             SetOverlayShown(true);
             HideSubPanels();
 
+            if (_settingsButton.interactable)
+                _settingsButton.interactable = false;
+
             // Tell the hub we are in Paused mode.
             UIManager.Instance.SetMode(UIMode.Paused);
 
