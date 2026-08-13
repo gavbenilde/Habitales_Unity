@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Habitales.Triggers;
+using Random = UnityEngine.Random;
 
 /// <summary>
 /// Handles tile selection in single-select, Adjacent, NonAdjacent, and FloodFill modes.
@@ -698,6 +699,22 @@ public class TileSelector : MonoBehaviour
             ? FMODEvents.instance.tileSelectedHealthy
             : FMODEvents.instance.tileSelectedCritical;
 
+        if (tile.entity != null && (tile.entity.entityId.StartsWith("trash_bio") || tile.entity.entityId.StartsWith("trash_nonbio")))
+        {
+            switch (Random.Range(0, 3))
+            {
+                case 0:
+                    ev = FMODEvents.instance.trash1;
+                    break;
+                case 1:
+                    ev = FMODEvents.instance.trash2;
+                    break;
+                case 2:
+                    ev = FMODEvents.instance.trash3;
+                    break;
+            }
+        }
+        
         float pitch = 1f;
         if (pitchLadderSemitones > 0f)
         {

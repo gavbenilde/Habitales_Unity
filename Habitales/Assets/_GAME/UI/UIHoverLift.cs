@@ -46,6 +46,13 @@ public class UIHoverLift : MonoBehaviour,
             return;
         
         isHovered = true;
+        
+        FMODUnity.EventReference ev = FMODEvents.instance.cardHoverEnter;
+            
+        float randomPitch = Random.Range(0.9f, 1.1f);
+
+        AudioManager.instance.PlayOneShot(ev, Vector3.zero, randomPitch);
+        
 
         if (!initialized)
             return;
@@ -60,6 +67,12 @@ public class UIHoverLift : MonoBehaviour,
         if (!initialized)
             return;
 
+        // FMODUnity.EventReference ev = FMODEvents.instance.cardHoverExit;
+        //     
+        // float randomPitch = Random.Range(0.9f, 1.1f);
+        //
+        // AudioManager.instance.PlayOneShot(ev, Vector3.zero, randomPitch);
+        
         LeanTween.cancel(gameObject);
 
         LeanTween.moveY(

@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using Random = UnityEngine.Random;
 
 namespace Habitales.UI.Actions
 {
@@ -28,10 +29,13 @@ namespace Habitales.UI.Actions
         {
             // Emergency is retired — the tab is gone entirely (no field, no handler).
             if (examineTab   != null) examineTab.onClick.AddListener(  () => OnCategorySelected?.Invoke(ActionCategory.Examine));
+            if (examineTab   != null) examineTab.onClick.AddListener(() => OnAnyButtonClicked(examineTab));
             if (examineTab   != null) examineTab.interactable = false;
             if (interveneTab != null) interveneTab.onClick.AddListener(() => OnCategorySelected?.Invoke(ActionCategory.Intervene));
+            if (interveneTab   != null) interveneTab.onClick.AddListener(() => OnAnyButtonClicked(interveneTab));
             if (interveneTab != null) interveneTab.interactable = true;
             if (cleanupTab   != null) cleanupTab.onClick.AddListener(  () => OnCategorySelected?.Invoke(ActionCategory.Cleanup));
+            if (cleanupTab   != null) cleanupTab.onClick.AddListener(() => OnAnyButtonClicked(cleanupTab));
             if (cleanupTab   != null) cleanupTab.interactable = true;
         }
 
@@ -89,6 +93,15 @@ namespace Habitales.UI.Actions
         public void DisableCleanup()
         {
             cleanupTab.interactable = false;
+        }
+        
+        private void OnAnyButtonClicked(Button button)
+        {
+            FMODUnity.EventReference ev = FMODEvents.instance.uiSelect;
+            
+            float randomPitch = Random.Range(0.9f, 1.1f);
+            
+            AudioManager.instance.PlayOneShot(ev, Vector3.zero, randomPitch);
         }
     }
 }

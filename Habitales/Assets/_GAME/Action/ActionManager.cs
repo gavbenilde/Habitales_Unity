@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Habitales.Actions;
+using Random = UnityEngine.Random;
 
 [DefaultExecutionOrder(-100)] // manager — initializes after core services (arch §4 init order)
 public class ActionManager : MonoBehaviour
@@ -125,7 +126,7 @@ public class ActionManager : MonoBehaviour
             Debug.LogError("Cannot execute action — missing components!");
             return false;
         }
-
+        
         // Pause entry-guard (arch §3.4): do not START a new action while an active event
         // popup has the simulation paused. Previously only HandleActionCompleted was guarded,
         // not action entry — this closes the documented interrupt-before-action gap.
@@ -163,6 +164,16 @@ public class ActionManager : MonoBehaviour
         if (showDebugInfo)
             Debug.Log($"ACTION: {action.ActionName} | Tiles: {targetTiles.Count} | People: {availablePeople} | Days: {baseDays} → {days}");
 
+        // action SFX
+        if (action.ActionId == "remove_trash")
+        {
+            FMODUnity.EventReference ev = FMODEvents.instance.cleanup;
+            
+            float randomPitch = Random.Range(0.9f, 1.1f);
+
+            AudioManager.instance.PlayOneShot(ev, Vector3.zero, randomPitch);
+        }
+        
         IsActionRunning = true;
         DayNightCycleHandler dayNight = DayNightCycleHandler.Instance;
         dayNight?.ResetForNewAction();

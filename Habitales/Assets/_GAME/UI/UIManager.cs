@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Habitales.UI.Actions;   // ActionBarUI
+using UnityEngine.UI;
+using Habitales.UI.Actions;
+using Random = UnityEngine.Random;
 
 // UIManager — the UI-domain owner (UI Architecture §2).
 // One hub for every subsystem; other game systems call in here, never directly
@@ -92,6 +94,14 @@ namespace Habitales.UI
 
             ValidateSubsystems();
             ValidateTypedRefs();
+        }
+        
+        private void Start()
+        {
+            foreach (Button button in FindObjectsByType<Button>(FindObjectsSortMode.None))
+            {
+                button.onClick.AddListener(() => OnAnyButtonClicked(button));
+            }
         }
 
         void OnEnable()
@@ -275,6 +285,15 @@ namespace Habitales.UI
             }
 
             IsUIHidden = false;
+        }
+        
+        private void OnAnyButtonClicked(Button button)
+        {
+            FMODUnity.EventReference ev = FMODEvents.instance.uiSelect;
+            
+            float randomPitch = Random.Range(0.9f, 1.1f);
+            
+            AudioManager.instance.PlayOneShot(ev, Vector3.zero, randomPitch);
         }
     }
 }

@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using FMOD.Studio;
+using FMODUnity;
 
 public class DayNightCycleHandler : MonoBehaviour
 {
@@ -53,6 +55,12 @@ public class DayNightCycleHandler : MonoBehaviour
     private Quaternion _dayStartRotation;
     private bool _subscribed;
     private Light _light;   // the Light on directionalLight, for colour/intensity; may be null
+    
+    [Header("Audio")]
+    [SerializeField] private EventReference timeWoosh;
+    
+    private EventInstance timeWooshInstance;
+    private bool timeWooshPlaying;
 
     // ── Idle gate ────────────────────────────────────────────────────────────
     // ResourceManager.AdvanceTimeStepped yields on this.
@@ -178,6 +186,8 @@ public class DayNightCycleHandler : MonoBehaviour
             return;
         }
 
+        StartTimeWoosh();
+        
         IsIdle = false;   // ← was missing; caused AdvanceTimeStepped to never wait
         currentCycle = StartCoroutine(RunCycles(cycles));
     }
@@ -223,6 +233,30 @@ public class DayNightCycleHandler : MonoBehaviour
             currentCycle = null;
             TimeFlowSignal.SpeedFactor = 1f; // time-lapse over — atmosphere FX ease back to real time
             IsIdle = true;
+            
+            StopTimeWoosh();
         }
+    }
+    
+    private void StartTimeWoosh()
+    {
+        if (timeWooshPlaying)
+            return;
+
+        timeWooshInstance = RuntimeManager.CreateInstance(timeWoosh);
+        timeWooshInstance.start();
+
+        timeWooshPlaying = true;
+    }
+
+    private void StopTimeWoosh()
+    {
+        if (!timeWooshPlaying)
+            return;
+
+        timeWooshInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
+        timeWooshInstance.release();
+
+        timeWooshPlaying = false;
     }
 }
